@@ -1,0 +1,160 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:sacred_app/features/admin/utils/admin_format.dart';
+import 'package:sacred_app/features/admin/utils/finance_excel_export.dart';
+import 'package:sacred_app/features/admin/widgets/finance_row.dart';
+import 'package:sacred_app/features/monk_dash/widgets/month_picker.dart';
+import 'package:sacred_app/shared/widgets/sacred_card.dart';
+
+class AdminFinanceScreen extends ConsumerWidget {
+  const AdminFinanceScreen({super.key});
+
+  Future<void> _exportExcel(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final finance = ref.read(adminFinanceProvider).valueOrNull;
+    if (finance == null) return;
+    final path = await exportFinanceExcel(finance);
+    if (context.mounted && path != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Хадгалагдлаа: $path')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final month = ref.watch(selectedAdminFinanceMonthProvider);
+    final financeAsync = ref.watch(adminFinanceProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Санхүүгийн тайлан'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            onPressed: () => _exportExcel(context, ref),
+          ),
+        ],
+      ),
+      body: financeAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.goldPrime),
+        ),
+        error: (e, _) => Center(child: Text('Алдаа: $e')),
+        data: (finance) => RefreshIndicator(
+          color: AppColors.goldPrime,
+          onRefresh: () => ref.refresh(adminFinanceProvider.future),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                MonthPicker(
+                  selectedMonth: month,
+                  onChanged: (m) => ref
+                      .read(selectedAdminFinanceMonthProvider.notifier)
+                      .state = m,
+                ),
+                const SizedBox(height: 20),
+                SacredCard(
+                  inkDeep: true,
+                  child: Column(
+                    children: [
+                      FinanceRow(
+                        label: 'Нийт захиалгын орлого',
+                        value: finance.totalRevenue,
+                        color: AppColors.goldPrime,
+                      ),
+                      FinanceRow(
+                        label: 'Платформын хураамж (20%)',
+                        value: finance.platformFees,
+                      ),
+                      FinanceRow(
+                        label: 'QPay шимтгэл',
+                        value: -finance.qpayFees,
+                        color: AppColors.danger,
+                      ),
+                      const Divider(color: AppColors.inkLight),
+                      FinanceRow(
+                        label: 'Цэвэр ашиг',
+                        value: finance.netProfit,
+                        color: AppColors.goldPrime,
+                        bold: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text('Ламуудын цалин тооцоо', style: AppText.h3),
+                const SizedBox(height: 12),
+                if (finance.monkSalaries.isEmpty)
+                  const Text('Өгөгдөл байхгүй', style: AppText.bodySmall)
+                else
+                  ...finance.monkSalaries.map(
+                    (s) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SacredCard(
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: AppColors.borderSub,
+                              backgroundImage: s.monkImage != null &&
+                                      s.monkImage!.isNotEmpty
+                                  ? CachedNetworkImageProvider(s.monkImage!)
+                                  : null,
+                              child: s.monkImage == null || s.monkImage!.isEmpty
+                                  ? const Icon(Icons.person, size: 18)
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    s.monkName,
+                                    style: AppText.body.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${s.bookingCount} захиалга',
+                                    style: AppText.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '₮${fmtAdmin(s.netEarnings)}',
+                                  style: AppText.price.copyWith(
+                                    color: AppColors.goldPrime,
+                                  ),
+                                ),
+                                const Text('Цэвэр орлого', style: AppText.caption),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

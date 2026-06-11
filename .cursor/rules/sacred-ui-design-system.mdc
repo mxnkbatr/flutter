@@ -1,0 +1,25 @@
+---
+description: Sacred App iOS UI design system — read before any Flutter UI work
+globs: lib/**/*.dart
+alwaysApply: false
+---
+
+# Sacred App UI
+
+**Before building or editing any screen/widget**, read `docs/SACRED_APP_DESIGN_SYSTEM.md`.
+
+For a specific screen, also read the matching `docs/ui/UI_XX_*.md` spec.
+
+## Non-negotiables
+
+- Colors only from `AppColors` — never hardcode `Color(...)` or `Colors.*`
+- Typography from `AppText` — no custom `fontFamily` (SF Pro via system)
+- Reuse shared widgets in `lib/shared/widgets/` (`SacredCard`, `SacredButton`, …)
+- iOS: `SafeArea`, `BouncingScrollPhysics`, 44px tap targets, `HapticFeedback.lightImpact()` on buttons
+- Dark luxury palette: `inkDeep`/`inkMid` surfaces + `goldPrime` accent + `surface` content areas
+- Spacing: 4px grid (16 card padding, 20 screen horizontal)
+- Card: 14px radius, 0.5px `border`; dark cards use `inkMid` + `inkLight` border
+
+## Screen specs (in order)
+
+`UI_01` splash/login → `UI_02` home → `UI_03` monk/booking → `UI_04` payment → `UI_05` video → `UI_06` monk dash → `UI_07` admin

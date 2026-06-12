@@ -39,10 +39,10 @@ final userBookingCountProvider = FutureProvider<int>((ref) async {
 });
 
 extension TierExtension on String {
-  bool get canVideoCall => this != 'free';
-  bool get canAccessFeaturedMonks => this != 'free';
-  bool get canGroupCall => this == 'vip';
-  bool get canBookUnlimited => this != 'free';
+  bool get canVideoCall => true;
+  bool get canAccessFeaturedMonks => true;
+  bool get canGroupCall => true;
+  bool get canBookUnlimited => true;
 
   int get discountPercent => switch (this) {
         'premium' => 10,

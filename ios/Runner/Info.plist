@@ -45,6 +45,8 @@
 	<string>Видео дуудлагад камер ашиглана</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Видео дуудлагад микрофон ашиглана</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Профайл зураг сонгоход ашиглана</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

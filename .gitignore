@@ -52,3 +52,5 @@ backend/.env
 **/google-services.json
 **/GoogleService-Info.plist
 backend/firebase-service-account.json
+backend/uploads/*
+!backend/uploads/.gitkeep

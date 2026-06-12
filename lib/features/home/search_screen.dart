@@ -152,10 +152,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     Container(
                       width: 44,
                       height: 44,
-                      decoration: AppGradients.pillButton,
+                      decoration: BoxDecoration(
+                        gradient: AppGradients.sun,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: const Icon(
                         Icons.search_rounded,
-                        color: AppColors.surfaceEl,
+                        color: Colors.white,
                         size: 22,
                       ),
                     ),

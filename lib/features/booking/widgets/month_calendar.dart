@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_profile/models/day_availability.dart';
 
@@ -124,23 +125,27 @@ class MonthCalendar extends StatelessWidget {
         height: 40,
         margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
+          gradient: selected ? AppGradients.sun : null,
           color: selected
-              ? AppColors.inkDeep
+              ? null
               : available
-                  ? AppColors.goldLight
+                  ? AppColors.sunLight
                   : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
+          border: available && !selected
+              ? Border.all(color: AppColors.sunGold.withOpacity(0.25))
+              : null,
         ),
         alignment: Alignment.center,
         child: Text(
           '$dayNum',
           style: AppText.bodySmall.copyWith(
             color: selected
-                ? AppColors.goldPrime
+                ? AppColors.surfaceEl
                 : isPast
                     ? AppColors.textHint
                     : available
-                        ? AppColors.inkDeep
+                        ? AppColors.textPri
                         : AppColors.textHint,
             fontWeight: selected || available ? FontWeight.w600 : FontWeight.w400,
             decoration: isPast ? TextDecoration.lineThrough : null,

@@ -72,6 +72,7 @@ List<DayAvailability> _defaultWeek() {
       date: date,
       isAvailable: !isWeekend,
       isBooked: false,
+      slotCount: isWeekend ? 0 : 6,
     );
   });
 }

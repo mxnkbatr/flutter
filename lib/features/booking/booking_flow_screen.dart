@@ -19,11 +19,13 @@ class BookingFlowScreen extends ConsumerStatefulWidget {
     required this.monkId,
     this.initialServiceId,
     this.initialDate,
+    this.initialSlot,
   });
 
   final String monkId;
   final String? initialServiceId;
   final String? initialDate;
+  final String? initialSlot;
 
   @override
   ConsumerState<BookingFlowScreen> createState() => _BookingFlowScreenState();
@@ -71,10 +73,20 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       }
     }
 
+    if (widget.initialSlot != null && widget.initialSlot!.isNotEmpty) {
+      ref
+          .read(bookingDraftProvider.notifier)
+          .setSlot(Uri.decodeComponent(widget.initialSlot!));
+    }
+
     var startStep = 0;
     final draft = ref.read(bookingDraftProvider);
     if (draft.service != null) startStep = 1;
-    if (draft.date != null && draft.service != null) startStep = 1;
+    if (draft.service != null && draft.date != null && draft.slot != null) {
+      startStep = 2;
+    } else if (draft.service != null && draft.date != null) {
+      startStep = 1;
+    }
 
     if (startStep > 0) {
       ref.read(bookingStepProvider.notifier).state = startStep;

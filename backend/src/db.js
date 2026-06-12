@@ -17,10 +17,19 @@ const serviceSchema = new mongoose.Schema({
   category: String,
 });
 
-const scheduleDaySchema = new mongoose.Schema({
-  date: String,
-  slots: [String],
-});
+const scheduleDaySchema = new mongoose.Schema(
+  {
+    date: String,
+    slots: [String],
+    name: String,
+    day: String,
+    active: Boolean,
+    isActive: Boolean,
+    start: String,
+    end: String,
+  },
+  { _id: false },
+);
 
 const monkSchema = new mongoose.Schema(
   {

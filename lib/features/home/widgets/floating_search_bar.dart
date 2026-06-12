@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/providers/monks_provider.dart';
 
@@ -33,14 +34,30 @@ class _FloatingSearchBarState extends ConsumerState<FloatingSearchBar> {
         border: Border.all(color: AppColors.border, width: 0.5),
         boxShadow: [
           BoxShadow(
-            color: AppColors.inkDeep.withOpacity(0.08),
-            blurRadius: 12,
+            color: AppColors.inkDeep.withOpacity(0.06),
+            blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Row(
         children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                gradient: AppGradients.sun,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+          ),
           Expanded(
             child: TextField(
               controller: _controller,
@@ -52,13 +69,8 @@ class _FloatingSearchBarState extends ConsumerState<FloatingSearchBar> {
                 hintStyle: AppText.bodySmall.copyWith(color: AppColors.textHint),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
+                  horizontal: 12,
                   vertical: 12,
-                ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: AppColors.goldMuted,
-                  size: 22,
                 ),
               ),
             ),

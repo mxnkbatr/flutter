@@ -14,15 +14,17 @@ class UpgradePromptSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: AppColors.inkDeep,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        decoration: const BoxDecoration(
+          color: AppColors.inkDeep,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Container(
             width: 64,
             height: 64,
@@ -72,7 +74,8 @@ class UpgradePromptSheet extends StatelessWidget {
               style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
             ),
           ),
-        ],
+          ],
+        ),
       ),
     );
   }

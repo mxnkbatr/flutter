@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/providers/schedule_slots_provider.dart';
 import 'package:sacred_app/features/booking/widgets/time_slot_chip.dart';
+import 'package:sacred_app/features/monk_profile/models/day_availability.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
 
 const _dayLabels = ['Да', 'Мя', 'Лх', 'Пү', 'Ба', 'Бя', 'Ня'];
@@ -23,6 +25,15 @@ class WeeklyAvailability extends ConsumerStatefulWidget {
 
 class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
   DateTime? _selectedDate;
+  String? _selectedSlot;
+  bool _autoSelected = false;
+
+  void _bookSlot(String slot) {
+    if (_selectedDate == null) return;
+    final date = DateFormat('yyyy-MM-dd').format(_selectedDate!);
+    final encodedSlot = Uri.encodeComponent(slot);
+    context.go('/booking/${widget.monkId}?date=$date&slot=$encodedSlot');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,9 +50,9 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
 
     return scheduleAsync.when(
       loading: () => const SizedBox(
-        height: 80,
+        height: 120,
         child: Center(
-          child: CircularProgressIndicator(color: AppColors.goldPrime),
+          child: CircularProgressIndicator(color: AppColors.sunGold),
         ),
       ),
       error: (_, __) => const Padding(
@@ -49,17 +60,40 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
         child: Text('Хуваарь ачаалахад алдаа гарлаа', style: AppText.bodySmall),
       ),
       data: (days) {
-        final week = days.take(7).toList();
+        if (!_autoSelected && _selectedDate == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _autoSelected || _selectedDate != null) return;
+            for (final day in days.take(14)) {
+              if (day.isAvailable && !day.isBooked) {
+                setState(() {
+                  _autoSelected = true;
+                  _selectedDate = day.date;
+                });
+                break;
+              }
+            }
+          });
+        }
+        final week = days.take(14).toList();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Өдөр сонгоод боломжит цагаа захиалаарай',
+                style: AppText.bodySmall.copyWith(color: AppColors.textSec),
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
-              height: 72,
+              height: 84,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: week.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
                 itemBuilder: (_, i) {
                   final day = week[i];
                   final selected = _selectedDate != null &&
@@ -68,13 +102,18 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                   return _DayChip(
                     label: _dayLabels[day.date.weekday % 7],
                     day: day.date.day,
+                    month: day.date.month,
                     selected: selected,
                     enabled: enabled,
                     booked: day.isBooked,
+                    slotCount: day.slotCount,
                     onTap: enabled
                         ? () {
                             HapticFeedback.lightImpact();
-                            setState(() => _selectedDate = day.date);
+                            setState(() {
+                              _selectedDate = day.date;
+                              _selectedSlot = null;
+                            });
                           }
                         : null,
                   );
@@ -82,15 +121,31 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
               ),
             ),
             if (_selectedDate != null && slotsAsync != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  DateFormat('yyyy оны M сарын d').format(_selectedDate!),
-                  style: AppText.bodySmall,
+                child: Row(
+                  children: [
+                    Text(
+                      DateFormat('yyyy оны M сарын d').format(_selectedDate!),
+                      style: AppText.h3.copyWith(fontSize: 16),
+                    ),
+                    const Spacer(),
+                    slotsAsync.when(
+                      data: (s) => Text(
+                        '${s.slots.length - s.bookedSlots.length} цаг боломжтой',
+                        style: AppText.caption.copyWith(
+                          color: AppColors.sunGold,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: slotsAsync.when(
@@ -98,7 +153,7 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                     padding: EdgeInsets.all(12),
                     child: Center(
                       child: CircularProgressIndicator(
-                        color: AppColors.goldPrime,
+                        color: AppColors.sunGold,
                       ),
                     ),
                   ),
@@ -109,27 +164,25 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                   data: (schedule) {
                     if (schedule.slots.isEmpty) {
                       return const Text(
-                        'Боломжит цаг байхгүй',
+                        'Энэ өдөр боломжит цаг байхгүй',
                         style: AppText.bodySmall,
                       );
                     }
                     return Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: schedule.slots.map((slot) {
                         final isBooked = schedule.bookedSlots.contains(slot);
+                        final isSelected = _selectedSlot == slot;
                         return TimeSlotChip(
                           time: slot,
-                          isSelected: false,
+                          isSelected: isSelected,
                           isBooked: isBooked,
                           onTap: isBooked
                               ? null
                               : () {
-                                  final date = DateFormat('yyyy-MM-dd')
-                                      .format(_selectedDate!);
-                                  context.go(
-                                    '/booking/${widget.monkId}?date=$date',
-                                  );
+                                  setState(() => _selectedSlot = slot);
+                                  _bookSlot(slot);
                                 },
                         );
                       }).toList(),
@@ -138,6 +191,7 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                 ),
               ),
             ],
+            const SizedBox(height: 8),
           ],
         );
       },
@@ -152,17 +206,21 @@ class _DayChip extends StatelessWidget {
   const _DayChip({
     required this.label,
     required this.day,
+    required this.month,
     required this.selected,
     required this.enabled,
     required this.booked,
+    this.slotCount = 0,
     this.onTap,
   });
 
   final String label;
   final int day;
+  final int month;
   final bool selected;
   final bool enabled;
   final bool booked;
+  final int slotCount;
   final VoidCallback? onTap;
 
   @override
@@ -174,42 +232,68 @@ class _DayChip extends StatelessWidget {
           Text(
             label,
             style: AppText.caption.copyWith(
-              color: selected ? AppColors.goldPrime : AppColors.textSec,
+              color: selected ? AppColors.sunGold : AppColors.textSec,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
             ),
           ),
           const SizedBox(height: 6),
           AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            width: 44,
-            height: 44,
+            width: 52,
+            height: 58,
             decoration: BoxDecoration(
+              gradient: selected ? AppGradients.sun : null,
               color: selected
-                  ? AppColors.inkDeep
+                  ? null
                   : enabled
-                      ? AppColors.goldLight
+                      ? AppColors.sunLight
                       : AppColors.borderSub,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: selected
-                    ? AppColors.goldPrime
+                    ? Colors.transparent
                     : enabled
-                        ? AppColors.goldPrime
+                        ? AppColors.sunGold.withOpacity(0.4)
                         : AppColors.border,
-                width: selected ? 1.5 : 0.5,
+                width: selected ? 0 : 0.5,
               ),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: AppColors.sunGold.withOpacity(0.25),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
+                  : null,
             ),
-            alignment: Alignment.center,
-            child: Text(
-              '$day',
-              style: AppText.bodySmall.copyWith(
-                color: selected
-                    ? AppColors.goldPrime
-                    : booked
-                        ? AppColors.textHint
-                        : AppColors.textPri,
-                decoration: booked ? TextDecoration.lineThrough : null,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '$day',
+                  style: AppText.body.copyWith(
+                    color: selected
+                        ? AppColors.surfaceEl
+                        : booked
+                            ? AppColors.textHint
+                            : AppColors.textPri,
+                    decoration: booked ? TextDecoration.lineThrough : null,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+                if (enabled && slotCount > 0)
+                  Text(
+                    '$slotCount цаг',
+                    style: AppText.caption.copyWith(
+                      fontSize: 9,
+                      color: selected
+                          ? AppColors.surfaceEl.withOpacity(0.9)
+                          : AppColors.sunMuted,
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

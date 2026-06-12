@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_monk.dart';
@@ -83,6 +84,7 @@ class AdminMonkCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: SacredCard(
+          onTap: () => context.push('/admin/monks/edit/${monk.id}'),
           child: Row(
             children: [
               CircleAvatar(

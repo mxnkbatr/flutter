@@ -5,109 +5,90 @@ import 'app_colors.dart';
 class AppTheme {
   static ThemeData get light => ThemeData(
         useMaterial3: true,
-        brightness: Brightness.light,
         scaffoldBackgroundColor: AppColors.surface,
         colorScheme: const ColorScheme.light(
-          primary: AppColors.goldPrime,
+          primary: AppColors.sunYellow,
           onPrimary: AppColors.inkDeep,
-          secondary: AppColors.goldPrime,
+          secondary: AppColors.saffron,
+          onSecondary: AppColors.inkDeep,
           surface: AppColors.surfaceEl,
-          onSurface: AppColors.textPri,
           error: AppColors.danger,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.surfaceEl,
           foregroundColor: AppColors.textPri,
           elevation: 0,
           scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
           centerTitle: false,
-          systemOverlayStyle: SystemUiOverlayStyle.dark,
           titleTextStyle: TextStyle(
             color: AppColors.textPri,
             fontSize: 17,
             fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+          systemOverlayStyle: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark,
+            statusBarBrightness: Brightness.light,
           ),
         ),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: AppColors.surfaceEl,
-          selectedItemColor: AppColors.sunGold,
-          unselectedItemColor: AppColors.textSec,
+          selectedItemColor: AppColors.sunYellow,
+          unselectedItemColor: AppColors.textHint,
           type: BottomNavigationBarType.fixed,
           elevation: 0,
-          selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+          selectedLabelStyle: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
           unselectedLabelStyle: TextStyle(fontSize: 10),
         ),
         cardTheme: CardTheme(
-          color: AppColors.surfaceEl,
+          color: AppColors.sunLight,
           elevation: 0,
-          margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: AppColors.border, width: 0.5),
           ),
         ),
-        dividerTheme: const DividerThemeData(
-          color: AppColors.borderSub,
-          thickness: 0.5,
-          space: 0,
-        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.sunGold,
-            foregroundColor: AppColors.textPri,
+            backgroundColor: AppColors.sunYellow,
+            foregroundColor: AppColors.inkDeep,
             elevation: 0,
             minimumSize: const Size(double.infinity, 52),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(16),
             ),
             textStyle: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textPri,
-            backgroundColor: AppColors.surfaceEl,
-            side: const BorderSide(color: AppColors.border),
-            minimumSize: const Size(double.infinity, 52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: AppColors.surfaceEl,
+          fillColor: AppColors.sunLight,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: AppColors.border, width: 0.5),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             borderSide: const BorderSide(color: AppColors.border, width: 0.5),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppColors.sunGold, width: 1.5),
+            borderSide: const BorderSide(color: AppColors.saffron, width: 1.5),
           ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.danger, width: 1),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          hintStyle: const TextStyle(color: AppColors.textHint),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
-        chipTheme: ChipThemeData(
-          backgroundColor: AppColors.surface,
-          selectedColor: AppColors.goldLight,
-          labelStyle: const TextStyle(fontSize: 15, color: AppColors.textPri),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          side: const BorderSide(color: AppColors.border, width: 0.5),
-        ),
-        listTileTheme: const ListTileThemeData(
-          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        dividerTheme: const DividerThemeData(
+          color: AppColors.border,
+          thickness: 0.5,
         ),
       );
 }

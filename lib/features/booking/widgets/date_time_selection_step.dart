@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
 import 'package:sacred_app/features/booking/providers/schedule_slots_provider.dart';
@@ -37,36 +39,107 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
         : null;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        scheduleAsync.when(
-          loading: () => const SizedBox(
-            height: 280,
-            child: Center(child: CircularProgressIndicator()),
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceEl,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          error: (_, __) => const SizedBox.shrink(),
-          data: (days) => MonthCalendar(
-            focusedMonth: focusedMonth,
-            availableDays: days,
-            selectedDate: draft.date,
-            onMonthChanged: (m) => setState(() => _focusedMonth = m),
-            onDateSelected: (date) {
-              ref.read(bookingDraftProvider.notifier).setDate(date);
-            },
+          child: scheduleAsync.when(
+            loading: () => const SizedBox(
+              height: 280,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.sunGold),
+              ),
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (days) => MonthCalendar(
+              focusedMonth: focusedMonth,
+              availableDays: days,
+              selectedDate: draft.date,
+              onMonthChanged: (m) => setState(() => _focusedMonth = m),
+              onDateSelected: (date) {
+                ref.read(bookingDraftProvider.notifier).setDate(date);
+              },
+            ),
           ),
         ),
-        const Divider(height: 1),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Боломжит цагууд', style: AppText.h3),
+                if (draft.date != null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: AppGradients.sunSoft,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.sunGold.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      'Сонгосон: ${DateFormat('yyyy оны M сарын d').format(draft.date!)}',
+                      style: AppText.bodySmall.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Text('Боломжит цагууд', style: AppText.h3),
+                    const Spacer(),
+                    if (draft.slot != null)
+                      Text(
+                        draft.slot!,
+                        style: AppText.bodySmall.copyWith(
+                          color: AppColors.sunGold,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 if (draft.date == null)
-                  const Text(
-                    'Эхлээд өдөр сонгоно уу',
-                    style: AppText.bodySmall,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceEl,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          color: AppColors.sunGold.withOpacity(0.7),
+                          size: 32,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Эхлээд дээрх хуанлиас өдөр сонгоно уу',
+                          style: AppText.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
                   )
                 else if (slotsAsync == null)
                   const SizedBox.shrink()
@@ -74,31 +147,44 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                   slotsAsync.when(
                     loading: () => const Center(
                       child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: CircularProgressIndicator(),
+                        padding: EdgeInsets.all(24),
+                        child: CircularProgressIndicator(
+                          color: AppColors.sunGold,
+                        ),
                       ),
                     ),
                     error: (_, __) => const Text(
                       'Цаг ачаалахад алдаа гарлаа',
                       style: AppText.bodySmall,
                     ),
-                    data: (schedule) => Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: schedule.slots.map((slot) {
-                        final isBooked = schedule.bookedSlots.contains(slot);
-                        return TimeSlotChip(
-                          time: slot,
-                          isSelected: draft.slot == slot,
-                          isBooked: isBooked,
-                          onTap: isBooked
-                              ? null
-                              : () => ref
-                                  .read(bookingDraftProvider.notifier)
-                                  .setSlot(slot),
+                    data: (schedule) {
+                      final available = schedule.slots
+                          .where((s) => !schedule.bookedSlots.contains(s))
+                          .toList();
+                      if (available.isEmpty) {
+                        return const Text(
+                          'Энэ өдөр боломжит цаг байхгүй. Өөр өдөр сонгоно уу.',
+                          style: AppText.bodySmall,
                         );
-                      }).toList(),
-                    ),
+                      }
+                      return Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: schedule.slots.map((slot) {
+                          final isBooked = schedule.bookedSlots.contains(slot);
+                          return TimeSlotChip(
+                            time: slot,
+                            isSelected: draft.slot == slot,
+                            isBooked: isBooked,
+                            onTap: isBooked
+                                ? null
+                                : () => ref
+                                    .read(bookingDraftProvider.notifier)
+                                    .setSlot(slot),
+                          );
+                        }).toList(),
+                      );
+                    },
                   ),
               ],
             ),

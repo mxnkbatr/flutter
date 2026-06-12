@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 
 class TimeSlotChip extends StatelessWidget {
@@ -31,20 +32,30 @@ class TimeSlotChip extends StatelessWidget {
         width: 72,
         height: 40,
         decoration: BoxDecoration(
+          gradient: isSelected && !isBooked ? AppGradients.sun : null,
           color: isBooked
               ? AppColors.surface
               : isSelected
-                  ? AppColors.inkDeep
+                  ? null
                   : AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isBooked
                 ? AppColors.border
                 : isSelected
-                    ? AppColors.goldPrime
-                    : AppColors.border,
-            width: isSelected ? 1.5 : 0.5,
+                    ? Colors.transparent
+                    : AppColors.sunGold.withOpacity(0.35),
+            width: isSelected ? 0 : 0.5,
           ),
+          boxShadow: isSelected && !isBooked
+              ? [
+                  BoxShadow(
+                    color: AppColors.sunGold.withOpacity(0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -53,9 +64,9 @@ class TimeSlotChip extends StatelessWidget {
             color: isBooked
                 ? AppColors.textHint
                 : isSelected
-                    ? AppColors.goldPrime
+                    ? AppColors.surfaceEl
                     : AppColors.textPri,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
             decoration: isBooked ? TextDecoration.lineThrough : null,
           ),
         ),

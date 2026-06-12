@@ -45,6 +45,13 @@ class Monk {
   String? get bioText =>
       bioLocalized?['mn'] ?? bioLocalized?['en'] ?? bio;
 
+  /// Зурхайч лам — үнэгүй хэрэглэгчид нээлттэй.
+  bool get isAstrologer {
+    final title = (displayTitle ?? '').toLowerCase();
+    if (title.contains('зурхай')) return true;
+    return categories.any((c) => c.toLowerCase().contains('зурхай'));
+  }
+
   factory Monk.fromJson(Map<String, dynamic> json) {
     return Monk(
       id: json['id'] as String? ?? json['_id'] as String,

@@ -9,12 +9,16 @@ class ExploreSearchBar extends StatelessWidget {
     super.key,
     required this.hint,
     required this.onTap,
+    this.onFilterTap,
     this.value,
+    this.lightOnBlue = false,
   });
 
   final String hint;
   final VoidCallback onTap;
+  final VoidCallback? onFilterTap;
   final String? value;
+  final bool lightOnBlue;
 
   @override
   Widget build(BuildContext context) {
@@ -24,21 +28,34 @@ class ExploreSearchBar extends StatelessWidget {
         onTap();
       },
       child: Container(
-        height: 56,
-        padding: const EdgeInsets.only(left: 20, right: 6),
+        height: 54,
+        padding: const EdgeInsets.only(left: 18, right: 6),
         decoration: BoxDecoration(
-          color: AppColors.surfaceEl,
+          color: lightOnBlue
+              ? Colors.white.withOpacity(0.95)
+              : AppColors.surfaceEl,
           borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: lightOnBlue
+                ? Colors.white.withOpacity(0.5)
+                : AppColors.border.withOpacity(0.6),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withOpacity(lightOnBlue ? 0.12 : 0.04),
               blurRadius: 16,
-              offset: const Offset(0, 4),
+              offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Row(
           children: [
+            Icon(
+              Icons.search_rounded,
+              color: lightOnBlue ? AppColors.saffron : AppColors.textSec,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 value?.isNotEmpty == true ? value! : hint,
@@ -46,22 +63,32 @@ class ExploreSearchBar extends StatelessWidget {
                   color: value?.isNotEmpty == true
                       ? AppColors.textPri
                       : AppColors.textSec,
-                  fontWeight: value?.isNotEmpty == true
-                      ? FontWeight.w600
-                      : FontWeight.w400,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: AppGradients.pillButton,
-              child: const Icon(
-                Icons.search_rounded,
-                color: AppColors.surfaceEl,
-                size: 22,
+            GestureDetector(
+              onTap: onFilterTap == null
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      onFilterTap!();
+                    },
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Icon(
+                  onFilterTap != null
+                      ? Icons.tune_rounded
+                      : Icons.search_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ],

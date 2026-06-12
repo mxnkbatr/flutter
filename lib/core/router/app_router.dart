@@ -6,6 +6,8 @@ import 'package:sacred_app/features/admin/admin_bookings_screen.dart';
 import 'package:sacred_app/features/admin/admin_dashboard_screen.dart';
 import 'package:sacred_app/features/admin/admin_finance_screen.dart';
 import 'package:sacred_app/features/admin/admin_monks_screen.dart';
+import 'package:sacred_app/features/admin/screens/admin_add_monk_screen.dart';
+import 'package:sacred_app/features/admin/screens/admin_edit_monk_screen.dart';
 import 'package:sacred_app/features/admin/admin_shell.dart';
 import 'package:sacred_app/features/admin/admin_users_screen.dart';
 import 'package:sacred_app/features/auth/presentation/login_screen.dart';
@@ -116,6 +118,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               monkId: state.pathParameters['monkId']!,
               initialServiceId: state.uri.queryParameters['serviceId'],
               initialDate: state.uri.queryParameters['date'],
+              initialSlot: state.uri.queryParameters['slot'],
             ),
           ),
           GoRoute(
@@ -203,6 +206,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/monks',
             builder: (context, state) => const AdminMonksScreen(),
+            routes: [
+              GoRoute(
+                path: 'add',
+                builder: (context, state) => const AdminAddMonkScreen(),
+              ),
+              GoRoute(
+                path: 'edit/:monkId',
+                builder: (context, state) => AdminEditMonkScreen(
+                  monkId: state.pathParameters['monkId']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/admin/users',
@@ -240,9 +255,10 @@ String? _guardRole(String location, String? role) {
       (isClientRoute || location.startsWith('/monk'))) {
     return '/admin/dashboard';
   }
+  // `/monk/...` = monk dashboard; `/monks/...` = client monk profile (must not match)
   if (role != 'monk' &&
       role != 'admin' &&
-      (location.startsWith('/monk') || location.startsWith('/admin'))) {
+      (location.startsWith('/monk/') || location.startsWith('/admin'))) {
     return '/home';
   }
   return null;

@@ -7,8 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
-import 'package:sacred_app/core/auth/tier_provider.dart';
-import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
@@ -68,25 +66,6 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         _connecting = false;
       });
       return;
-    }
-
-    if (widget.role == 'client') {
-      final tier = ref.read(userTierProvider);
-      if (!tier.canVideoCall) {
-        setState(() {
-          _error = 'Видео дуудлага Premium эрхтэй';
-          _connecting = false;
-        });
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          TierGating.showUpgrade(
-            context,
-            reason: 'Видео дуудлага Premium эрхтэй',
-          );
-          context.pop();
-        });
-        return;
-      }
     }
 
     try {

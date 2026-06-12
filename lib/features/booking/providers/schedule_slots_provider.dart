@@ -41,14 +41,21 @@ final dayScheduleProvider =
           '/monks/${query.monkId}/schedule',
           queryParameters: {'date': query.date},
         );
-    final data = res.data is Map<String, dynamic>
-        ? res.data as Map<String, dynamic>
-        : {'slots': res.data};
-    return DaySchedule.fromJson(data);
+    final raw = res.data;
+    if (raw is Map<String, dynamic>) {
+      return DaySchedule.fromJson(raw);
+    }
+    if (raw is List) {
+      for (final item in raw) {
+        final map = item as Map<String, dynamic>;
+        final date = map['date']?.toString() ?? '';
+        if (date.startsWith(query.date)) {
+          return DaySchedule.fromJson(map);
+        }
+      }
+    }
+    return const DaySchedule(slots: [], bookedSlots: []);
   } catch (_) {
-    return DaySchedule(
-      slots: DaySchedule._defaultSlots(),
-      bookedSlots: const [],
-    );
+    return const DaySchedule(slots: [], bookedSlots: []);
   }
 });

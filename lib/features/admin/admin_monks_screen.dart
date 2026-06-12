@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sacred_app/features/admin/widgets/admin_monk_card.dart';
 
 class AdminMonksScreen extends ConsumerStatefulWidget {
@@ -35,15 +36,6 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
     super.dispose();
   }
 
-  void _showAddMonkSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (_) => const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('Шинэ лам нэмэх — дараа нэмэгдэнэ', style: AppText.bodySmall),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +48,7 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () => _showAddMonkSheet(context),
+            onPressed: () => context.push('/admin/monks/add'),
           ),
         ],
         bottom: TabBar(

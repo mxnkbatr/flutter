@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
 
@@ -47,18 +48,28 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(messagesProvider(widget.conversationId));
+    final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(title: Text(widget.title)),
+      backgroundColor: AppColors.surfaceEl,
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: AppColors.surfaceEl,
+        foregroundColor: AppColors.textPri,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: AppText.h3,
+      ),
       body: Column(
         children: [
           Expanded(
             child: messagesAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.blue),
+              ),
               error: (e, _) => Center(child: Text('$e')),
               data: (messages) => ListView.builder(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 itemCount: messages.length,
                 itemBuilder: (_, i) {
                   final m = messages[i];
@@ -66,31 +77,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     alignment:
                         m.isMine ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
+                      margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
+                        horizontal: 16,
+                        vertical: 12,
                       ),
                       constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.75,
+                        maxWidth: MediaQuery.of(context).size.width * 0.72,
                       ),
                       decoration: BoxDecoration(
-                        color: m.isMine
-                            ? AppColors.accent
-                            : AppColors.bgGrouped,
-                        borderRadius: BorderRadius.circular(18),
+                        gradient: m.isMine ? AppGradients.primary : null,
+                        color: m.isMine ? null : AppColors.blueSoft,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(20),
+                          topRight: const Radius.circular(20),
+                          bottomLeft: Radius.circular(m.isMine ? 20 : 4),
+                          bottomRight: Radius.circular(m.isMine ? 4 : 20),
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 4,
+                            color: AppColors.blue.withOpacity(0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Text(
                         m.text,
                         style: AppText.body.copyWith(
-                          fontSize: 16,
+                          fontSize: 15,
                           color: m.isMine ? Colors.white : AppColors.textPri,
+                          height: 1.4,
                         ),
                       ),
                     ),
@@ -100,41 +117,50 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           Container(
-            color: AppColors.bgElevated,
-            padding: EdgeInsets.fromLTRB(
-              12,
-              8,
-              12,
-              MediaQuery.of(context).padding.bottom + 8,
-            ),
+            color: AppColors.surfaceEl,
+            padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 10),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add_circle_outline_rounded),
+                  color: AppColors.textSec,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
                     decoration: InputDecoration(
                       hintText: 'Мессеж бичих...',
+                      hintStyle: AppText.bodySmall,
                       filled: true,
-                      fillColor: AppColors.bg,
+                      fillColor: AppColors.blueSoft,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(24),
                         borderSide: BorderSide.none,
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                        horizontal: 18,
+                        vertical: 12,
                       ),
                     ),
                     onSubmitted: (_) => _send(),
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _sending ? null : _send,
-                  icon: const Icon(Icons.arrow_upward_rounded, size: 20),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
+                GestureDetector(
+                  onTap: _sending ? null : _send,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: const BoxDecoration(
+                      gradient: AppGradients.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],

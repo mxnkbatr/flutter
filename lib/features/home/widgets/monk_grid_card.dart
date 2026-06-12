@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:shimmer/shimmer.dart';
@@ -44,27 +45,43 @@ class MonkGridCard extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: monk.image!,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Shimmer.fromColors(
-                          baseColor: AppColors.border,
-                          highlightColor: AppColors.goldLight,
-                          child: const ColoredBox(color: AppColors.borderSub),
+                        placeholder: (_, __) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: AppGradients.monkCardBg,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.self_improvement_rounded,
+                              color: AppColors.sunYellow.withOpacity(0.4),
+                              size: 32,
+                            ),
+                          ),
                         ),
-                        errorWidget: (_, __, ___) => const ColoredBox(
-                          color: AppColors.borderSub,
-                          child: Icon(
-                            Icons.temple_buddhist_outlined,
-                            color: AppColors.goldMuted,
+                        errorWidget: (_, __, ___) => Container(
+                          decoration: const BoxDecoration(
+                            gradient: AppGradients.monkCardBg,
+                          ),
+                          child: Center(
+                            child: Icon(
+                              Icons.self_improvement_rounded,
+                              color: AppColors.sunYellow.withOpacity(0.4),
+                              size: 32,
+                            ),
                           ),
                         ),
                       ),
                     )
                   else
-                    const ColoredBox(
-                      color: AppColors.borderSub,
-                      child: Icon(
-                        Icons.temple_buddhist_outlined,
-                        color: AppColors.goldMuted,
-                        size: 40,
+                    Container(
+                      decoration: const BoxDecoration(
+                        gradient: AppGradients.monkCardBg,
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.self_improvement_rounded,
+                          color: AppColors.sunYellow.withOpacity(0.4),
+                          size: 40,
+                        ),
                       ),
                     ),
                   Positioned(

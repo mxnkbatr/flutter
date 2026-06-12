@@ -3,6 +3,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/subscription/models/subscription_feature.dart';
 import 'package:sacred_app/features/subscription/widgets/subscription_payment_sheet.dart';
+import 'package:sacred_app/shared/widgets/app_modal_sheet.dart';
 
 class TierCard extends StatelessWidget {
   const TierCard({
@@ -30,7 +31,7 @@ class TierCard extends StatelessWidget {
       );
 
   void _subscribe(BuildContext context) {
-    showModalBottomSheet<void>(
+    showAppModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.inkDeep,
       isScrollControlled: true,

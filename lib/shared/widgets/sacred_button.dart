@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/shared/widgets/sacred_outline_btn.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 
 class SacredButton extends StatelessWidget {
   const SacredButton({
@@ -12,7 +11,10 @@ class SacredButton extends StatelessWidget {
     this.isLoading = false,
     this.outline = false,
     this.icon,
+    this.small = false,
     this.compact = false,
+    this.sunShadow = false,
+    this.prominent = false,
   });
 
   final String label;
@@ -20,69 +22,102 @@ class SacredButton extends StatelessWidget {
   final bool isLoading;
   final bool outline;
   final IconData? icon;
+  final bool small;
   final bool compact;
+  /// Soft amber glow — premium native (bookings CTA).
+  final bool sunShadow;
+  /// Taller + bolder label for primary empty-state CTAs.
+  final bool prominent;
+
+  bool get _isSmall => small || compact;
 
   @override
   Widget build(BuildContext context) {
-    final height = compact ? 44.0 : 52.0;
+    final height = _isSmall ? (prominent ? 48.0 : 44.0) : 54.0;
+    final fontSize = _isSmall ? 14.0 : 16.0;
+    final fontWeight = prominent ? FontWeight.w800 : FontWeight.w700;
+    final radius = _isSmall ? 14.0 : 16.0;
 
     if (outline) {
-      return SacredOutlineBtn(
-        label: label,
-        onTap: onTap,
-        isLoading: isLoading,
-        prefixWidget: icon != null ? Icon(icon, size: 18) : null,
+      return SizedBox(
+        width: double.infinity,
+        height: height,
+        child: OutlinedButton(
+          onPressed: isLoading
+              ? null
+              : () {
+                  HapticFeedback.lightImpact();
+                  onTap?.call();
+                },
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.saffron, width: 1.5),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(radius),
+            ),
+          ),
+          child: _child(fontSize, AppColors.inkDeep, fontWeight),
+        ),
       );
     }
 
-    return SizedBox(
-      width: double.infinity,
-      height: height,
-      child: ElevatedButton(
-        onPressed: isLoading
-            ? null
-            : () {
-                HapticFeedback.lightImpact();
-                onTap?.call();
-              },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.goldPrime,
-          foregroundColor: AppColors.inkDeep,
-          disabledBackgroundColor: AppColors.goldPrime.withOpacity(0.5),
-          disabledForegroundColor: AppColors.inkDeep.withOpacity(0.5),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+    return GestureDetector(
+      onTap: isLoading || onTap == null
+          ? null
+          : () {
+              HapticFeedback.lightImpact();
+              onTap!();
+            },
+      child: Container(
+        width: double.infinity,
+        height: height,
+        decoration: BoxDecoration(
+          gradient: onTap != null && !isLoading ? AppGradients.primary : null,
+          color: onTap == null || isLoading ? AppColors.border : null,
+          borderRadius: BorderRadius.circular(radius),
+          boxShadow: onTap != null && !isLoading
+              ? [
+                  BoxShadow(
+                    color: AppColors.sunOrange.withOpacity(
+                      sunShadow ? 0.25 : 0.28,
+                    ),
+                    blurRadius: sunShadow ? 10 : 16,
+                    offset: Offset(0, sunShadow ? 4 : 6),
+                  ),
+                ]
+              : null,
         ),
-        child: _child,
+        child: Center(child: _child(fontSize, AppColors.inkDeep, fontWeight)),
       ),
     );
   }
 
-  Widget get _child => isLoading
-      ? const SizedBox(
-          width: 20,
-          height: 20,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.inkDeep,
+  Widget _child(double fontSize, Color textColor, FontWeight fontWeight) {
+    if (isLoading) {
+      return SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          color: textColor,
+        ),
+      );
+    }
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: textColor),
+          const SizedBox(width: 8),
+        ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: fontSize,
+            fontWeight: fontWeight,
+            color: textColor,
           ),
-        )
-      : Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 18),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              label,
-              style: AppText.body.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.inkDeep,
-              ),
-            ),
-          ],
-        );
+        ),
+      ],
+    );
+  }
 }

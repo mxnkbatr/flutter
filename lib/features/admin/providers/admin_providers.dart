@@ -5,6 +5,7 @@ import 'package:sacred_app/features/admin/models/admin_booking_item.dart';
 import 'package:sacred_app/features/admin/models/admin_dashboard_data.dart';
 import 'package:sacred_app/features/admin/models/admin_finance_data.dart';
 import 'package:sacred_app/features/admin/models/admin_monk.dart';
+import 'package:sacred_app/features/admin/models/admin_monk_detail.dart';
 import 'package:sacred_app/features/admin/models/admin_user.dart';
 
 final adminDashboardProvider = FutureProvider<AdminDashboardData>((ref) async {
@@ -36,6 +37,36 @@ Future<void> rejectMonk(WidgetRef ref, String monkId) async {
   await ref.read(apiClientProvider).post('/admin/monks/$monkId/block');
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(adminMonksProvider);
+}
+
+Future<void> createMonk(WidgetRef ref, Map<String, dynamic> data) async {
+  await ref.read(apiClientProvider).post('/admin/monks', data: data);
+  ref.invalidate(adminDashboardProvider);
+  ref.invalidate(adminMonksProvider);
+}
+
+final adminMonkDetailProvider =
+    FutureProvider.family<AdminMonkDetail, String>((ref, monkId) async {
+  final res = await ref.read(apiClientProvider).get('/admin/monks/$monkId');
+  return AdminMonkDetail.fromJson(res.data as Map<String, dynamic>);
+});
+
+Future<void> updateMonk(
+  WidgetRef ref,
+  String monkId,
+  Map<String, dynamic> data,
+) async {
+  await ref.read(apiClientProvider).put('/admin/monks/$monkId', data: data);
+  ref.invalidate(adminDashboardProvider);
+  ref.invalidate(adminMonksProvider);
+  ref.invalidate(adminMonkDetailProvider(monkId));
+}
+
+Future<void> deleteMonk(WidgetRef ref, String monkId) async {
+  await ref.read(apiClientProvider).delete('/admin/monks/$monkId');
+  ref.invalidate(adminDashboardProvider);
+  ref.invalidate(adminMonksProvider);
+  ref.invalidate(adminMonkDetailProvider(monkId));
 }
 
 final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {

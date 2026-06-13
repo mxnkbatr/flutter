@@ -6,8 +6,9 @@ class AdminBookingItem {
     required this.serviceName,
     required this.amount,
     required this.status,
-    this.date,
-    this.slot,
+    this.date = '',
+    this.slot = '',
+    this.paid = false,
   });
 
   final String id;
@@ -16,8 +17,9 @@ class AdminBookingItem {
   final String serviceName;
   final int amount;
   final String status;
-  final String? date;
-  final String? slot;
+  final String date;
+  final String slot;
+  final bool paid;
 
   factory AdminBookingItem.fromJson(Map<String, dynamic> json) {
     return AdminBookingItem(
@@ -33,8 +35,9 @@ class AdminBookingItem {
           '',
       amount: (json['amount'] as num?)?.toInt() ?? 0,
       status: json['status'] as String? ?? 'pending',
-      date: json['date'] as String?,
-      slot: json['slot'] as String?,
+      date: json['date'] as String? ?? '',
+      slot: json['slot'] as String? ?? '',
+      paid: json['paid'] as bool? ?? false,
     );
   }
 }

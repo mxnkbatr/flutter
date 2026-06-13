@@ -10,7 +10,7 @@ import 'package:sacred_app/features/monk_dash/widgets/availability_toggle.dart';
 import 'package:sacred_app/features/monk_dash/widgets/monk_dash_header.dart';
 
 class MonkDashboardScreen extends StatefulWidget {
-  const MonkDashboardScreen({super.key, this.initialTab = 0});
+  const MonkDashboardScreen({super.key, this.initialTab = 2});
 
   final int initialTab;
 
@@ -21,15 +21,30 @@ class MonkDashboardScreen extends StatefulWidget {
 class _MonkDashboardScreenState extends State<MonkDashboardScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late int _currentTab;
+
+  static const _tabTitles = [
+    'Самбар',
+    'Хуваарь',
+    'Захиалга',
+    'Орлого',
+    'Профайл',
+  ];
 
   @override
   void initState() {
     super.initState();
+    _currentTab = widget.initialTab.clamp(0, 4);
     _tabController = TabController(
       length: 5,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 4),
+      initialIndex: _currentTab,
     );
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() => _currentTab = _tabController.index);
+      }
+    });
   }
 
   @override
@@ -50,7 +65,7 @@ class _MonkDashboardScreenState extends State<MonkDashboardScreen>
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                'Самбар',
+                _tabTitles[_currentTab],
                 style: AppText.h3.copyWith(color: AppColors.goldPrime),
               ),
               background: const MonkDashHeader(),

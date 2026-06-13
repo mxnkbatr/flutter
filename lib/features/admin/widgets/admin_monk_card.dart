@@ -54,75 +54,197 @@ class AdminMonkCard extends ConsumerWidget {
         false;
   }
 
+  void _showActionMenu(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline, color: AppColors.goldPrime),
+                  const SizedBox(width: 10),
+                  Text(monk.displayName, style: AppText.h3),
+                ],
+              ),
+            ),
+            const Divider(height: 24),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Мэдээлэл засах'),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/admin/monks/edit/${monk.id}');
+              },
+            ),
+            if (monk.status == 'pending' || monk.status == 'blocked')
+              ListTile(
+                leading: const Icon(
+                  Icons.check_circle_outline,
+                  color: AppColors.success,
+                ),
+                title: const Text(
+                  'Батлах',
+                  style: TextStyle(color: AppColors.success),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  approveMonk(ref, monk.id);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${monk.displayName} батлагдлаа')),
+                  );
+                },
+              ),
+            if (monk.status == 'active')
+              ListTile(
+                leading: const Icon(Icons.block_rounded, color: AppColors.warning),
+                title: const Text(
+                  'Хаах',
+                  style: TextStyle(color: AppColors.warning),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  rejectMonk(ref, monk.id);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: AppColors.danger),
+              title: const Text(
+                'Бүртгэл устгах',
+                style: TextStyle(color: AppColors.danger),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Лам устгах уу?'),
+                    content: Text(
+                      '${monk.displayName}-н бүх захиалга, чат устана. Буцаах боломжгүй.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Болих'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
+                        child: const Text('Устгах'),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await deleteMonk(ref, monk.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${monk.displayName} устгагдлаа'),
+                        backgroundColor: AppColors.danger,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Dismissible(
-      key: Key(monk.id),
-      background: const _SwipeBackground(
-        color: AppColors.success,
-        icon: Icons.check,
-        align: Alignment.centerLeft,
-      ),
-      secondaryBackground: const _SwipeBackground(
-        color: AppColors.danger,
-        icon: Icons.block,
-        align: Alignment.centerRight,
-      ),
-      confirmDismiss: (dir) async {
-        if (dir == DismissDirection.startToEnd) {
-          return _confirmApprove(context);
-        }
-        return _confirmBlock(context);
-      },
-      onDismissed: (dir) {
-        if (dir == DismissDirection.startToEnd) {
-          approveMonk(ref, monk.id);
-        } else {
-          rejectMonk(ref, monk.id);
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: SacredCard(
-          onTap: () => context.push('/admin/monks/edit/${monk.id}'),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: AppColors.borderSub,
-                backgroundImage: monk.image != null && monk.image!.isNotEmpty
-                    ? CachedNetworkImageProvider(monk.image!)
-                    : null,
-                child: monk.image == null || monk.image!.isEmpty
-                    ? const Icon(Icons.person)
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      monk.displayName,
-                      style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                    if (monk.temple != null)
-                      Text(monk.temple!, style: AppText.bodySmall),
-                    Row(
-                      children: [
-                        StatusBadge(status: monk.status),
-                        const SizedBox(width: 8),
-                        Text(
-                          '★ ${monk.rating.toStringAsFixed(1)}',
-                          style: AppText.caption,
-                        ),
-                      ],
-                    ),
-                  ],
+    return GestureDetector(
+      onLongPress: () => _showActionMenu(context, ref),
+      child: Dismissible(
+        key: Key(monk.id),
+        background: const _SwipeBackground(
+          color: AppColors.success,
+          icon: Icons.check,
+          align: Alignment.centerLeft,
+        ),
+        secondaryBackground: const _SwipeBackground(
+          color: AppColors.danger,
+          icon: Icons.block,
+          align: Alignment.centerRight,
+        ),
+        confirmDismiss: (dir) async {
+          if (dir == DismissDirection.startToEnd) {
+            return _confirmApprove(context);
+          }
+          return _confirmBlock(context);
+        },
+        onDismissed: (dir) {
+          if (dir == DismissDirection.startToEnd) {
+            approveMonk(ref, monk.id);
+          } else {
+            rejectMonk(ref, monk.id);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: SacredCard(
+            onTap: () => context.push('/admin/monks/edit/${monk.id}'),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: AppColors.borderSub,
+                  backgroundImage: monk.image != null && monk.image!.isNotEmpty
+                      ? CachedNetworkImageProvider(monk.image!)
+                      : null,
+                  child: monk.image == null || monk.image!.isEmpty
+                      ? const Icon(Icons.person)
+                      : null,
                 ),
-              ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textSec),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        monk.displayName,
+                        style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      if (monk.temple != null)
+                        Text(monk.temple!, style: AppText.bodySmall),
+                      Row(
+                        children: [
+                          StatusBadge(status: monk.status),
+                          const SizedBox(width: 8),
+                          Text(
+                            '★ ${monk.rating.toStringAsFixed(1)}',
+                            style: AppText.caption,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.textSec),
+              ],
+            ),
           ),
         ),
       ),

@@ -216,7 +216,7 @@ class _BookingCard extends StatelessWidget {
                   ),
                   onPressed: onCall,
                 )
-              else if (booking.status == 'pending' && !booking.paid)
+              else if (booking.status == 'approved' && !booking.paid)
                 TextButton(onPressed: onPay, child: const Text('Төлөх')),
             ],
           ),

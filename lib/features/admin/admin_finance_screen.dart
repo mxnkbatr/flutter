@@ -91,28 +91,30 @@ class AdminFinanceScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                const Text('Ламуудын цалин тооцоо', style: AppText.h3),
-                const SizedBox(height: 12),
-                if (finance.monkSalaries.isEmpty)
-                  const Text('Өгөгдөл байхгүй', style: AppText.bodySmall)
-                else
+                if (finance.monkSalaries.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const Text('Ламуудын цалин тооцоо', style: AppText.h3),
+                  const SizedBox(height: 12),
                   ...finance.monkSalaries.map(
                     (s) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: SacredCard(
-                        padding: const EdgeInsets.all(12),
                         child: Row(
                           children: [
                             CircleAvatar(
-                              radius: 20,
-                              backgroundColor: AppColors.borderSub,
-                              backgroundImage: s.monkImage != null &&
-                                      s.monkImage!.isNotEmpty
-                                  ? CachedNetworkImageProvider(s.monkImage!)
+                              radius: 22,
+                              backgroundColor: AppColors.goldLight,
+                              backgroundImage: s.monkImage.isNotEmpty
+                                  ? CachedNetworkImageProvider(s.monkImage)
                                   : null,
-                              child: s.monkImage == null || s.monkImage!.isEmpty
-                                  ? const Icon(Icons.person, size: 18)
+                              child: s.monkImage.isEmpty
+                                  ? Text(
+                                      s.monkName.isNotEmpty ? s.monkName[0] : '?',
+                                      style: AppText.body.copyWith(
+                                        color: AppColors.saffronDeep,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    )
                                   : null,
                             ),
                             const SizedBox(width: 12),
@@ -139,10 +141,11 @@ class AdminFinanceScreen extends ConsumerWidget {
                                 Text(
                                   '₮${fmtAdmin(s.netEarnings)}',
                                   style: AppText.price.copyWith(
-                                    color: AppColors.goldPrime,
+                                    color: AppColors.saffronDeep,
+                                    fontSize: 15,
                                   ),
                                 ),
-                                const Text('Цэвэр орлого', style: AppText.caption),
+                                const Text('цэвэр орлого', style: AppText.caption),
                               ],
                             ),
                           ],
@@ -150,6 +153,7 @@ class AdminFinanceScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ),

@@ -16,6 +16,7 @@ class _AdminBookingsScreenState extends ConsumerState<AdminBookingsScreen> {
   static const _filters = [
     ('all', 'Бүгд'),
     ('pending', 'Хүлээгдэж буй'),
+    ('approved', 'Төлбөр хүлээж'),
     ('confirmed', 'Батлагдсан'),
     ('completed', 'Дууссан'),
     ('cancelled', 'Цуцлагдсан'),

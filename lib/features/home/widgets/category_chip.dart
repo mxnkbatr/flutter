@@ -29,7 +29,7 @@ class CategoryChip extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: isSelected ? AppGradients.primary : null,
           color: isSelected ? null : AppColors.sunLight,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? Colors.transparent : AppColors.border,
             width: 0.5,

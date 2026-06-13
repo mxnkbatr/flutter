@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_user.dart';
@@ -12,26 +13,30 @@ class AdminUsersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(adminUsersProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Хэрэглэгчид')),
       body: usersAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
-        error: (e, _) => Center(child: Text('Алдаа: $e')),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Алдаа: $e'),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(adminUsersProvider),
+                child: const Text('Дахин оролдох'),
+              ),
+            ],
+          ),
+        ),
         data: (users) => RefreshIndicator(
           color: AppColors.goldPrime,
           onRefresh: () => ref.refresh(adminUsersProvider.future),
           child: users.isEmpty
-              ? ListView(
-                  children: const [
-                    SizedBox(height: 80),
-                    Center(
-                      child: Text('Хэрэглэгч байхгүй', style: AppText.bodySmall),
-                    ),
-                  ],
-                )
+              ? const Center(child: Text('Хэрэглэгч байхгүй'))
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: users.length,
@@ -43,13 +48,61 @@ class AdminUsersScreen extends ConsumerWidget {
   }
 }
 
-class _UserCard extends StatelessWidget {
+class _UserCard extends ConsumerWidget {
   const _UserCard({required this.user});
-
   final AdminUser user;
 
+  Future<void> _toggleBlock(BuildContext context, WidgetRef ref) async {
+    final action = user.isActive ? 'block' : 'unblock';
+    final label = user.isActive ? 'хаах' : 'нээх';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Хэрэглэгч $label уу?'),
+        content: Text(user.name),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Болих'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: user.isActive ? AppColors.danger : AppColors.success,
+            ),
+            child: Text(label[0].toUpperCase() + label.substring(1)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(apiClientProvider).post('/admin/users/${user.id}/$action');
+      ref.invalidate(adminUsersProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${user.name} — ${user.isActive ? "хаагдлаа" : "нээгдлээ"}',
+            ),
+            backgroundColor: user.isActive ? AppColors.warning : AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Алдаа: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: SacredCard(
@@ -57,10 +110,13 @@ class _UserCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: AppColors.borderSub,
+              backgroundColor: AppColors.goldLight,
               child: Text(
                 user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                style: AppText.body,
+                style: AppText.body.copyWith(
+                  color: AppColors.saffronDeep,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -68,24 +124,60 @@ class _UserCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(user.name, style: AppText.body),
+                  Text(
+                    user.name,
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
                   Text(user.email, style: AppText.bodySmall),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _Badge(
+                        label: user.isActive ? 'Идэвхтэй' : 'Хаагдсан',
+                        color: user.isActive ? AppColors.success : AppColors.danger,
+                      ),
+                      const SizedBox(width: 6),
+                      _Badge(label: user.role, color: AppColors.textSec),
+                    ],
+                  ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(user.role, style: AppText.caption),
-                Text(
-                  user.isActive ? 'Идэвхтэй' : 'Идэвхгүй',
-                  style: AppText.caption.copyWith(
-                    color: user.isActive ? AppColors.success : AppColors.danger,
-                  ),
-                ),
-              ],
+            IconButton(
+              tooltip: user.isActive ? 'Хаах' : 'Нээх',
+              icon: Icon(
+                user.isActive
+                    ? Icons.block_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: user.isActive ? AppColors.danger : AppColors.success,
+              ),
+              onPressed: () => _toggleBlock(context, ref),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: AppText.caption.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

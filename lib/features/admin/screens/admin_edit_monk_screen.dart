@@ -197,13 +197,38 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                   onImageChanged: (url) => setState(() => _imageUrl = url),
                 ),
               ),
-              if (_email.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Center(
-                  child: Text(_email, style: AppText.bodySmall),
+              if (detail.email.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceEl,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border, width: 0.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.email_outlined,
+                        size: 18,
+                        color: AppColors.textSec,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('И-мэйл', style: AppText.caption),
+                          Text(
+                            detail.email,
+                            style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
               SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
               const SizedBox(height: 12),
               SacredInput(

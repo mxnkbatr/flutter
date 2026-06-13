@@ -81,6 +81,44 @@ const bookingSchema = new mongoose.Schema(
     discountPercent: { type: Number, default: 0 },
     status: { type: String, default: 'pending' },
     paid: { type: Boolean, default: false },
+    approvedAt: Date,
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    bankTransferPending: { type: Boolean, default: false },
+  },
+  { timestamps: true },
+);
+
+const productSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true },
+    description: { type: String, default: '' },
+    price: { type: Number, required: true },
+    image: { type: String, default: '' },
+    category: { type: String, default: 'Бусад' },
+    stock: { type: Number, default: 0 },
+    isActive: { type: Boolean, default: true },
+  },
+  { timestamps: true },
+);
+
+const orderSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    items: [
+      {
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+        name: String,
+        price: Number,
+        quantity: { type: Number, default: 1 },
+        image: String,
+      },
+    ],
+    totalAmount: { type: Number, required: true },
+    status: { type: String, default: 'pending' },
+    invoiceId: { type: String, default: '' },
+    paid: { type: Boolean, default: false },
+    address: { type: String, default: '' },
+    phone: { type: String, default: '' },
   },
   { timestamps: true },
 );
@@ -90,10 +128,12 @@ const paymentSchema = new mongoose.Schema(
     invoiceId: { type: String, unique: true },
     type: { type: String, default: 'booking' },
     bookingId: { type: mongoose.Schema.Types.ObjectId, ref: 'Booking' },
+    orderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Order' },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     tier: String,
     months: Number,
     amount: Number,
+    method: { type: String, default: 'qpay' },
     paid: { type: Boolean, default: false },
     paidAt: Date,
   },
@@ -134,4 +174,6 @@ export const Booking = mongoose.model('Booking', bookingSchema);
 export const Payment = mongoose.model('Payment', paymentSchema);
 export const Conversation = mongoose.model('Conversation', conversationSchema);
 export const Message = mongoose.model('Message', messageSchema);
+export const Product = mongoose.model('Product', productSchema);
+export const Order = mongoose.model('Order', orderSchema);
 export const Review = mongoose.model('Review', reviewSchema);

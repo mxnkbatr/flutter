@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/onboarding_prefs.dart';
+import 'package:sacred_app/core/constants/app_branding.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -79,14 +80,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               child: AnimatedOpacity(
                 opacity: _logoVisible ? 1.0 : 0.0,
                 duration: const Duration(milliseconds: 400),
-                child: SvgPicture.asset(
-                  'assets/icons/sacred_logo.svg',
-                  width: 80,
-                  colorFilter: const ColorFilter.mode(
-                    AppColors.goldPrime,
-                    BlendMode.srcIn,
-                  ),
-                ),
+                child: const GevabalLogo(size: 96),
               ),
             ),
             const SizedBox(height: 20),
@@ -95,10 +89,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               duration: const Duration(milliseconds: 300),
               child: Column(
                 children: [
-                  const Text('Sacred', style: AppText.brandTitle),
+                  Text(AppBranding.name, style: AppText.brandTitle),
                   const SizedBox(height: 6),
                   Text(
-                    'Оюун санааны холбоо',
+                    AppBranding.tagline,
                     style: AppText.caption.copyWith(color: AppColors.goldMuted),
                   ),
                 ],

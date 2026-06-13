@@ -1,24 +1,31 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
 import 'package:sacred_app/features/booking/widgets/detail_row.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
-import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
-class ConfirmationStep extends ConsumerWidget {
+class ConfirmationStep extends ConsumerStatefulWidget {
   const ConfirmationStep({super.key, required this.monkId});
 
   final String monkId;
+
+  @override
+  ConsumerState<ConfirmationStep> createState() => _ConfirmationStepState();
+}
+
+class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
+  int _payMethod = 0;
 
   String _fmt(int n) => n.toString().replaceAllMapped(
         RegExp(r'\B(?=(\d{3})+(?!\d))'),
@@ -27,7 +34,7 @@ class ConfirmationStep extends ConsumerWidget {
 
   String _fmtDate(DateTime date) => DateFormat('yyyy.MM.dd').format(date);
 
-  Future<void> _createBookingAndPay(BuildContext context, WidgetRef ref) async {
+  Future<void> _pay(BuildContext context) async {
     final draft = ref.read(bookingDraftProvider);
     if (!draft.isComplete) return;
 
@@ -46,30 +53,11 @@ class ConfirmationStep extends ConsumerWidget {
                 discountPercent: discount,
               );
 
-      final payRes = await ref.read(apiClientProvider).post(
-        '/payment/qpay/create',
-        data: {
-          'bookingId': bookingId,
-          'amount': total,
-        },
-      );
-
-      final monk = await ref.read(monkDetailProvider(monkId).future);
-      final dateStr = draft.date != null ? _fmtDate(draft.date!) : '';
-      final qpayData = QPayData.fromJson(
-        payRes.data as Map<String, dynamic>,
-      )
-          .copyWithAmount(total)
-          .copyWithSummary(
-            monkName: monk.displayName,
-            monkImage: monk.image,
-            serviceName: draft.service?.displayName,
-            timeSlot: draft.slot,
-            dateStr: dateStr,
-          );
-
       if (!context.mounted) return;
-      context.go('/payment/$bookingId', extra: qpayData);
+      context.go(
+        '/payment/$bookingId',
+        extra: _payMethod,
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,9 +73,9 @@ class ConfirmationStep extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
-    final monkAsync = ref.watch(monkDetailProvider(monkId));
+    final monkAsync = ref.watch(monkDetailProvider(widget.monkId));
     final isLoading = ref.watch(bookingSubmittingProvider);
     final tier = ref.watch(userTierProvider);
     final discount = tier.discountPercent;
@@ -99,10 +87,23 @@ class ConfirmationStep extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Алдаа: $e')),
       data: (monk) {
+        if (!draft.isComplete || draft.service == null) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'Захиалгын мэдээлэл дутуу байна.\nӨмнөх алхам руу буцаж бөглөнө үү.',
+                style: AppText.bodySmall,
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
         final service = draft.service!;
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               SacredCard(
                 child: Row(
@@ -183,12 +184,68 @@ class ConfirmationStep extends ConsumerWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+              Text('Төлбөрийн арга', style: AppText.h3.copyWith(fontSize: 16)),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceEl,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _PayMethodChip(
+                        label: 'Банкаар',
+                        icon: Icons.account_balance_outlined,
+                        selected: _payMethod == 0,
+                        onTap: () => setState(() => _payMethod = 0),
+                      ),
+                    ),
+                    Expanded(
+                      child: _PayMethodChip(
+                        label: 'QPay',
+                        icon: Icons.qr_code_2_rounded,
+                        selected: _payMethod == 1,
+                        onTap: () => setState(() => _payMethod = 1),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SacredCard(
+                child: Row(
+                  children: [
+                    Icon(
+                      _payMethod == 0
+                          ? Icons.account_balance_outlined
+                          : Icons.qr_code_scanner_rounded,
+                      color: AppColors.saffronDeep,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _payMethod == 0
+                            ? 'Банкны данс руу шилжүүлэг хийнэ'
+                            : 'QPay QR код эсвэл банкны апп-аар төлнө',
+                        style: AppText.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
               SacredButton(
                 label: 'Төлбөр төлөх',
                 icon: Icons.lock_outline_rounded,
-                onTap: draft.isComplete
-                    ? () => _createBookingAndPay(context, ref)
+                onTap: draft.isComplete && !isLoading
+                    ? () {
+                        HapticFeedback.lightImpact();
+                        _pay(context);
+                      }
                     : null,
                 isLoading: isLoading,
               ),
@@ -196,6 +253,53 @@ class ConfirmationStep extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _PayMethodChip extends StatelessWidget {
+  const _PayMethodChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          gradient: selected ? AppGradients.primary : null,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: selected ? AppColors.inkDeep : AppColors.textSec,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: AppText.bodySmall.copyWith(
+                fontWeight: FontWeight.w700,
+                color: selected ? AppColors.inkDeep : AppColors.textSec,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

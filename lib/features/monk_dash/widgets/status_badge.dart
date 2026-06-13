@@ -15,6 +15,8 @@ class StatusBadge extends StatelessWidget {
         return AppColors.info;
       case 'cancelled':
         return AppColors.danger;
+      case 'approved':
+        return AppColors.saffronDeep;
       default:
         return AppColors.warning;
     }
@@ -30,6 +32,8 @@ class StatusBadge extends StatelessWidget {
         return 'Цуцлагдсан';
       case 'pending':
         return 'Хүлээгдэж буй';
+      case 'approved':
+        return 'Төлбөр хүлээж буй';
       default:
         return status;
     }

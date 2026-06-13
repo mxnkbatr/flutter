@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -61,13 +62,23 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                 child: CircularProgressIndicator(color: AppColors.sunGold),
               ),
             ),
-            error: (_, __) => const SizedBox.shrink(),
+            error: (_, __) => MonthCalendar(
+              focusedMonth: focusedMonth,
+              availableDays: const [],
+              selectedDate: draft.date,
+              onMonthChanged: (m) => setState(() => _focusedMonth = m),
+              onDateSelected: (date) {
+                HapticFeedback.lightImpact();
+                ref.read(bookingDraftProvider.notifier).setDate(date);
+              },
+            ),
             data: (days) => MonthCalendar(
               focusedMonth: focusedMonth,
               availableDays: days,
               selectedDate: draft.date,
               onMonthChanged: (m) => setState(() => _focusedMonth = m),
               onDateSelected: (date) {
+                HapticFeedback.lightImpact();
                 ref.read(bookingDraftProvider.notifier).setDate(date);
               },
             ),
@@ -178,9 +189,12 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                             isBooked: isBooked,
                             onTap: isBooked
                                 ? null
-                                : () => ref
-                                    .read(bookingDraftProvider.notifier)
-                                    .setSlot(slot),
+                                : () {
+                                    HapticFeedback.lightImpact();
+                                    ref
+                                        .read(bookingDraftProvider.notifier)
+                                        .setSlot(slot);
+                                  },
                           );
                         }).toList(),
                       );

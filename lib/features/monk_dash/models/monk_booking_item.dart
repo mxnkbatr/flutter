@@ -7,6 +7,7 @@ class MonkBookingItem {
     required this.status,
     this.date,
     this.amount,
+    this.paid = false,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class MonkBookingItem {
   final String status;
   final String? date;
   final int? amount;
+  final bool paid;
 
   factory MonkBookingItem.fromJson(Map<String, dynamic> json) {
     return MonkBookingItem(
@@ -30,6 +32,7 @@ class MonkBookingItem {
       status: json['status'] as String? ?? 'pending',
       date: json['date'] as String?,
       amount: (json['amount'] as num?)?.toInt(),
+      paid: json['paid'] as bool? ?? false,
     );
   }
 }

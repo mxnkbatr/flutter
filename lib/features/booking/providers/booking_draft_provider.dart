@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
 
 class BookingDraft {
@@ -101,6 +102,7 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
       },
     );
     final data = res.data as Map<String, dynamic>;
+    ref.invalidate(myBookingsProvider);
     return data['bookingId'] as String? ??
         data['id'] as String? ??
         data['_id'] as String;

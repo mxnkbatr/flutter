@@ -11,15 +11,17 @@ class ClientShell extends StatelessWidget {
   static const _tabs = [
     _Tab('/home', Icons.explore_outlined, Icons.explore_rounded, 'Нүүр'),
     _Tab('/bookings', Icons.calendar_today_outlined, Icons.calendar_today_rounded, 'Захиалга'),
+    _Tab('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Дэлгүүр'),
     _Tab('/messenger', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Чат'),
     _Tab('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Профайл'),
   ];
 
   int _indexFromLocation(String location) {
     if (location.startsWith('/bookings')) return 1;
-    if (location.startsWith('/messenger')) return 2;
+    if (location.startsWith('/shop')) return 2;
+    if (location.startsWith('/messenger')) return 3;
     if (location.startsWith('/profile') || location.startsWith('/subscription')) {
-      return 3;
+      return 4;
     }
     return 0;
   }
@@ -95,7 +97,7 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
-        width: 64,
+        width: 58,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

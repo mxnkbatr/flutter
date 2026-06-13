@@ -2,25 +2,34 @@ class MonkSalarySummary {
   const MonkSalarySummary({
     required this.monkId,
     required this.monkName,
-    this.monkImage,
+    this.monkImage = '',
     required this.bookingCount,
+    this.grossAmount = 0,
+    this.platformFee = 0,
+    this.qpayFee = 0,
     required this.netEarnings,
   });
 
   final String monkId;
   final String monkName;
-  final String? monkImage;
+  final String monkImage;
   final int bookingCount;
+  final int grossAmount;
+  final int platformFee;
+  final int qpayFee;
   final int netEarnings;
 
   factory MonkSalarySummary.fromJson(Map<String, dynamic> json) {
     return MonkSalarySummary(
       monkId: json['monkId'] as String? ?? json['monk_id'] as String? ?? '',
       monkName: json['monkName'] as String? ?? json['monk_name'] as String? ?? '',
-      monkImage: json['monkImage'] as String? ?? json['monk_image'] as String?,
-      bookingCount: json['bookingCount'] as int? ??
-          json['booking_count'] as int? ??
+      monkImage: json['monkImage'] as String? ?? json['monk_image'] as String? ?? '',
+      bookingCount: (json['bookingCount'] as num?)?.toInt() ??
+          (json['booking_count'] as num?)?.toInt() ??
           0,
+      grossAmount: (json['grossAmount'] as num?)?.toInt() ?? 0,
+      platformFee: (json['platformFee'] as num?)?.toInt() ?? 0,
+      qpayFee: (json['qpayFee'] as num?)?.toInt() ?? 0,
       netEarnings: (json['netEarnings'] as num?)?.toInt() ??
           (json['net_earnings'] as num?)?.toInt() ??
           0,

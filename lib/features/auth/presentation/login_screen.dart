@@ -2,14 +2,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/api/api_config.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/constants/app_branding.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
@@ -230,22 +232,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SvgPicture.asset(
-                      'assets/icons/sacred_logo.svg',
-                      width: 48,
-                      colorFilter: const ColorFilter.mode(
-                        AppColors.goldPrime,
-                        BlendMode.srcIn,
-                      ),
-                    ),
+                    const GevabalLogo(size: 72),
                     const SizedBox(height: 12),
                     Text(
-                      'Тавтай морил',
-                      style: AppText.h1.copyWith(color: AppColors.onDark),
+                      AppBranding.name,
+                      style: AppText.brandTitle.copyWith(
+                        color: AppColors.goldPrime,
+                        fontSize: 28,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Оюун санааны замдаа эргэж ир',
+                      AppBranding.tagline,
                       style: AppText.bodySmall.copyWith(
                         color: AppColors.goldMuted,
                       ),

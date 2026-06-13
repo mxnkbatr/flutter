@@ -98,18 +98,6 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     }
   }
 
-  bool _canGoNext(int step) {
-    final draft = ref.read(bookingDraftProvider);
-    switch (step) {
-      case 0:
-        return draft.canProceedStep1;
-      case 1:
-        return draft.canProceedStep2;
-      default:
-        return false;
-    }
-  }
-
   void _goToStep(int step) {
     ref.read(bookingStepProvider.notifier).state = step;
     _pageController.animateToPage(
@@ -122,7 +110,13 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   @override
   Widget build(BuildContext context) {
     final step = ref.watch(bookingStepProvider);
+    final draft = ref.watch(bookingDraftProvider);
     final isLastStep = step == 2;
+    final canGoNext = switch (step) {
+      0 => draft.canProceedStep1,
+      1 => draft.canProceedStep2,
+      _ => false,
+    };
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -170,7 +164,12 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: SacredButton(
                   label: step == 1 ? 'Үргэлжлүүлэх' : 'Дараах',
-                  onTap: _canGoNext(step) ? () => _goToStep(step + 1) : null,
+                  onTap: canGoNext
+                      ? () {
+                          HapticFeedback.lightImpact();
+                          _goToStep(step + 1);
+                        }
+                      : null,
                 ),
               ),
             ),

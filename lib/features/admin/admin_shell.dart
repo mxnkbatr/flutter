@@ -14,6 +14,7 @@ class AdminShell extends StatelessWidget {
     if (loc.startsWith('/admin/users')) return 2;
     if (loc.startsWith('/admin/bookings')) return 3;
     if (loc.startsWith('/admin/finance')) return 4;
+    if (loc.startsWith('/admin/products')) return 5;
     return 0;
   }
 
@@ -24,6 +25,7 @@ class AdminShell extends StatelessWidget {
       '/admin/users',
       '/admin/bookings',
       '/admin/finance',
+      '/admin/products',
     ];
     context.go(routes[i]);
   }
@@ -69,6 +71,11 @@ class AdminShell extends StatelessWidget {
             BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet_outlined),
               label: 'Санхүү',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.storefront_outlined),
+              activeIcon: Icon(Icons.storefront_rounded),
+              label: 'Бараа',
             ),
           ],
         ),

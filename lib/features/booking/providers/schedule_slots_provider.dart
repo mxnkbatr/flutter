@@ -17,7 +17,7 @@ class DaySchedule {
         (json['availableSlots'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
-        _defaultSlots();
+        DaySchedule.defaultSlots();
     final booked = (json['bookedSlots'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
@@ -28,8 +28,13 @@ class DaySchedule {
     return DaySchedule(slots: slots, bookedSlots: booked);
   }
 
-  static List<String> _defaultSlots() =>
+  static List<String> defaultSlots() =>
       ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00'];
+}
+
+DaySchedule _withFallbackSlots(DaySchedule schedule) {
+  if (schedule.slots.isNotEmpty) return schedule;
+  return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: schedule.bookedSlots);
 }
 
 typedef ScheduleQuery = ({String monkId, String date});
@@ -43,19 +48,19 @@ final dayScheduleProvider =
         );
     final raw = res.data;
     if (raw is Map<String, dynamic>) {
-      return DaySchedule.fromJson(raw);
+      return _withFallbackSlots(DaySchedule.fromJson(raw));
     }
     if (raw is List) {
       for (final item in raw) {
         final map = item as Map<String, dynamic>;
         final date = map['date']?.toString() ?? '';
         if (date.startsWith(query.date)) {
-          return DaySchedule.fromJson(map);
+          return _withFallbackSlots(DaySchedule.fromJson(map));
         }
       }
     }
-    return const DaySchedule(slots: [], bookedSlots: []);
+    return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: const []);
   } catch (_) {
-    return const DaySchedule(slots: [], bookedSlots: []);
+    return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: const []);
   }
 });

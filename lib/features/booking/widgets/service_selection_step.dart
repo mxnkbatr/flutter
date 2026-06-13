@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
@@ -38,8 +39,10 @@ class ServiceSelectionStep extends ConsumerWidget {
             return ServiceSelectCard(
               service: service,
               isSelected: selectedId == service.id,
-              onTap: () =>
-                  ref.read(bookingDraftProvider.notifier).setService(service),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                ref.read(bookingDraftProvider.notifier).setService(service);
+              },
             );
           },
         );

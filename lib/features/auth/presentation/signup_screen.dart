@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/constants/app_branding.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
@@ -69,10 +71,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Center(child: GevabalLogo(size: 64)),
+                const SizedBox(height: 20),
                 const Text('Шинэ бүртгэл', style: AppText.h2),
                 const SizedBox(height: 8),
-                const Text(
-                  'Sacred платформд нэгдэх',
+                Text(
+                  '${AppBranding.name} платформд нэгдэх',
                   style: AppText.bodySmall,
                 ),
                 const SizedBox(height: 32),

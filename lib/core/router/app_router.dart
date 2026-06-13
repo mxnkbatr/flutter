@@ -25,7 +25,12 @@ import 'package:sacred_app/features/monk_profile/monk_profile_screen.dart';
 import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/features/payment/payment_screen.dart';
 import 'package:sacred_app/features/payment/payment_success_screen.dart';
+import 'package:sacred_app/features/admin/screens/admin_products_screen.dart';
 import 'package:sacred_app/features/profile/presentation/profile_screen.dart';
+import 'package:sacred_app/features/shop/cart_screen.dart';
+import 'package:sacred_app/features/shop/shop_orders_screen.dart';
+import 'package:sacred_app/features/shop/shop_product_detail_screen.dart';
+import 'package:sacred_app/features/shop/shop_screen.dart';
 import 'package:sacred_app/features/splash/presentation/splash_screen.dart';
 import 'package:sacred_app/features/subscription/subscription_screen.dart';
 import 'package:sacred_app/features/video_call/video_call_screen.dart';
@@ -100,6 +105,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
+      GoRoute(
+        path: '/payment/:bookingId',
+        builder: (context, state) {
+          final extra = state.extra;
+          return PaymentScreen(
+            bookingId: state.pathParameters['bookingId']!,
+            qpayData: extra is QPayData ? extra : null,
+            initialMethodTab: extra is int ? extra : 0,
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'success',
+            builder: (context, state) => PaymentSuccessScreen(
+              args: state.extra as PaymentSuccessArgs,
+            ),
+          ),
+        ],
+      ),
       ShellRoute(
         builder: (context, state, child) => ClientShell(child: child),
         routes: [
@@ -122,21 +146,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/payment/:bookingId',
-            builder: (context, state) => PaymentScreen(
-              bookingId: state.pathParameters['bookingId']!,
-              qpayData: state.extra as QPayData?,
-            ),
-            routes: [
-              GoRoute(
-                path: 'success',
-                builder: (context, state) => PaymentSuccessScreen(
-                  args: state.extra as PaymentSuccessArgs,
-                ),
-              ),
-            ],
-          ),
-          GoRoute(
             path: '/call/:bookingId',
             builder: (context, state) {
               final auth = ref.read(authStateProvider).valueOrNull;
@@ -152,6 +161,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/bookings',
             builder: (context, state) => const MyBookingsScreen(),
+          ),
+          GoRoute(
+            path: '/shop',
+            builder: (context, state) => const ShopScreen(),
+            routes: [
+              GoRoute(
+                path: 'cart',
+                builder: (context, state) => const CartScreen(),
+              ),
+              GoRoute(
+                path: 'orders',
+                builder: (context, state) => const ShopOrdersScreen(),
+              ),
+              GoRoute(
+                path: 'product/:id',
+                builder: (context, state) => ShopProductDetailScreen(
+                  productId: state.pathParameters['id']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: '/messenger',
@@ -174,7 +203,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/monk/dashboard',
             builder: (context, state) {
               final tab =
-                  int.tryParse(state.uri.queryParameters['tab'] ?? '0') ?? 0;
+                  int.tryParse(state.uri.queryParameters['tab'] ?? '2') ?? 2;
               return MonkDashboardScreen(initialTab: tab);
             },
           ),
@@ -231,6 +260,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: '/admin/finance',
             builder: (context, state) => const AdminFinanceScreen(),
           ),
+          GoRoute(
+            path: '/admin/products',
+            builder: (context, state) => const AdminProductsScreen(),
+          ),
         ],
       ),
     ],
@@ -244,11 +277,15 @@ String? _guardRole(String location, String? role) {
       location.startsWith('/payment') ||
       location.startsWith('/call') ||
       location.startsWith('/bookings') ||
+      location.startsWith('/shop') ||
       location.startsWith('/messenger') ||
       location.startsWith('/profile') ||
       location.startsWith('/subscription');
 
-  if (role == 'monk' && (isClientRoute || location.startsWith('/admin'))) {
+  if (role == 'monk' &&
+      (isClientRoute || location.startsWith('/admin')) &&
+      !location.startsWith('/payment') &&
+      !location.startsWith('/call')) {
     return '/monk/dashboard';
   }
   if (role == 'admin' &&

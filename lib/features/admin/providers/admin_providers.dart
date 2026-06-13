@@ -98,6 +98,21 @@ final selectedAdminFinanceMonthProvider = StateProvider<String>((ref) {
   return DateFormat('yyyy-MM').format(DateTime.now());
 });
 
+Future<void> approveBooking(WidgetRef ref, String bookingId) async {
+  await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/approve');
+  ref.invalidate(adminBookingsProvider);
+}
+
+Future<void> rejectBooking(WidgetRef ref, String bookingId) async {
+  await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/reject');
+  ref.invalidate(adminBookingsProvider);
+}
+
+Future<void> confirmBookingPayment(WidgetRef ref, String bookingId) async {
+  await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/confirm-payment');
+  ref.invalidate(adminBookingsProvider);
+}
+
 final adminFinanceProvider = FutureProvider<AdminFinanceData>((ref) async {
   final month = ref.watch(selectedAdminFinanceMonthProvider);
   final res = await ref.read(apiClientProvider).get(

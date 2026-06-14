@@ -36,8 +36,8 @@ class MonkAvailabilityNotifier extends Notifier<bool> {
   }
 }
 
-final monkBookingsListProvider =
-    FutureProvider<List<MonkBookingItem>>((ref) async {
+// Ламын бүх захиалга
+final monkBookingsProvider = FutureProvider<List<MonkBookingItem>>((ref) async {
   final res = await ref.read(apiClientProvider).get('/bookings');
   final list = res.data is List
       ? res.data as List
@@ -47,14 +47,17 @@ final monkBookingsListProvider =
       .toList();
 });
 
+@Deprecated('Use monkBookingsProvider')
+final monkBookingsListProvider = monkBookingsProvider;
+
 Future<void> confirmBooking(WidgetRef ref, String bookingId) async {
   await ref.read(apiClientProvider).put('/bookings/$bookingId/confirm');
+  ref.invalidate(monkBookingsProvider);
   ref.invalidate(monkDashboardProvider);
-  ref.invalidate(monkBookingsListProvider);
 }
 
 Future<void> cancelBooking(WidgetRef ref, String bookingId) async {
   await ref.read(apiClientProvider).put('/bookings/$bookingId/cancel');
+  ref.invalidate(monkBookingsProvider);
   ref.invalidate(monkDashboardProvider);
-  ref.invalidate(monkBookingsListProvider);
 }

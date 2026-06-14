@@ -10,7 +10,6 @@ import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart'
 import 'package:sacred_app/features/booking/widgets/bookings_page_scaffold.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
-import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
 class MyBookingsScreen extends ConsumerWidget {
   const MyBookingsScreen({super.key});
@@ -34,55 +33,54 @@ class MyBookingsScreen extends ConsumerWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(32, 48, 32, 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF3F0EB),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: AppColors.border.withOpacity(0.9),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        color: AppColors.goldLight,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 32,
+                        color: AppColors.goldPrime,
                       ),
                     ),
-                    child: const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 40,
-                      color: AppColors.saffronDeep,
+                    const SizedBox(height: 16),
+                    Text('Захиалга байхгүй', style: AppText.h3),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Лам нараас цаг захиалж\nоюун санааны замаа эхлүүлээрэй',
+                      style: AppText.bodySmall,
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  Text(
-                    'Захиалга байхгүй',
-                    style: AppText.h3.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkDeep,
+                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: () => context.go('/home'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.sun,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Лам хайх',
+                          style: AppText.bodySmall.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Лам нараас цаг захиалж\nоюун санааны замаа эхлүүлээрэй',
-                    style: AppText.bodySmall.copyWith(
-                      color: const Color(0xFF666666),
-                      fontSize: 14,
-                      height: 20 / 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  SacredButton(
-                    label: 'Лам хайх',
-                    small: true,
-                    sunShadow: true,
-                    onTap: () => context.go('/home'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

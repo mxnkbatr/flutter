@@ -58,23 +58,7 @@ class MonkBookingCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 StatusBadge(status: booking.status),
-                if (booking.status == 'pending') ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Админ баталгаажуулах хүлээгдэж буй',
-                    style: AppText.caption.copyWith(color: AppColors.textSec),
-                  ),
-                ],
-                if (booking.status == 'approved' && !booking.paid) ...[
-                  const SizedBox(height: 8),
-                  SmallBtn(
-                    label: 'Төлбөр харах',
-                    color: AppColors.saffronDeep,
-                    textColor: Colors.white,
-                    onTap: () => context.push('/payment/${booking.id}'),
-                  ),
-                ],
-                if (booking.status == 'confirmed' && booking.paid) ...[
+                if (booking.status == 'confirmed') ...[
                   const SizedBox(height: 8),
                   SmallBtn(
                     label: 'Дуудлага эхлэх',

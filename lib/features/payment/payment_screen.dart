@@ -17,6 +17,7 @@ import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.
 import 'package:sacred_app/features/payment/models/booking_payment_data.dart';
 import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/features/payment/providers/booking_payment_provider.dart';
+import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/features/payment/widgets/bank_button.dart';
 import 'package:sacred_app/features/payment/widgets/countdown_timer.dart';
 import 'package:sacred_app/features/payment/widgets/pulsing_dot.dart';
@@ -93,22 +94,38 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   void _invalidateBookings() {
     ref.invalidate(myBookingsProvider);
-    ref.invalidate(monkBookingsListProvider);
+    ref.invalidate(monkBookingsProvider);
     ref.invalidate(bookingPaymentProvider(widget.bookingId));
   }
 
   void _navigateToSuccess([BookingPaymentData? payment]) {
     final data = _qpayData;
     final amount = data?.totalAmount ?? payment?.amount ?? 0;
-    context.go(
-      '/payment/${widget.bookingId}/success',
-      extra: PaymentSuccessArgs(
-        monkName: data?.monkName ?? payment?.monkName ?? 'Лам',
-        dateStr: data?.dateStr ?? payment?.date ?? '',
-        timeSlot: data?.timeSlot ?? payment?.slot ?? '',
-        amount: amount,
-      ),
-    );
+
+    final isShopOrder = data?.monkName == 'Gevabal Дэлгүүр' ||
+        data?.monkName == 'Sacred Дэлгүүр' ||
+        (widget.bookingId.length == 24 &&
+            (data?.serviceName?.contains('бараа') ?? false));
+
+    if (isShopOrder) {
+      ref.invalidate(myOrdersProvider);
+      if (mounted) {
+        context.go('/shop/orders');
+      }
+      return;
+    }
+
+    if (mounted) {
+      context.go(
+        '/payment/${widget.bookingId}/success',
+        extra: PaymentSuccessArgs(
+          monkName: data?.monkName ?? payment?.monkName ?? 'Лам',
+          dateStr: data?.dateStr ?? payment?.date ?? '',
+          timeSlot: data?.timeSlot ?? payment?.slot ?? '',
+          amount: amount,
+        ),
+      );
+    }
   }
 
   Future<void> _ensureQPay(BookingPaymentData payment) async {

@@ -404,14 +404,24 @@ app.post('/api/bookings', authRequired, async (req, res) => {
 });
 
 app.put('/api/bookings/:id/confirm', authRequired, async (req, res) => {
-  const booking = await Booking.findById(req.params.id);
-  if (!booking) return res.status(404).json({ error: 'Not found' });
-  if (booking.status !== 'approved' || !booking.paid) {
-    return res.status(400).json({ error: 'Booking must be approved and paid' });
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Олдсонгүй' });
+
+    const monk = await Monk.findById(booking.monkId);
+    const isMonkOwner = monk?.userId?.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isMonkOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+
+    booking.status = 'confirmed';
+    await booking.save();
+
+    res.json({ ok: true, status: 'confirmed' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
-  booking.status = 'confirmed';
-  await booking.save();
-  res.json({ ok: true });
 });
 
 async function bookingAccess(bookingId, user) {

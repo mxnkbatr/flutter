@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { connectDb, User, Monk, Review } from './db.js';
+import { connectDb, User, Monk, Review, Product } from './db.js';
 
 function slotsForDate(dateStr) {
   return ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
@@ -18,12 +18,77 @@ function nextDays(count) {
   return days;
 }
 
+async function seedShopProducts() {
+  const productCount = await Product.countDocuments();
+  if (productCount < 6) {
+    if (productCount > 0) await Product.deleteMany({});
+    await Product.insertMany([
+      {
+        name: 'Буддын сургаалын ном',
+        description: 'Монгол хэлээр хөрвүүлсэн буддын сургаалын үндсэн ном. Эхлэгчдэд тохиромжтой.',
+        price: 25000,
+        image: '',
+        category: 'Ном',
+        stock: 20,
+        isActive: true,
+      },
+      {
+        name: 'Бурхны тахилын тос',
+        description: 'Цэвэр цагаан буюу шар өнгийн тахилын тос. 200гр савлагаатай.',
+        price: 15000,
+        image: '',
+        category: 'Тос',
+        stock: 50,
+        isActive: true,
+      },
+      {
+        name: 'Нандин чулуу — Нефрит',
+        description: 'Байгалийн нефрит чулуу. Амар амгалан, эрүүл мэндийг авчирна гэж үздэг.',
+        price: 45000,
+        image: '',
+        category: 'Эрдэнэ',
+        stock: 10,
+        isActive: true,
+      },
+      {
+        name: 'Мэдрэлийн тайвшруулах утлага',
+        description: 'Сандал, жижиглэсэн утлагын нунтаг. Гэр дотор ашиглахад тохиромжтой.',
+        price: 12000,
+        image: '',
+        category: 'Бусад',
+        stock: 30,
+        isActive: true,
+      },
+      {
+        name: 'Ламын ерөөлийн ном',
+        description: 'Өдөр тутмын ерөөл, залбирлын ном. Богино ба урт хэлбэрийн ерөөлүүд.',
+        price: 35000,
+        image: '',
+        category: 'Ном',
+        stock: 15,
+        isActive: true,
+      },
+      {
+        name: 'Луу загварын бугуйн зүүлт',
+        description: 'Мөнгөн луу загвартай бугуйн зүүлт. Хамгаалах тэмдэглэгдэж байдаг.',
+        price: 55000,
+        image: '',
+        category: 'Эрдэнэ',
+        stock: 8,
+        isActive: true,
+      },
+    ]);
+    console.log('✅ Shop products seeded');
+  }
+}
+
 async function seed() {
   await connectDb();
 
   const existing = await Monk.countDocuments();
   if (existing > 0) {
     console.log('Seed skipped — monks already exist');
+    await seedShopProducts();
     process.exit(0);
   }
 
@@ -122,7 +187,9 @@ async function seed() {
     { monkId: monk2._id, clientName: 'Тэмүүлэн', rating: 4, comment: 'Зурхай үнэн байсан' },
   ]);
 
-  console.log('Seed complete');
+  await seedShopProducts();
+
+  console.log('✅ Seed complete');
   console.log('Admin: admin@test.com / admin123');
   console.log('Monk: monk@test.com / monk123');
   console.log('Client: client@test.com / client123');

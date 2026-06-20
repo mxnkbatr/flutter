@@ -61,3 +61,9 @@ Future<void> cancelBooking(WidgetRef ref, String bookingId) async {
   ref.invalidate(monkBookingsProvider);
   ref.invalidate(monkDashboardProvider);
 }
+
+Future<void> completeBooking(WidgetRef ref, String bookingId) async {
+  await ref.read(apiClientProvider).put('/bookings/$bookingId/complete');
+  ref.invalidate(monkBookingsProvider);
+  ref.invalidate(monkDashboardProvider);
+}

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
@@ -68,7 +69,7 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
-        error: (e, _) => Center(child: Text('Алдаа: $e')),
+        error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (monks) => RefreshIndicator(
           color: AppColors.goldPrime,
           onRefresh: () => ref.refresh(adminMonksProvider(filter).future),

@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/features/messenger/widgets/messenger_page_scaffold.dart';
 import 'package:sacred_app/features/messenger/widgets/messenger_segment_tabs.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
@@ -111,21 +113,48 @@ class _MessengerScreenState extends ConsumerState<MessengerScreen> {
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
-            child: Text('Алдаа: $e', style: AppText.bodySmall),
+            child: ErrorState(
+              error: e,
+              fallback: 'Чатын жагсаалт ачаалахад алдаа гарлаа.',
+              onRetry: () => ref.invalidate(conversationsProvider),
+            ),
           ),
         ),
         data: (convos) {
           if (convos.isEmpty) return _emptyState(context);
+
+          final filtered = switch (_tab) {
+            1 => convos.where((c) => c.monkName.isNotEmpty).toList(),
+            2 => convos
+                .where((c) => c.monkName.toLowerCase().contains('дэмжлэг'))
+                .toList(),
+            _ => convos,
+          };
+
+          if (filtered.isEmpty) {
+            return ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                const SizedBox(height: 80),
+                Center(
+                  child: Text(
+                    _tab == 2 ? 'Дэмжлэгийн чат байхгүй' : 'Чат байхгүй',
+                    style: AppText.bodySmall,
+                  ),
+                ),
+              ],
+            );
+          }
 
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
-            itemCount: convos.length,
+            itemCount: filtered.length,
             separatorBuilder: (_, __) => const SizedBox(height: 4),
             itemBuilder: (_, i) {
-              final c = convos[i];
+              final c = filtered[i];
               return _ChatListTile(
                 name: c.displayName,
                 preview: c.lastMessage ?? 'Мессеж эхлүүлэх',

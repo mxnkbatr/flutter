@@ -7,10 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/features/home/home_screen.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
+import 'package:sacred_app/features/home/home_screen.dart';
 import 'package:sacred_app/features/home/providers/search_provider.dart';
 import 'package:sacred_app/features/home/widgets/explore_monk_card.dart';
+import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -54,12 +55,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _focusNode.requestFocus();
   }
 
-  Future<void> _openMonk(String monkId, String query) async {
+  Future<void> _openMonk(Monk monk, String query) async {
+    final ok = await TierGating.checkMonkAccess(context, ref, monk);
+    if (!ok) return;
     if (query.trim().isNotEmpty) {
       await ref.read(recentSearchesProvider.notifier).add(query);
     }
     if (!mounted) return;
-    context.go('/monks/$monkId');
+    context.push('/monks/${monk.id}');
   }
 
   @override
@@ -149,17 +152,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         color: AppColors.textSec,
                         onPressed: _clear,
                       ),
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        gradient: AppGradients.sun,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.search_rounded,
-                        color: Colors.white,
-                        size: 22,
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        final q = _searchCtrl.text.trim();
+                        if (q.isNotEmpty) {
+                          ref.read(recentSearchesProvider.notifier).add(q);
+                        }
+                        _focusNode.unfocus();
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: AppGradients.sun,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.search_rounded,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ],
@@ -178,7 +191,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       query: query,
                       resultsAsync: resultsAsync,
                       favorites: favorites,
-                      onMonkTap: (id) => _openMonk(id, query),
+                      onMonkTap: (monk) => _openMonk(monk, query),
                       onFavorite: (id) {
                         final current = {...ref.read(favoriteMonksProvider)};
                         if (current.contains(id)) {
@@ -307,7 +320,7 @@ class _SearchResults extends StatelessWidget {
   final String query;
   final AsyncValue<List<Monk>> resultsAsync;
   final Set<String> favorites;
-  final ValueChanged<String> onMonkTap;
+  final ValueChanged<Monk> onMonkTap;
   final ValueChanged<String> onFavorite;
 
   @override
@@ -363,7 +376,7 @@ class _SearchResults extends StatelessWidget {
               monk: monk,
               isFavorite: favorites.contains(monk.id),
               onFavorite: () => onFavorite(monk.id),
-              onTap: () => onMonkTap(monk.id),
+              onTap: () => onMonkTap(monk),
             );
           },
         );

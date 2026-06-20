@@ -27,6 +27,7 @@ class AdminBookingRow extends StatelessWidget {
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -120,83 +121,92 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.9,
+      builder: (_, scrollController) {
+        return SafeArea(
+          child: SingleChildScrollView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Захиалгын дэлгэрэнгүй', style: AppText.h3),
-                StatusBadge(status: booking.status),
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Захиалгын дэлгэрэнгүй', style: AppText.h3),
+                    StatusBadge(status: booking.status),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _Row('Хэрэглэгч', booking.clientName),
+                _Row('Лам', booking.monkName),
+                _Row('Үйлчилгээ', booking.serviceName),
+                _Row('Огноо', booking.date),
+                _Row('Цаг', booking.slot),
+                const Divider(height: 24),
+                _Row(
+                  'Нийт дүн',
+                  '₮${_fmt(booking.amount)}',
+                  accent: true,
+                ),
+                if (booking.status == 'pending') ...[
+                  const SizedBox(height: 20),
+                  SacredButton(
+                    label: 'Батлах',
+                    isLoading: _loading,
+                    onTap: _loading
+                        ? null
+                        : () async {
+                            setState(() => _loading = true);
+                            await approveBooking(ref, booking.id);
+                            if (mounted) Navigator.pop(context);
+                          },
+                  ),
+                  const SizedBox(height: 10),
+                  SacredButton(
+                    label: 'Татгалзах',
+                    outline: true,
+                    onTap: _loading
+                        ? null
+                        : () async {
+                            setState(() => _loading = true);
+                            await rejectBooking(ref, booking.id);
+                            if (mounted) Navigator.pop(context);
+                          },
+                  ),
+                ],
+                if (booking.status == 'approved' && !booking.paid) ...[
+                  const SizedBox(height: 20),
+                  SacredButton(
+                    label: 'Банкны төлбөр батлах',
+                    isLoading: _loading,
+                    onTap: _loading
+                        ? null
+                        : () async {
+                            setState(() => _loading = true);
+                            await confirmBookingPayment(ref, booking.id);
+                            if (mounted) Navigator.pop(context);
+                          },
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 20),
-            _Row('Хэрэглэгч', booking.clientName),
-            _Row('Лам', booking.monkName),
-            _Row('Үйлчилгээ', booking.serviceName),
-            _Row('Огноо', booking.date),
-            _Row('Цаг', booking.slot),
-            const Divider(height: 24),
-            _Row(
-              'Нийт дүн',
-              '₮${_fmt(booking.amount)}',
-              accent: true,
-            ),
-            if (booking.status == 'pending') ...[
-              const SizedBox(height: 20),
-              SacredButton(
-                label: 'Батлах',
-                isLoading: _loading,
-                onTap: _loading
-                    ? null
-                    : () async {
-                        setState(() => _loading = true);
-                        await approveBooking(ref, booking.id);
-                        if (mounted) Navigator.pop(context);
-                      },
-              ),
-              const SizedBox(height: 10),
-              SacredButton(
-                label: 'Татгалзах',
-                outline: true,
-                onTap: _loading
-                    ? null
-                    : () async {
-                        setState(() => _loading = true);
-                        await rejectBooking(ref, booking.id);
-                        if (mounted) Navigator.pop(context);
-                      },
-              ),
-            ],
-            if (booking.status == 'approved' && !booking.paid) ...[
-              const SizedBox(height: 20),
-              SacredButton(
-                label: 'Банкны төлбөр батлах',
-                isLoading: _loading,
-                onTap: _loading
-                    ? null
-                    : () async {
-                        setState(() => _loading = true);
-                        await confirmBookingPayment(ref, booking.id);
-                        if (mounted) Navigator.pop(context);
-                      },
-              ),
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

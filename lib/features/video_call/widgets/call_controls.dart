@@ -11,8 +11,8 @@ class CallControls extends StatelessWidget {
     required this.onMute,
     required this.onCamera,
     required this.onEnd,
-    required this.onChat,
     required this.onNote,
+    this.onSwitchCamera,
   });
 
   final bool isMuted;
@@ -20,17 +20,17 @@ class CallControls extends StatelessWidget {
   final VoidCallback onMute;
   final VoidCallback onCamera;
   final VoidCallback onEnd;
-  final VoidCallback onChat;
   final VoidCallback onNote;
+  final VoidCallback? onSwitchCamera;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        top: 16,
+        top: 20,
         bottom: MediaQuery.of(context).padding.bottom + 16,
-        left: 24,
-        right: 24,
+        left: 16,
+        right: 16,
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -38,8 +38,10 @@ class CallControls extends StatelessWidget {
           end: Alignment.topCenter,
           colors: [
             AppColors.inkDeep,
+            AppColors.inkDeep.withOpacity(0.5),
             AppColors.transparent,
           ],
+          stops: const [0.0, 0.6, 1.0],
         ),
       ),
       child: Row(
@@ -47,7 +49,7 @@ class CallControls extends StatelessWidget {
         children: [
           _CtrlBtn(
             icon: isMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
-            label: isMuted ? 'Нэмэх' : 'Унтраах',
+            label: 'Дуу',
             onTap: onMute,
             active: !isMuted,
           ),
@@ -55,7 +57,7 @@ class CallControls extends StatelessWidget {
             icon: isCameraOff
                 ? Icons.videocam_off_rounded
                 : Icons.videocam_rounded,
-            label: isCameraOff ? 'Нэмэх' : 'Камер',
+            label: 'Камер',
             onTap: onCamera,
             active: !isCameraOff,
           ),
@@ -64,38 +66,52 @@ class CallControls extends StatelessWidget {
               HapticFeedback.heavyImpact();
               onEnd();
             },
-            child: Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: AppColors.danger,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.danger.withOpacity(0.27),
-                    blurRadius: 12,
-                    spreadRadius: 2,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.danger,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.danger.withOpacity(0.4),
+                        blurRadius: 16,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.call_end_rounded,
-                color: AppColors.onDark,
-                size: 28,
-              ),
+                  child: const Icon(
+                    Icons.call_end_rounded,
+                    color: AppColors.onDark,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Дуусгах',
+                  style: AppText.caption.copyWith(
+                    color: AppColors.danger,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
           _CtrlBtn(
-            icon: Icons.chat_bubble_outline_rounded,
-            label: 'Мессэж',
-            onTap: onChat,
-            active: true,
+            icon: Icons.cameraswitch_rounded,
+            label: 'Сэлгэх',
+            onTap: onSwitchCamera ?? () {},
+            active: false,
+            enabled: onSwitchCamera != null,
           ),
           _CtrlBtn(
             icon: Icons.note_alt_outlined,
             label: 'Тэмдэглэл',
             onTap: onNote,
-            active: true,
+            active: false,
           ),
         ],
       ),
@@ -109,42 +125,62 @@ class _CtrlBtn extends StatelessWidget {
     required this.label,
     required this.onTap,
     required this.active,
+    this.enabled = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool active;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: active ? AppColors.inkMid : AppColors.inkLight,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: active ? AppColors.goldMuted : AppColors.border,
-                width: 0.5,
+      onTap: enabled
+          ? () {
+              HapticFeedback.lightImpact();
+              onTap();
+            }
+          : null,
+      child: Opacity(
+        opacity: enabled ? 1.0 : 0.4,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.goldPrime.withOpacity(0.12)
+                    : Colors.white.withOpacity(0.06),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: active
+                      ? AppColors.goldPrime.withOpacity(0.25)
+                      : Colors.white.withOpacity(0.08),
+                  width: 0.5,
+                ),
+              ),
+              child: Icon(
+                icon,
+                color: active ? AppColors.goldPrime : AppColors.goldMuted,
+                size: 20,
               ),
             ),
-            child: Icon(icon, color: AppColors.goldPrime, size: 22),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppText.caption.copyWith(color: AppColors.goldMuted),
-          ),
-        ],
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: AppText.caption.copyWith(
+                color: Colors.white.withOpacity(0.4),
+                fontWeight: FontWeight.w600,
+                fontSize: 9,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

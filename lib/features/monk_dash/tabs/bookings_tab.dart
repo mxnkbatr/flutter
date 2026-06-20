@@ -4,6 +4,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_booking_item.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/monk_dash/widgets/monk_booking_card.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
 
@@ -106,7 +107,9 @@ class _BookingCardWithActionsState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Захиалга батлагдлаа'),
+            content: Text(
+              'Захиалга хүлээн авлаа. Хэрэглэгч төлбөр төлнө.',
+            ),
             backgroundColor: AppColors.success,
           ),
         );
@@ -115,7 +118,7 @@ class _BookingCardWithActionsState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Алдаа: $e'),
+            content: Text(formatUserError(e)),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -163,7 +166,33 @@ class _BookingCardWithActionsState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Алдаа: $e'),
+            content: Text(formatUserError(e)),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _complete() async {
+    setState(() => _loading = true);
+    try {
+      await completeBooking(ref, widget.booking.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Захиалга дууссан'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(formatUserError(e)),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -177,6 +206,7 @@ class _BookingCardWithActionsState
   Widget build(BuildContext context) {
     final booking = widget.booking;
     final isPending = booking.status == 'pending';
+    final canComplete = booking.status == 'confirmed' && booking.paid;
 
     return Column(
       children: [
@@ -254,6 +284,41 @@ class _BookingCardWithActionsState
                 ),
               ],
             ),
+          ),
+        if (canComplete)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+            child: _loading
+                ? const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.goldPrime,
+                      ),
+                    ),
+                  )
+                : GestureDetector(
+                    onTap: _complete,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.goldPrime,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Дуусгах',
+                          style: AppText.bodySmall.copyWith(
+                            color: AppColors.inkDeep,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
           ),
       ],
     );

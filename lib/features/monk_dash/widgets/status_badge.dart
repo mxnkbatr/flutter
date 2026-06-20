@@ -35,7 +35,7 @@ class StatusBadge extends StatelessWidget {
       case 'approved':
         return 'Төлбөр хүлээж буй';
       default:
-        return status;
+        return 'Тодорхойгүй';
     }
   }
 

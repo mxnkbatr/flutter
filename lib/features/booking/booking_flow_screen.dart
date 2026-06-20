@@ -9,6 +9,7 @@ import 'package:sacred_app/features/booking/widgets/date_time_selection_step.dar
 import 'package:sacred_app/features/booking/widgets/service_selection_step.dart';
 import 'package:sacred_app/features/booking/widgets/step_indicator.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
+import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
 const _stepLabels = ['Үйлчилгээ', 'Цаг', 'Баталгаа'];
@@ -54,6 +55,20 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
     ref.read(bookingStepProvider.notifier).state = 0;
     ref.read(bookingDraftProvider.notifier).reset(widget.monkId);
+
+    try {
+      final monk = await ref.read(monkDetailProvider(widget.monkId).future);
+      if (mounted) {
+        final ok = await TierGating.checkMonkAccess(context, ref, monk);
+        if (!ok) {
+          context.pop();
+          return;
+        }
+      }
+    } catch (_) {
+      if (mounted) context.pop();
+      return;
+    }
 
     if (widget.initialServiceId != null) {
       final services =

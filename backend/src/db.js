@@ -84,6 +84,7 @@ const bookingSchema = new mongoose.Schema(
     approvedAt: Date,
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     bankTransferPending: { type: Boolean, default: false },
+    reviewed: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

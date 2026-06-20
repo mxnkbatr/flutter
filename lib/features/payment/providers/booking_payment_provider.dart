@@ -14,10 +14,15 @@ Future<QPayData> createBookingQPayInvoice(
   required String bookingId,
   required int amount,
   required BookingPaymentData payment,
+  bool regenerate = false,
 }) async {
   final res = await ref.read(apiClientProvider).post(
         '/payment/qpay/create',
-        data: {'bookingId': bookingId, 'amount': amount},
+        data: {
+          'bookingId': bookingId,
+          'amount': amount,
+          if (regenerate) 'regenerate': true,
+        },
       );
   return QPayData.fromJson(res.data as Map<String, dynamic>).copyWithSummary(
     monkName: payment.monkName,

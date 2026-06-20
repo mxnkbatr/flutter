@@ -78,14 +78,10 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
 
   void setSlot(String slot) => state = state.copyWith(slot: slot);
 
-  Future<String> createBooking({
-    int? amount,
-    int discountPercent = 0,
-  }) async {
+  Future<String> createBooking() async {
     if (!state.isComplete) {
       throw StateError('Booking draft is incomplete');
     }
-    final total = amount ?? state.totalAmountFor(discountPercent);
     final res = await ref.read(apiClientProvider).post(
       '/bookings',
       data: {
@@ -97,8 +93,6 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
           state.date!.day,
         ).toIso8601String(),
         'slot': state.slot,
-        'amount': total,
-        if (discountPercent > 0) 'discountPercent': discountPercent,
       },
     );
     final data = res.data as Map<String, dynamic>;

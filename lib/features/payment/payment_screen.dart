@@ -11,6 +11,7 @@ import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/utils/formatters.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
@@ -21,6 +22,7 @@ import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/features/payment/widgets/bank_button.dart';
 import 'package:sacred_app/features/payment/widgets/countdown_timer.dart';
 import 'package:sacred_app/features/payment/widgets/pulsing_dot.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
@@ -149,7 +151,36 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Алдаа: $e'), backgroundColor: AppColors.danger),
+          SnackBar(content: Text(formatUserError(e)), backgroundColor: AppColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _creatingQpay = false);
+    }
+  }
+
+  Future<void> _regenerateQPay(BookingPaymentData payment) async {
+    setState(() {
+      _creatingQpay = true;
+      _expired = false;
+      _qpayData = null;
+    });
+    _pollTimer?.cancel();
+    try {
+      final qpay = await createBookingQPayInvoice(
+        ref,
+        bookingId: widget.bookingId,
+        amount: payment.amount,
+        payment: payment,
+        regenerate: true,
+      );
+      if (!mounted) return;
+      setState(() => _qpayData = qpay);
+      _startPolling(qpay.invoiceId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(formatUserError(e)), backgroundColor: AppColors.danger),
         );
       }
     } finally {
@@ -184,7 +215,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Алдаа: $e'), backgroundColor: AppColors.danger),
+          SnackBar(content: Text(formatUserError(e)), backgroundColor: AppColors.danger),
         );
       }
     } finally {
@@ -276,9 +307,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     ],
                   ),
                 ),
-                Text(
-                  payment.slot,
-                  style: AppText.caption.copyWith(color: AppColors.goldMuted),
+                Flexible(
+                  child: Text(
+                    payment.slot,
+                    style: AppText.caption.copyWith(color: AppColors.goldMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                  ),
                 ),
               ],
             ),
@@ -433,9 +469,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text('Банкны апп-аар уншуулна уу', style: AppText.bodySmall),
-              const SizedBox(height: 8),
-              const PulsingDot(),
+              if (_expired) ...[
+                SacredButton(
+                  label: 'Шинэ QR авах',
+                  isLoading: _creatingQpay,
+                  onTap: _creatingQpay ? null : () => _regenerateQPay(payment),
+                ),
+                const SizedBox(height: 8),
+              ] else ...[
+                const Text('Банкны апп-аар уншуулна уу', style: AppText.bodySmall),
+                const SizedBox(height: 8),
+                const PulsingDot(),
+              ],
             ],
           ),
         ),
@@ -492,7 +537,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
         ),
-        error: (e, _) => Center(child: Text('Алдаа: $e', style: AppText.bodySmall)),
+        error: (e, _) => ErrorState(
+          error: e,
+          fallback: 'Төлбөрийн мэдээлэл ачаалахад алдаа гарлаа.',
+          onRetry: () => ref.invalidate(bookingPaymentProvider(widget.bookingId)),
+        ),
         data: (payment) {
           if (payment.paid) {
             return Center(
@@ -524,7 +573,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   payment.status == 'pending'
-                      ? 'Админ баталгаажуулах хүлээгдэж байна'
+                      ? 'Лам баталгаажуулах хүлээгдэж байна'
                       : 'Төлбөр төлөх боломжгүй',
                   style: AppText.body,
                   textAlign: TextAlign.center,

@@ -32,7 +32,11 @@ final userBookingCountProvider = FutureProvider<int>((ref) async {
     final list = res.data is List
         ? res.data as List
         : (res.data as Map<String, dynamic>)['bookings'] as List? ?? [];
-    return list.length;
+    return list.where((e) {
+      final m = e as Map<String, dynamic>;
+      final status = m['status'] as String? ?? '';
+      return status != 'cancelled';
+    }).length;
   } catch (_) {
     return 0;
   }

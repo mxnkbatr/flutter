@@ -31,11 +31,13 @@ class MonthPicker extends StatelessWidget {
 
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surfaceEl,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
+        final maxListHeight = MediaQuery.of(ctx).size.height * 0.5;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -44,19 +46,27 @@ class MonthPicker extends StatelessWidget {
                 padding: EdgeInsets.all(16),
                 child: Text('Сар сонгох', style: AppText.h3),
               ),
-              ...months.map((m) {
-                final selected = m == selectedMonth;
-                return ListTile(
-                  title: Text(_displayLabel(m)),
-                  trailing: selected
-                      ? const Icon(Icons.check, color: AppColors.goldPrime)
-                      : null,
-                  onTap: () {
-                    onChanged(m);
-                    Navigator.pop(ctx);
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxListHeight),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: months.length,
+                  itemBuilder: (context, index) {
+                    final m = months[index];
+                    final selected = m == selectedMonth;
+                    return ListTile(
+                      title: Text(_displayLabel(m)),
+                      trailing: selected
+                          ? const Icon(Icons.check, color: AppColors.goldPrime)
+                          : null,
+                      onTap: () {
+                        onChanged(m);
+                        Navigator.pop(ctx);
+                      },
+                    );
                   },
-                );
-              }),
+                ),
+              ),
             ],
           ),
         );

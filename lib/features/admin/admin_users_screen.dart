@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_user.dart';
@@ -23,7 +24,7 @@ class AdminUsersScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('Алдаа: $e'),
+              Text(formatUserError(e)),
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: () => ref.invalidate(adminUsersProvider),
@@ -93,7 +94,7 @@ class _UserCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Алдаа: $e'),
+            content: Text(formatUserError(e)),
             backgroundColor: AppColors.danger,
           ),
         );

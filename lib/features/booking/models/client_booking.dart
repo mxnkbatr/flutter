@@ -1,6 +1,7 @@
 class ClientBooking {
   const ClientBooking({
     required this.id,
+    required this.monkId,
     required this.monkName,
     required this.serviceName,
     required this.slot,
@@ -9,9 +10,11 @@ class ClientBooking {
     this.amount,
     this.monkImage,
     this.paid = false,
+    this.reviewed = false,
   });
 
   final String id;
+  final String monkId;
   final String monkName;
   final String serviceName;
   final String slot;
@@ -20,13 +23,14 @@ class ClientBooking {
   final int? amount;
   final String? monkImage;
   final bool paid;
+  final bool reviewed;
 
-  bool get canJoinCall =>
-      paid && (status == 'confirmed' || status == 'completed');
+  bool get canJoinCall => paid && status == 'confirmed';
 
   factory ClientBooking.fromJson(Map<String, dynamic> json) {
     return ClientBooking(
       id: json['id'] as String? ?? json['_id'] as String,
+      monkId: json['monkId'] as String? ?? '',
       monkName: json['monkName'] as String? ?? '',
       serviceName: json['serviceName'] as String? ?? '',
       slot: json['slot'] as String? ?? '',
@@ -35,6 +39,7 @@ class ClientBooking {
       amount: (json['amount'] as num?)?.toInt(),
       monkImage: json['monkImage'] as String?,
       paid: json['paid'] as bool? ?? false,
+      reviewed: json['reviewed'] as bool? ?? false,
     );
   }
 }

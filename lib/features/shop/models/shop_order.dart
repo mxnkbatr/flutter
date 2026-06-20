@@ -31,6 +31,9 @@ class ShopOrder {
     required this.paid,
     required this.createdAt,
     this.invoiceId = '',
+    this.userName = '',
+    this.address = '',
+    this.phone = '',
   });
 
   final String id;
@@ -40,6 +43,9 @@ class ShopOrder {
   final bool paid;
   final String createdAt;
   final String invoiceId;
+  final String userName;
+  final String address;
+  final String phone;
 
   String get statusLabel => switch (status) {
         'paid' => 'Төлөгдсөн',
@@ -59,5 +65,8 @@ class ShopOrder {
         paid: j['paid'] as bool? ?? false,
         createdAt: j['createdAt'] as String? ?? '',
         invoiceId: j['invoiceId'] as String? ?? '',
+        userName: j['userName'] as String? ?? '',
+        address: j['address'] as String? ?? '',
+        phone: j['phone'] as String? ?? '',
       );
 }

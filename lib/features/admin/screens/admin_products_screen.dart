@@ -1,8 +1,10 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/features/admin/screens/admin_shop_orders_tab.dart';
 import 'package:sacred_app/features/shop/models/product.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/profile_image_picker.dart';
@@ -12,43 +14,83 @@ import 'package:sacred_app/shared/widgets/sacred_input.dart';
 
 const _cats = ['Ном', 'Эрдэнэ', 'Тос', 'Бусад'];
 
-class AdminProductsScreen extends ConsumerWidget {
+class AdminProductsScreen extends ConsumerStatefulWidget {
   const AdminProductsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AdminProductsScreen> createState() => _AdminProductsScreenState();
+}
+
+class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabCtrl = TabController(length: 2, vsync: this);
+    _tabCtrl.addListener(() {
+      if (!_tabCtrl.indexIsChanging) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final productsAsync = ref.watch(adminProductsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Бараа удирдлага'),
+        title: const Text('Дэлгүүр'),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          labelColor: AppColors.goldPrime,
+          unselectedLabelColor: AppColors.goldMuted,
+          indicatorColor: AppColors.goldPrime,
+          tabs: const [
+            Tab(text: 'Бараа'),
+            Tab(text: 'Захиалга'),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_rounded),
-            onPressed: () => _showProductSheet(context, ref, null),
-          ),
+          if (_tabCtrl.index == 0)
+            IconButton(
+              icon: const Icon(Icons.add_rounded),
+              onPressed: () => _showProductSheet(context, ref, null),
+            ),
         ],
       ),
-      body: productsAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.goldPrime),
-        ),
-        error: (e, _) => Center(child: Text('Алдаа: $e')),
-        data: (products) => RefreshIndicator(
-          color: AppColors.goldPrime,
-          onRefresh: () => ref.refresh(adminProductsProvider.future),
-          child: products.isEmpty
-              ? const Center(child: Text('Бараа байхгүй'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: products.length,
-                  itemBuilder: (_, i) => _ProductAdminCard(
-                    product: products[i],
-                    onEdit: () => _showProductSheet(context, ref, products[i]),
-                    onDelete: () => _confirmDelete(context, ref, products[i]),
-                  ),
-                ),
-        ),
+      body: TabBarView(
+        controller: _tabCtrl,
+        children: [
+          productsAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.goldPrime),
+            ),
+            error: (e, _) => Center(child: Text(formatUserError(e))),
+            data: (products) => RefreshIndicator(
+              color: AppColors.goldPrime,
+              onRefresh: () => ref.refresh(adminProductsProvider.future),
+              child: products.isEmpty
+                  ? const Center(child: Text('Бараа байхгүй'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: products.length,
+                      itemBuilder: (_, i) => _ProductAdminCard(
+                        product: products[i],
+                        onEdit: () => _showProductSheet(context, ref, products[i]),
+                        onDelete: () => _confirmDelete(context, ref, products[i]),
+                      ),
+                    ),
+            ),
+          ),
+          const AdminShopOrdersTab(),
+        ],
       ),
     );
   }
@@ -282,7 +324,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Алдаа: $e'),
+            content: Text(formatUserError(e)),
             backgroundColor: AppColors.danger,
           ),
         );

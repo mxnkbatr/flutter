@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
@@ -19,7 +20,7 @@ class MonkMessengerScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Мессенжер')),
       body: convosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (convos) {
           if (convos.isEmpty) {
             return const Center(

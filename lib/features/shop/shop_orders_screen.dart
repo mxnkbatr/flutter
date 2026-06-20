@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/shop/models/shop_order.dart';
@@ -23,7 +25,7 @@ class ShopOrdersScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
-        error: (e, _) => Center(child: Text('Алдаа: $e')),
+        error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (orders) => RefreshIndicator(
           color: AppColors.goldPrime,
           onRefresh: () => ref.refresh(myOrdersProvider.future),
@@ -37,7 +39,11 @@ class ShopOrdersScreen extends ConsumerWidget {
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: orders.length,
-                  itemBuilder: (_, i) => _OrderCard(order: orders[i], fmt: _fmt),
+                  itemBuilder: (_, i) => _OrderCard(
+                    order: orders[i],
+                    fmt: _fmt,
+                    onPay: () => context.go('/shop/payment/${orders[i].id}'),
+                  ),
                 ),
         ),
       ),
@@ -46,12 +52,20 @@ class ShopOrdersScreen extends ConsumerWidget {
 }
 
 class _OrderCard extends StatelessWidget {
-  const _OrderCard({required this.order, required this.fmt});
+  const _OrderCard({
+    required this.order,
+    required this.fmt,
+    required this.onPay,
+  });
+
   final ShopOrder order;
   final String Function(int) fmt;
+  final VoidCallback onPay;
 
   @override
   Widget build(BuildContext context) {
+    final canPay = !order.paid && order.status != 'cancelled';
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: SacredCard(
@@ -83,6 +97,20 @@ class _OrderCard extends StatelessWidget {
             ),
             if (order.createdAt.isNotEmpty)
               Text(order.createdAt.split('T').first, style: AppText.caption),
+            if (canPay) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onPay,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.saffronDeep,
+                    side: const BorderSide(color: AppColors.saffronDeep),
+                  ),
+                  child: const Text('Төлөх'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

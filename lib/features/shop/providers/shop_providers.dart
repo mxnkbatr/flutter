@@ -117,3 +117,23 @@ Future<void> adminDeleteProduct(WidgetRef ref, String id) async {
   ref.invalidate(adminProductsProvider);
   ref.invalidate(productsProvider);
 }
+
+final adminShopOrderFilterProvider = StateProvider<String>((ref) => 'all');
+
+final adminOrdersProvider = FutureProvider<List<ShopOrder>>((ref) async {
+  final res = await ref.read(apiClientProvider).get('/admin/orders');
+  final list = res.data is List ? res.data as List : [];
+  return list.map((e) => ShopOrder.fromJson(e as Map<String, dynamic>)).toList();
+});
+
+Future<void> adminUpdateOrderStatus(
+  WidgetRef ref,
+  String orderId,
+  String status,
+) async {
+  await ref.read(apiClientProvider).put(
+        '/admin/orders/$orderId/status',
+        data: {'status': status},
+      );
+  ref.invalidate(adminOrdersProvider);
+}

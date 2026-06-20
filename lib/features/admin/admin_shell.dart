@@ -45,8 +45,9 @@ class AdminShell extends StatelessWidget {
           unselectedItemColor: AppColors.goldMuted,
           selectedLabelStyle: AppText.caption.copyWith(
             fontWeight: FontWeight.w600,
+            fontSize: 10,
           ),
-          unselectedLabelStyle: AppText.caption,
+          unselectedLabelStyle: AppText.caption.copyWith(fontSize: 9),
           type: BottomNavigationBarType.fixed,
           elevation: 0,
           currentIndex: _selectedIndex(context),
@@ -58,15 +59,15 @@ class AdminShell extends StatelessWidget {
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.self_improvement_outlined),
-              label: 'Лам нар',
+              label: 'Лам',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.people_outline),
-              label: 'Хэрэглэгч',
+              label: 'Хэрэгл.',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.calendar_today_outlined),
-              label: 'Захиалга',
+              label: 'Захиал.',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.account_balance_wallet_outlined),
@@ -75,7 +76,7 @@ class AdminShell extends StatelessWidget {
             BottomNavigationBarItem(
               icon: Icon(Icons.storefront_outlined),
               activeIcon: Icon(Icons.storefront_rounded),
-              label: 'Бараа',
+              label: 'Дэлгүүр',
             ),
           ],
         ),

@@ -11,11 +11,21 @@ export async function authRequired(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(payload.sub);
     if (!user) return res.status(401).json({ error: 'User not found' });
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Account disabled' });
+    }
     req.user = user;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid token' });
   }
+}
+
+export function adminRequired(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
 }
 
 export function signToken(user) {

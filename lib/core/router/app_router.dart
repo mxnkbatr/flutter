@@ -27,8 +27,10 @@ import 'package:sacred_app/features/payment/payment_screen.dart';
 import 'package:sacred_app/features/payment/payment_success_screen.dart';
 import 'package:sacred_app/features/admin/screens/admin_products_screen.dart';
 import 'package:sacred_app/features/profile/presentation/profile_screen.dart';
+import 'package:sacred_app/features/profile/notification_settings_screen.dart';
 import 'package:sacred_app/features/shop/cart_screen.dart';
 import 'package:sacred_app/features/shop/shop_orders_screen.dart';
+import 'package:sacred_app/features/shop/shop_payment_screen.dart';
 import 'package:sacred_app/features/shop/shop_product_detail_screen.dart';
 import 'package:sacred_app/features/shop/shop_screen.dart';
 import 'package:sacred_app/features/splash/presentation/splash_screen.dart';
@@ -124,6 +126,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+      GoRoute(
+        path: '/call/:bookingId',
+        builder: (context, state) {
+          final auth = ref.read(authStateProvider).valueOrNull;
+          final role = state.uri.queryParameters['role'] ??
+              auth?.role ??
+              'client';
+          return VideoCallScreen(
+            bookingId: state.pathParameters['bookingId']!,
+            role: role,
+          );
+        },
+      ),
       ShellRoute(
         builder: (context, state, child) => ClientShell(child: child),
         routes: [
@@ -146,19 +161,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/call/:bookingId',
-            builder: (context, state) {
-              final auth = ref.read(authStateProvider).valueOrNull;
-              final role = state.uri.queryParameters['role'] ??
-                  auth?.role ??
-                  'client';
-              return VideoCallScreen(
-                bookingId: state.pathParameters['bookingId']!,
-                role: role,
-              );
-            },
-          ),
-          GoRoute(
             path: '/bookings',
             builder: (context, state) => const MyBookingsScreen(),
           ),
@@ -175,6 +177,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const ShopOrdersScreen(),
               ),
               GoRoute(
+                path: 'payment/:orderId',
+                builder: (context, state) => ShopPaymentScreen(
+                  orderId: state.pathParameters['orderId']!,
+                  qpayData: state.extra is QPayData ? state.extra as QPayData : null,
+                ),
+              ),
+              GoRoute(
                 path: 'product/:id',
                 builder: (context, state) => ShopProductDetailScreen(
                   productId: state.pathParameters['id']!,
@@ -189,6 +198,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: 'notifications',
+                builder: (context, state) =>
+                    const NotificationSettingsScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/subscription',
@@ -285,7 +301,8 @@ String? _guardRole(String location, String? role) {
   if (role == 'monk' &&
       (isClientRoute || location.startsWith('/admin')) &&
       !location.startsWith('/payment') &&
-      !location.startsWith('/call')) {
+      !location.startsWith('/call') &&
+      !location.startsWith('/messenger/')) {
     return '/monk/dashboard';
   }
   if (role == 'admin' &&

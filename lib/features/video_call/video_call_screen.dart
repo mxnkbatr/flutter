@@ -9,8 +9,10 @@ import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
 import 'package:sacred_app/features/video_call/widgets/call_top_bar.dart';
+import 'package:sacred_app/features/video_call/widgets/connecting_view.dart';
 import 'package:sacred_app/features/video_call/widgets/end_call_dialog.dart';
 import 'package:sacred_app/features/video_call/widgets/local_video_widget.dart';
 import 'package:sacred_app/features/video_call/widgets/waiting_view.dart';
@@ -38,6 +40,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   bool _connecting = true;
   String? _error;
   String _peerName = 'Лам';
+  String? _peerImage;
   Duration _elapsed = Duration.zero;
   Timer? _timer;
   final _noteController = TextEditingController();
@@ -79,6 +82,12 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         if (monkName != null && monkName.isNotEmpty) {
           _peerName = monkName;
         }
+        final monkImage = booking['monkImage'] as String? ??
+            (booking['monk'] as Map<String, dynamic>?)?['image'] as String?;
+        if (monkImage != null && monkImage.isNotEmpty) {
+          _peerImage = monkImage;
+        }
+        if (mounted) setState(() {});
       } catch (_) {}
 
       final res = await ref.read(apiClientProvider).get(
@@ -129,7 +138,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = formatUserError(e, fallback: 'Видео дуудлага эхлүүлэхэд алдаа гарлаа.');
         _connecting = false;
       });
     }
@@ -159,6 +168,23 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     setState(() => _isCameraOff = !_isCameraOff);
   }
 
+  Future<void> _switchCamera() async {
+    try {
+      final videoTrack = _local?.videoTrackPublications.firstOrNull?.track;
+      if (videoTrack is LocalVideoTrack) {
+        final options = videoTrack.currentOptions;
+        if (options is CameraCaptureOptions) {
+          await videoTrack.setCameraPosition(options.cameraPosition.switched());
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _cancelConnecting() async {
+    await _room?.disconnect();
+    if (mounted) context.pop();
+  }
+
   Future<void> _endCall() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -167,13 +193,30 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     if (confirm != true || !mounted) return;
 
     try {
-      await ref.read(apiClientProvider).put(
-            '/bookings/${widget.bookingId}/complete',
-          );
-    } catch (_) {}
+      if (widget.role == 'monk') {
+        await ref.read(apiClientProvider).put(
+              '/bookings/${widget.bookingId}/complete',
+            );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Дуусгах алдаа: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
 
     await _room?.disconnect();
-    if (mounted) context.go('/bookings');
+    if (mounted) {
+      if (widget.role == 'monk') {
+        context.go('/monk/dashboard?tab=2');
+      } else {
+        context.go('/bookings');
+      }
+    }
   }
 
   Future<void> _showNoteDrawer() async {
@@ -238,7 +281,12 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     if (_connecting) {
       return Scaffold(
         backgroundColor: AppColors.inkDeep,
-        body: WaitingView(role: widget.role),
+        body: ConnectingView(
+          peerName: _peerName,
+          peerImage: _peerImage,
+          role: widget.role,
+          onCancel: _cancelConnecting,
+        ),
       );
     }
 
@@ -278,7 +326,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                     remoteTrack,
                     fit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
                   )
-                : WaitingView(role: widget.role),
+                : WaitingView(
+                    role: widget.role,
+                    peerName: _peerName,
+                    peerImage: _peerImage,
+                  ),
           ),
           Positioned(
             right: 16,
@@ -309,8 +361,8 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               onMute: _toggleMute,
               onCamera: _toggleCamera,
               onEnd: _endCall,
-              onChat: () => context.push('/messenger'),
               onNote: _showNoteDrawer,
+              onSwitchCamera: _switchCamera,
             ),
           ),
         ],

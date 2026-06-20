@@ -6,6 +6,7 @@ import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/payment/models/qpay_data.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/shop/models/cart_item.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
@@ -36,6 +37,15 @@ class _CartScreenState extends ConsumerState<CartScreen> {
 
   Future<void> _checkout(List<CartItem> cart) async {
     if (cart.isEmpty) return;
+    if (_phoneCtrl.text.trim().isEmpty || _addressCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Утас болон хаяг заавал бөглөнө үү'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
     setState(() => _ordering = true);
     try {
       final res = await ref.read(apiClientProvider).post(
@@ -70,13 +80,17 @@ class _CartScreenState extends ConsumerState<CartScreen> {
             serviceName: '${cart.length} бараа',
           );
 
-      ref.read(cartProvider.notifier).clear();
-      if (mounted) context.go('/payment/$orderId', extra: qpayData);
+      if (mounted) context.go('/shop/payment/$orderId', extra: qpayData);
     } catch (e) {
+      String msg = formatUserError(e, fallback: 'Захиалга үүсгэхэд алдаа гарлаа.');
+      if (e.toString().contains('Бүтээгдэхүүн олдсонгүй')) {
+        msg = 'Сагсан дахь зарим бараа худалдаанаас хасагдсан байна. Сагсыг шинэчилнэ үү.';
+        ref.invalidate(productsProvider);
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Алдаа: $e'),
+            content: Text(msg),
             backgroundColor: AppColors.danger,
           ),
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_monk_detail.dart';
@@ -105,7 +106,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Алдаа: $e')),
+          SnackBar(content: Text(formatUserError(e))),
         );
       }
     } finally {
@@ -150,7 +151,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Алдаа: $e')),
+          SnackBar(content: Text(formatUserError(e))),
         );
       }
     } finally {
@@ -185,7 +186,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
-        error: (e, _) => Center(child: Text('Алдаа: $e')),
+        error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (detail) {
           _load(detail);
           return ListView(

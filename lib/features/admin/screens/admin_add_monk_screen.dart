@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
@@ -119,7 +120,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Алдаа: $e')),
+          SnackBar(content: Text(formatUserError(e))),
         );
       }
     } finally {

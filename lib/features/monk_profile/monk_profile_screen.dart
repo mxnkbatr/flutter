@@ -14,9 +14,13 @@ import 'package:sacred_app/core/theme/app_gradients.dart';
 
 import 'package:sacred_app/core/theme/app_text.dart';
 
+import 'package:sacred_app/core/utils/error_messages.dart';
+
 import 'package:sacred_app/core/utils/formatters.dart';
 
 import 'package:sacred_app/features/home/models/monk.dart';
+
+import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
 
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
 
@@ -35,6 +39,8 @@ import 'package:sacred_app/features/monk_profile/widgets/review_tile.dart';
 import 'package:sacred_app/features/monk_profile/widgets/schedule_accordion.dart';
 
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
+
+import 'package:sacred_app/shared/widgets/error_state.dart';
 
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
@@ -80,6 +86,10 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
     if (!launched && mounted) {
 
+      await Clipboard.setData(ClipboardData(text: url.toString()));
+
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
 
         const SnackBar(content: Text('Холбоос хуулагдлаа')),
@@ -120,6 +130,26 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
 
 
+  Future<void> _messageMonk(Monk monk) async {
+    try {
+      final convoId = await startConversation(ref, widget.monkId);
+      if (!mounted) return;
+      final title = Uri.encodeComponent(monk.displayName);
+      context.push('/messenger/$convoId?title=$title');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(formatUserError(e, fallback: 'Чат эхлүүлэхэд алдаа гарлаа.')),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
+
+
   @override
 
   Widget build(BuildContext context) {
@@ -150,7 +180,11 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
         appBar: AppBar(title: const Text('Ламын профайл')),
 
-        body: Center(child: Text('Алдаа: $e', style: AppText.bodySmall)),
+        body: ErrorState(
+          error: e,
+          fallback: 'Ламын мэдээлэл ачаалахад алдаа гарлаа.',
+          onRetry: () => ref.invalidate(monkDetailProvider(widget.monkId)),
+        ),
 
       ),
 
@@ -340,6 +374,10 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                                     style: AppText.h1.copyWith(fontSize: 26),
 
+                                    maxLines: 2,
+
+                                    overflow: TextOverflow.ellipsis,
+
                                   ),
 
                                   const SizedBox(height: 6),
@@ -518,7 +556,19 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                                   ),
 
-                                  error: (_, __) => const SizedBox.shrink(),
+                                  error: (e, _) => Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    child: Text(
+                                      formatUserError(
+                                        e,
+                                        fallback: 'Үйлчилгээ ачаалахад алдаа гарлаа.',
+                                      ),
+                                      style: AppText.bodySmall.copyWith(
+                                        color: AppColors.textSec,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
 
                                   data: (serviceList) => ListView.separated(
 
@@ -806,16 +856,34 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                   ),
 
-                  child: SacredButton(
-
-                    label: startingPrice != null
-
-                        ? 'Цаг захиалах · ${Formatters.currency(startingPrice)}-с'
-
-                        : 'Цаг захиалах',
-
-                    onTap: () => _bookMonk(monk),
-
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: SacredButton(
+                          label: startingPrice != null
+                              ? 'Цаг захиалах · ${Formatters.currency(startingPrice)}-с'
+                              : 'Цаг захиалах',
+                          onTap: () => _bookMonk(monk),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _messageMonk(monk),
+                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                          label: const Text('Чат'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.saffronDeep,
+                            side: const BorderSide(color: AppColors.saffronDeep, width: 0.5),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                 ),

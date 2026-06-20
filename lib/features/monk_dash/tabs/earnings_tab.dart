@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_earnings_data.dart';
@@ -41,7 +42,7 @@ class EarningsTab extends ConsumerWidget {
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppColors.goldPrime),
       ),
-      error: (e, _) => Center(child: Text('Алдаа: $e', style: AppText.bodySmall)),
+      error: (e, _) => Center(child: Text(formatUserError(e), style: AppText.bodySmall)),
       data: (earnings) => SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(

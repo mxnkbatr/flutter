@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_profile_edit_provider.dart';
@@ -120,7 +121,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       loading: () => const Center(
         child: CircularProgressIndicator(color: AppColors.goldPrime),
       ),
-      error: (e, _) => Center(child: Text('Алдаа: $e')),
+      error: (e, _) => Center(child: Text(formatUserError(e))),
       data: (profile) {
         _loadFromProfile(profile);
         return ListView(

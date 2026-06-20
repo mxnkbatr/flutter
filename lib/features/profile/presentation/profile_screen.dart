@@ -45,7 +45,7 @@ class ProfileScreen extends ConsumerWidget {
                 iconBackground: const Color(0xFFFFECEC),
                 iconColor: const Color(0xFFE85D5D),
                 title: 'Мэдэгдэл',
-                onTap: () {},
+                onTap: () => context.push('/profile/notifications'),
               ),
             ],
           ),

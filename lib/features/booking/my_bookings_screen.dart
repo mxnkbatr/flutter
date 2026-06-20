@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,21 +7,13 @@ import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/models/client_booking.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/booking/widgets/bookings_page_scaffold.dart';
+import 'package:sacred_app/features/booking/widgets/review_sheet.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 
 class MyBookingsScreen extends ConsumerWidget {
   const MyBookingsScreen({super.key});
-
-  String _formatBookingsError(Object error) {
-    if (error is DioException) {
-      if (error.response?.statusCode == 401) {
-        return 'Нэвтрэлт хүчинтэй биш байна.\nДахин нэвтэрнэ үү.';
-      }
-      return 'Захиалга ачаалахад алдаа гарлаа.';
-    }
-    return 'Алдаа гарлаа';
-  }
 
   Widget _emptyState(BuildContext context) {
     return LayoutBuilder(
@@ -111,15 +102,10 @@ class MyBookingsScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
         ),
-        error: (e, _) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              _formatBookingsError(e),
-              style: AppText.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-          ),
+        error: (e, _) => ErrorState(
+          error: e,
+          fallback: 'Захиалга ачаалахад алдаа гарлаа.',
+          onRetry: () => ref.invalidate(myBookingsProvider),
         ),
         data: (bookings) {
           if (bookings.isEmpty) return _emptyState(context);
@@ -147,7 +133,7 @@ class MyBookingsScreen extends ConsumerWidget {
   }
 }
 
-class _BookingCard extends StatelessWidget {
+class _BookingCard extends ConsumerWidget {
   const _BookingCard({
     required this.booking,
     required this.onCall,
@@ -160,8 +146,23 @@ class _BookingCard extends StatelessWidget {
   final VoidCallback onPay;
   final String Function(int?) fmt;
 
+  String? get _statusHint {
+    if (booking.status == 'pending') {
+      return 'Лам таны захиалгыг шалгаж байна';
+    }
+    if (booking.status == 'approved' && !booking.paid) {
+      return 'Төлбөр төлсний дараа үйлчилгээ эхэлнэ';
+    }
+    if (booking.canJoinCall) {
+      return 'Төлбөр төлөгдсөн — видео дуудлага эхлүүлж болно';
+    }
+    return null;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final needsPay = booking.status == 'approved' && !booking.paid;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: AppGradients.cardShadow(radius: 20),
@@ -198,24 +199,18 @@ class _BookingCard extends StatelessWidget {
                     Text(
                       booking.monkName,
                       style: AppText.h3.copyWith(fontSize: 16),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       '${booking.serviceName} · ${booking.slot}',
                       style: AppText.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              if (booking.canJoinCall)
-                IconButton(
-                  icon: const Icon(
-                    Icons.videocam_rounded,
-                    color: AppColors.saffron,
-                  ),
-                  onPressed: onCall,
-                )
-              else if (booking.status == 'approved' && !booking.paid)
-                TextButton(onPressed: onPay, child: const Text('Төлөх')),
             ],
           ),
           if (booking.date != null) ...[
@@ -232,6 +227,137 @@ class _BookingCard extends StatelessWidget {
               ],
             ],
           ),
+          if (_statusHint != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _statusHint!,
+              style: AppText.caption.copyWith(color: AppColors.textSec),
+            ),
+          ],
+          if (needsPay) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: GestureDetector(
+                onTap: onPay,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.sun,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.payment_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Төлбөр төлөх',
+                        style: AppText.bodySmall.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ] else if (booking.canJoinCall) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onCall,
+                icon: const Icon(Icons.videocam_rounded, size: 18),
+                label: const Text('Видео дуудлага эхлүүлэх'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.saffronDeep,
+                  side: const BorderSide(
+                    color: AppColors.saffronDeep,
+                    width: 0.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ],
+          if (booking.status == 'completed' && !booking.reviewed) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: booking.monkId.isEmpty
+                    ? null
+                    : () async {
+                        final result = await showModalBottomSheet<bool>(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: AppColors.surface,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(24),
+                            ),
+                          ),
+                          builder: (_) => ReviewSheet(
+                            monkId: booking.monkId,
+                            bookingId: booking.id,
+                            monkName: booking.monkName,
+                          ),
+                        );
+                        if (result == true) {
+                          ref.invalidate(myBookingsProvider);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Сэтгэгдэл илгээгдлээ. Баярлалаа!',
+                                ),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                icon: const Icon(Icons.star_outline_rounded, size: 18),
+                label: const Text('Сэтгэгдэл бичих'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.saffronDeep,
+                  side: const BorderSide(
+                    color: AppColors.saffronDeep,
+                    width: 0.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ] else if (booking.status == 'completed' && booking.reviewed) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 16,
+                  color: AppColors.success,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Сэтгэгдэл илгээсэн',
+                  style: AppText.caption.copyWith(color: AppColors.success),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

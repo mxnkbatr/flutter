@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
@@ -22,7 +23,7 @@ class DashboardTab extends ConsumerWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Алдаа: $e', style: AppText.bodySmall),
+            Text(formatUserError(e), style: AppText.bodySmall),
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => ref.invalidate(monkDashboardProvider),

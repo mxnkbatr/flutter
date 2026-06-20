@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
 import 'package:sacred_app/features/booking/widgets/service_select_card.dart';
@@ -22,7 +23,7 @@ class ServiceSelectionStep extends ConsumerWidget {
         child: CircularProgressIndicator(),
       ),
       error: (e, _) => Center(
-        child: Text('Алдаа: $e', style: AppText.bodySmall),
+        child: Text(formatUserError(e), style: AppText.bodySmall),
       ),
       data: (services) {
         if (services.isEmpty) {

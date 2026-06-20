@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({
@@ -22,9 +26,19 @@ class ChatScreen extends ConsumerStatefulWidget {
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      ref.invalidate(messagesProvider(widget.conversationId));
+    });
+  }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -40,6 +54,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         conversationId: widget.conversationId,
         text: text,
       );
+    } catch (e) {
+      _controller.text = text;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(formatUserError(e, fallback: 'Мессеж илгээхэд алдаа гарлаа.')),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -67,8 +91,39 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.blue),
               ),
-              error: (e, _) => Center(child: Text('$e')),
-              data: (messages) => ListView.builder(
+              error: (e, _) => ErrorState(
+                error: e,
+                fallback: 'Мессеж ачаалахад алдаа гарлаа.',
+                onRetry: () =>
+                    ref.invalidate(messagesProvider(widget.conversationId)),
+              ),
+              data: (messages) {
+                if (messages.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 48,
+                            color: AppColors.textHint,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Мессеж бичиж эхлүүлээрэй',
+                            style: AppText.bodySmall.copyWith(
+                              color: AppColors.textSec,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+                return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 itemCount: messages.length,
                 itemBuilder: (_, i) {
@@ -113,7 +168,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                   );
                 },
-              ),
+              );
+              },
             ),
           ),
           Container(
@@ -121,11 +177,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 10),
             child: Row(
               children: [
-                IconButton(
-                  onPressed: () {},
-                  icon: const Icon(Icons.add_circle_outline_rounded),
-                  color: AppColors.textSec,
-                ),
                 Expanded(
                   child: TextField(
                     controller: _controller,
@@ -156,11 +207,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       gradient: AppGradients.primary,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
-                      Icons.send_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    child: _sending
+                        ? const Padding(
+                            padding: EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.send_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                   ),
                 ),
               ],

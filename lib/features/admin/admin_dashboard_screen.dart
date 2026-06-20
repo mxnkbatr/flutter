@@ -9,6 +9,8 @@ import 'package:sacred_app/features/admin/widgets/admin_booking_row.dart';
 import 'package:sacred_app/features/admin/widgets/kpi_card.dart';
 import 'package:sacred_app/features/admin/widgets/pending_monk_card.dart';
 import 'package:sacred_app/features/admin/widgets/revenue_chart.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -25,7 +27,14 @@ class AdminDashboardScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Мэдэгдлийн төв удахгүй нээгдэнэ'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -33,18 +42,10 @@ class AdminDashboardScreen extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Алдаа: $e', style: AppText.bodySmall),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(adminDashboardProvider),
-                child: const Text('Дахин оролдох'),
-              ),
-            ],
-          ),
+        error: (e, _) => ErrorState(
+          error: e,
+          fallback: 'Самбарын мэдээлэл ачаалахад алдаа гарлаа.',
+          onRetry: () => ref.invalidate(adminDashboardProvider),
         ),
         data: (stats) => RefreshIndicator(
           color: AppColors.goldPrime,

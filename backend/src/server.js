@@ -16,7 +16,7 @@ import {
   Product,
   Order,
 } from './db.js';
-import { authRequired, signToken } from './middleware/auth.js';
+import { authRequired, adminRequired, signToken } from './middleware/auth.js';
 import {
   DEFAULT_SERVICES,
   DEFAULT_WEEKLY_SCHEDULE,
@@ -27,6 +27,14 @@ import { ensureUploadsDir, uploadsRoot, saveBase64Image } from './uploadUtils.js
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const TIER_DISCOUNTS = {
+  free: 0,
+  premium: 10,
+  vip: 20,
+};
+
+const PLATFORM_FEE_RATE = 0.1;
 
 ensureUploadsDir('monks');
 
@@ -101,7 +109,7 @@ function orderJson(o) {
 async function markShopOrderPaid(orderId) {
   if (!orderId) return;
   const order = await Order.findById(orderId);
-  if (!order) return;
+  if (!order || order.paid) return;
   order.paid = true;
   order.status = 'paid';
   await order.save();
@@ -124,6 +132,7 @@ function bookingJson(b, extra = {}) {
     amount: b.amount,
     status: b.status,
     paid: b.paid,
+    reviewed: b.reviewed ?? false,
     bankTransferPending: b.bankTransferPending === true,
     ...extra,
   };
@@ -189,6 +198,9 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await User.findOne({ email: email?.toLowerCase() });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    if (user.isActive === false) {
+      return res.status(403).json({ error: 'Account disabled' });
     }
     const token = signToken(user);
     res.json({ token, user: userJson(user) });
@@ -291,6 +303,54 @@ app.get('/api/monks/:id/reviews', async (req, res) => {
   }
 });
 
+// Сэтгэгдэл бичих — зөвхөн тухайн ламаас completed захиалгатай client
+app.post('/api/monks/:id/reviews', authRequired, async (req, res) => {
+  try {
+    const { rating, comment, bookingId } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Үнэлгээ 1-5 хооронд байх ёстой' });
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return res.status(404).json({ error: 'Захиалга олдсонгүй' });
+    if (booking.clientId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+    if (booking.monkId?.toString() !== req.params.id) {
+      return res.status(400).json({ error: 'Захиалга тохирохгүй байна' });
+    }
+    if (booking.status !== 'completed') {
+      return res.status(400).json({ error: 'Зөвхөн дууссан захиалгад сэтгэгдэл бичнэ' });
+    }
+    if (booking.reviewed) {
+      return res.status(400).json({ error: 'Энэ захиалгад сэтгэгдэл бичсэн байна' });
+    }
+
+    await Review.create({
+      monkId: req.params.id,
+      clientName: req.user.name,
+      rating,
+      comment: comment || '',
+    });
+
+    booking.reviewed = true;
+    await booking.save();
+
+    const allReviews = await Review.find({ monkId: req.params.id });
+    const avgRating =
+      allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+
+    await Monk.findByIdAndUpdate(req.params.id, {
+      rating: Math.round(avgRating * 10) / 10,
+      reviewCount: allReviews.length,
+    });
+
+    res.status(201).json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Bookings ───
 app.get('/api/bookings', authRequired, async (req, res) => {
   try {
@@ -356,10 +416,10 @@ app.get('/api/bookings/:id', authRequired, async (req, res) => {
 
 app.post('/api/bookings', authRequired, async (req, res) => {
   try {
-    const { monkId, serviceId, date, slot, amount, discountPercent } = req.body;
+    const { monkId, serviceId, date, slot } = req.body;
     const monk = await Monk.findById(monkId);
     if (!monk) return res.status(404).json({ error: 'Monk not found' });
-    if (monk.status === 'blocked') {
+    if (monk.status !== 'active') {
       return res.status(403).json({ error: 'Monk is not available' });
     }
 
@@ -382,19 +442,25 @@ app.post('/api/bookings', authRequired, async (req, res) => {
 
     const svcIdx = serviceId?.split('_svc_')[1];
     const service = svcIdx != null ? monk.services[Number(svcIdx)] : monk.services[0];
+    if (!service) return res.status(400).json({ error: 'Service not found' });
+
+    const basePrice = service.price || 0;
+    const discountPercent = TIER_DISCOUNTS[req.user.tier] || 0;
+    const discounted = Math.round(basePrice * (1 - discountPercent / 100));
+    const platformFee = Math.round(discounted * PLATFORM_FEE_RATE);
+    const finalAmount = discounted + platformFee;
 
     const booking = await Booking.create({
       clientId: req.user._id,
       monkId: monk._id,
       serviceId,
       serviceName: service?.name || 'Үйлчилгээ',
-      date: date?.slice(0, 10),
+      date: dateStr,
       slot,
-      amount,
-      discountPercent: discountPercent || 0,
-      status: 'approved',
+      amount: finalAmount,
+      discountPercent,
+      status: 'pending',
       paid: false,
-      approvedAt: new Date(),
     });
 
     res.json({ bookingId: booking._id.toString(), id: booking._id.toString() });
@@ -405,6 +471,7 @@ app.post('/api/bookings', authRequired, async (req, res) => {
 
 app.put('/api/bookings/:id/confirm', authRequired, async (req, res) => {
   try {
+    if (!(await assertMonkNotBlocked(req.user, res))) return;
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Олдсонгүй' });
 
@@ -414,11 +481,15 @@ app.put('/api/bookings/:id/confirm', authRequired, async (req, res) => {
     if (!isMonkOwner && !isAdmin) {
       return res.status(403).json({ error: 'Эрх байхгүй' });
     }
+    if (booking.status !== 'pending') {
+      return res.status(400).json({ error: 'Зөвхөн хүлээгдэж буй захиалгыг батална' });
+    }
 
-    booking.status = 'confirmed';
+    booking.status = 'approved';
+    booking.approvedAt = new Date();
     await booking.save();
 
-    res.json({ ok: true, status: 'confirmed' });
+    res.json({ ok: true, status: 'approved' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -438,6 +509,29 @@ async function bookingAccess(bookingId, user) {
   return { booking, monk, isClient, isMonk, isAdmin };
 }
 
+function effectiveTier(user) {
+  const tier = user.tier || 'free';
+  if (user.tierExpiresAt && new Date(user.tierExpiresAt) < new Date()) return 'free';
+  return tier;
+}
+
+async function paymentAccess(payment, user) {
+  if (!payment) return { error: 'Not found', status: 404 };
+  if (user.role === 'admin') return { ok: true };
+  if (payment.userId?.toString() === user._id.toString()) return { ok: true };
+  return { error: 'Forbidden', status: 403 };
+}
+
+async function assertMonkNotBlocked(user, res) {
+  if (user.role !== 'monk' || !user.monkProfileId) return true;
+  const monk = await Monk.findById(user.monkProfileId).lean();
+  if (monk?.status === 'blocked') {
+    res.status(403).json({ error: 'Monk account is blocked' });
+    return false;
+  }
+  return true;
+}
+
 const PLATFORM_BANK = {
   bankName: process.env.PLATFORM_BANK_NAME || 'Хаан банк',
   accountNumber: process.env.PLATFORM_BANK_ACCOUNT || '5000123456',
@@ -446,13 +540,62 @@ const PLATFORM_BANK = {
 };
 
 app.put('/api/bookings/:id/cancel', authRequired, async (req, res) => {
-  await Booking.findByIdAndUpdate(req.params.id, { status: 'cancelled' });
-  res.json({ ok: true });
+  try {
+    if (!(await assertMonkNotBlocked(req.user, res))) return;
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Олдсонгүй' });
+
+    const monk = await Monk.findById(booking.monkId);
+    const userId = req.user._id.toString();
+    const isClient = booking.clientId?.toString() === userId;
+    const isMonkOwner = monk?.userId?.toString() === userId;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isClient && !isMonkOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+    if (['completed', 'cancelled'].includes(booking.status)) {
+      return res.status(400).json({ error: 'Энэ захиалгыг цуцлах боломжгүй' });
+    }
+    if (isMonkOwner && booking.paid) {
+      return res.status(400).json({ error: 'Төлсөн захиалгыг цуцлах боломжгүй' });
+    }
+
+    booking.status = 'cancelled';
+    await booking.save();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.put('/api/bookings/:id/complete', authRequired, async (req, res) => {
-  await Booking.findByIdAndUpdate(req.params.id, { status: 'completed' });
-  res.json({ ok: true });
+  try {
+    if (!(await assertMonkNotBlocked(req.user, res))) return;
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ error: 'Олдсонгүй' });
+
+    const monk = await Monk.findById(booking.monkId);
+    const userId = req.user._id.toString();
+    const isMonkOwner = monk?.userId?.toString() === userId;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isMonkOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+    if (booking.status !== 'confirmed') {
+      return res.status(400).json({ error: 'Зөвхөн баталгаажсан захиалгыг дуусгана' });
+    }
+    if (!booking.paid) {
+      return res.status(400).json({ error: 'Төлбөр төлөгдөөгүй байна' });
+    }
+
+    booking.status = 'completed';
+    await booking.save();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Payment / QPay (mock + real hook) ───
@@ -463,7 +606,7 @@ function fakeQrBase64(amount) {
 
 app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
   try {
-    const { bookingId, amount } = req.body;
+    const { bookingId, regenerate } = req.body;
     const access = await bookingAccess(bookingId, req.user);
     if (access.error) return res.status(access.status).json({ error: access.error });
     const { booking, isClient } = access;
@@ -475,6 +618,15 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
     }
     if (booking.paid) {
       return res.status(400).json({ error: 'Already paid' });
+    }
+
+    if (regenerate) {
+      await Payment.deleteMany({
+        bookingId,
+        type: 'booking',
+        paid: false,
+        method: 'qpay',
+      });
     }
 
     const existing = await Payment.findOne({
@@ -495,7 +647,7 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
       });
     }
 
-    const payAmount = amount || booking.amount;
+    const payAmount = booking.amount;
     const invoiceId = `INV-${uuidv4().slice(0, 8)}`;
     await Payment.create({
       invoiceId,
@@ -524,7 +676,7 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
   try {
     const access = await bookingAccess(req.params.bookingId, req.user);
     if (access.error) return res.status(access.status).json({ error: access.error });
-    const { booking, monk, isClient } = access;
+    const { booking, monk, isClient, isAdmin } = access;
 
     const client = await User.findById(booking.clientId).lean();
     const payment = await Payment.findOne({
@@ -532,6 +684,8 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
       type: 'booking',
       paid: false,
     }).sort({ createdAt: -1 });
+
+    const showQpay = isClient || isAdmin;
 
     res.json({
       booking: {
@@ -544,7 +698,7 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
       reference: booking._id.toString().slice(-8).toUpperCase(),
       canPay: isClient && booking.status === 'approved' && !booking.paid,
       paymentPending: booking.bankTransferPending === true,
-      qpay: payment?.method === 'qpay'
+      qpay: showQpay && payment?.method === 'qpay'
           ? {
               invoiceId: payment.invoiceId,
               amount: payment.amount,
@@ -555,6 +709,43 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
               ],
             }
           : null,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/payment/order/:orderId', authRequired, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ error: 'Not found' });
+
+    const isOwner = order.userId?.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+
+    const payment = await Payment.findOne({
+      orderId: order._id,
+      type: 'shop_order',
+      paid: false,
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      order: orderJson(order),
+      canPay: isOwner && !order.paid,
+      qpay: payment
+        ? {
+            invoiceId: payment.invoiceId,
+            amount: payment.amount,
+            qrImage: fakeQrBase64(payment.amount),
+            urls: [
+              { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
+              { name: 'Golomt', link: 'https://qpay.mn', logo: null },
+            ],
+          }
+        : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -603,7 +794,8 @@ app.post('/api/payment/bank-transfer/:bookingId', authRequired, async (req, res)
 
 app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => {
   const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
-  if (!payment) return res.status(404).json({ error: 'Not found' });
+  const access = await paymentAccess(payment, req.user);
+  if (access.error) return res.status(access.status).json({ error: access.error });
 
   // Auto-simulate paid after 15s in dev (no QPay credentials)
   if (!payment.paid && !process.env.QPAY_USERNAME) {
@@ -632,10 +824,14 @@ app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => 
   res.json({ paid: payment.paid });
 });
 
-// Dev: manually mark paid
+// Dev: manually mark paid (owner or admin only)
 app.post('/api/payment/qpay/simulate/:invoiceId', authRequired, async (req, res) => {
+  if (process.env.QPAY_USERNAME) {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
   const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
-  if (!payment) return res.status(404).json({ error: 'Not found' });
+  const access = await paymentAccess(payment, req.user);
+  if (access.error) return res.status(access.status).json({ error: access.error });
   payment.paid = true;
   payment.paidAt = new Date();
   await payment.save();
@@ -651,8 +847,36 @@ app.post('/api/payment/qpay/simulate/:invoiceId', authRequired, async (req, res)
 // ─── LiveKit ───
 app.get('/api/livekit', authRequired, async (req, res) => {
   try {
-    const room = req.query.room || 'default';
+    const room = req.query.room || '';
     const username = req.query.username || req.user.name || 'user';
+
+    const match = /^booking-(.+)$/.exec(room);
+    if (match) {
+      const bookingId = match[1];
+      const booking = await Booking.findById(bookingId).lean();
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+      const monk = await Monk.findById(booking.monkId).lean();
+      const userId = req.user._id.toString();
+      const isClient = booking.clientId?.toString() === userId;
+      const isMonk = monk?.userId?.toString() === userId;
+      const isAdmin = req.user.role === 'admin';
+
+      if (!isClient && !isMonk && !isAdmin) {
+        return res.status(403).json({ error: 'Эрх байхгүй' });
+      }
+      if (!booking.paid || booking.status !== 'confirmed') {
+        return res.status(403).json({ error: 'Захиалга баталгаажаагүй байна' });
+      }
+      if (isClient && effectiveTier(req.user) === 'free') {
+        return res.status(403).json({ error: 'Видео дуудлага Premium гишүүдэд нээлттэй' });
+      }
+    } else {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Эрх байхгүй' });
+      }
+    }
+
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
     const wsUrl = process.env.LIVEKIT_URL;
@@ -777,7 +1001,10 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
 });
 
 app.put('/api/monk/availability', authRequired, async (req, res) => {
-  if (!req.user.monkProfileId) return res.status(403).json({ error: 'Not a monk' });
+  if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+    return res.status(403).json({ error: 'Not a monk' });
+  }
+  if (!(await assertMonkNotBlocked(req.user, res))) return;
   await Monk.findByIdAndUpdate(req.user.monkProfileId, {
     isAvailable: req.body.isAvailable,
   });
@@ -785,12 +1012,18 @@ app.put('/api/monk/availability', authRequired, async (req, res) => {
 });
 
 app.get('/api/monk/schedule', authRequired, async (req, res) => {
+  if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+    return res.status(403).json({ error: 'Not a monk' });
+  }
   const monk = await Monk.findById(req.user.monkProfileId);
   res.json({ days: monk?.schedule || [] });
 });
 
 app.put('/api/monk/schedule', authRequired, async (req, res) => {
-  if (!req.user.monkProfileId) return res.status(403).json({ error: 'Not a monk' });
+  if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+    return res.status(403).json({ error: 'Not a monk' });
+  }
+  if (!(await assertMonkNotBlocked(req.user, res))) return;
   const days = req.body.days || req.body;
   await Monk.findByIdAndUpdate(req.user.monkProfileId, { schedule: days });
   res.json({ ok: true });
@@ -822,7 +1055,10 @@ app.get('/api/monk/profile', authRequired, async (req, res) => {
 
 app.put('/api/monk/profile', authRequired, async (req, res) => {
   try {
-    if (!req.user.monkProfileId) return res.status(403).json({ error: 'Not a monk' });
+    if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+      return res.status(403).json({ error: 'Not a monk' });
+    }
+    if (!(await assertMonkNotBlocked(req.user, res))) return;
     const { name, temple, bio, categories, title, image } = req.body;
     const updates = {};
     if (name != null) {
@@ -851,7 +1087,10 @@ app.put('/api/monk/profile', authRequired, async (req, res) => {
 
 app.put('/api/monk/services', authRequired, async (req, res) => {
   try {
-    if (!req.user.monkProfileId) return res.status(403).json({ error: 'Not a monk' });
+    if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+      return res.status(403).json({ error: 'Not a monk' });
+    }
+    if (!(await assertMonkNotBlocked(req.user, res))) return;
     const services = (req.body.services || []).map((s) => ({
       name: typeof s.name === 'object' ? s.name.mn || s.name.en : s.name,
       description: s.description || '',
@@ -884,6 +1123,9 @@ app.put('/api/monk/services', authRequired, async (req, res) => {
 });
 
 app.get('/api/monk/salary', authRequired, async (req, res) => {
+  if (req.user.role !== 'monk' || !req.user.monkProfileId) {
+    return res.status(403).json({ error: 'Not a monk' });
+  }
   const month = req.query.month || new Date().toISOString().slice(0, 7);
   const bookings = await Booking.find({
     monkId: req.user.monkProfileId,
@@ -916,6 +1158,21 @@ app.get('/api/monk/salary', authRequired, async (req, res) => {
 });
 
 // ─── Messenger ───
+async function conversationAccess(conversationId, user) {
+  const convo = await Conversation.findById(conversationId).lean();
+  if (!convo) return { error: 'Not found', status: 404 };
+
+  const userId = user._id.toString();
+  const isClient = convo.clientId?.toString() === userId;
+  const isMonkUser = convo.monkUserId?.toString() === userId;
+  const isAdmin = user.role === 'admin';
+
+  if (!isClient && !isMonkUser && !isAdmin) {
+    return { error: 'Forbidden', status: 403 };
+  }
+  return { convo };
+}
+
 app.get('/api/messenger/conversations', authRequired, async (req, res) => {
   let filter;
   if (req.user.role === 'monk' && req.user.monkProfileId) {
@@ -945,6 +1202,9 @@ app.get('/api/messenger/conversations', authRequired, async (req, res) => {
 });
 
 app.get('/api/messenger/conversations/:id/messages', authRequired, async (req, res) => {
+  const access = await conversationAccess(req.params.id, req.user);
+  if (access.error) return res.status(access.status).json({ error: access.error });
+
   const msgs = await Message.find({ conversationId: req.params.id }).sort({ createdAt: 1 });
   res.json(
     msgs.map((m) => ({
@@ -958,14 +1218,19 @@ app.get('/api/messenger/conversations/:id/messages', authRequired, async (req, r
 });
 
 app.post('/api/messenger/conversations/:id/messages', authRequired, async (req, res) => {
+  const access = await conversationAccess(req.params.id, req.user);
+  if (access.error) return res.status(access.status).json({ error: access.error });
+
   const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: 'Text required' });
+
   const msg = await Message.create({
     conversationId: req.params.id,
     senderId: req.user._id,
-    text,
+    text: text.trim(),
   });
   await Conversation.findByIdAndUpdate(req.params.id, {
-    lastMessage: text,
+    lastMessage: text.trim(),
     lastMessageAt: new Date(),
   });
   res.json({
@@ -1186,12 +1451,20 @@ app.get('/api/admin/monks/:id', authRequired, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/monks/:id', authRequired, async (req, res) => {
+app.delete('/api/admin/monks/:id', authRequired, adminRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-
     const monk = await Monk.findById(req.params.id);
     if (!monk) return res.status(404).json({ error: 'Monk not found' });
+
+    const activeBookings = await Booking.countDocuments({
+      monkId: monk._id,
+      status: { $nin: ['completed', 'cancelled'] },
+    });
+    if (activeBookings > 0) {
+      return res.status(400).json({
+        error: 'Идэвхтэй захиалга байна. Эхлээд захиалгуудыг дуусгана уу.',
+      });
+    }
 
     const user = await User.findOne({ monkProfileId: monk._id });
     const monkId = monk._id;
@@ -1213,19 +1486,25 @@ app.delete('/api/admin/monks/:id', authRequired, async (req, res) => {
   }
 });
 
-app.post('/api/admin/monks/:id/approve', authRequired, async (req, res) => {
-  await Monk.findByIdAndUpdate(req.params.id, { status: 'active' });
+app.post('/api/admin/monks/:id/approve', authRequired, adminRequired, async (req, res) => {
+  const monk = await Monk.findByIdAndUpdate(req.params.id, { status: 'active' }, { new: true });
+  if (!monk) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
-app.post('/api/admin/monks/:id/block', authRequired, async (req, res) => {
-  await Monk.findByIdAndUpdate(req.params.id, { status: 'blocked' });
+app.post('/api/admin/monks/:id/block', authRequired, adminRequired, async (req, res) => {
+  const monk = await Monk.findByIdAndUpdate(req.params.id, { status: 'blocked' }, { new: true });
+  if (!monk) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
-app.post('/api/admin/users/:id/block', authRequired, async (req, res) => {
+app.post('/api/admin/users/:id/block', authRequired, adminRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Not found' });
+    if (target.role === 'admin') {
+      return res.status(403).json({ error: 'Cannot block admin accounts' });
+    }
     await User.findByIdAndUpdate(req.params.id, { isActive: false });
     res.json({ ok: true });
   } catch (e) {
@@ -1233,9 +1512,8 @@ app.post('/api/admin/users/:id/block', authRequired, async (req, res) => {
   }
 });
 
-app.post('/api/admin/users/:id/unblock', authRequired, async (req, res) => {
+app.post('/api/admin/users/:id/unblock', authRequired, adminRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     await User.findByIdAndUpdate(req.params.id, { isActive: true });
     res.json({ ok: true });
   } catch (e) {
@@ -1243,7 +1521,7 @@ app.post('/api/admin/users/:id/unblock', authRequired, async (req, res) => {
   }
 });
 
-app.get('/api/admin/users', authRequired, async (req, res) => {
+app.get('/api/admin/users', authRequired, adminRequired, async (req, res) => {
   const users = await User.find();
   res.json(
     users.map((u) => ({
@@ -1332,6 +1610,9 @@ app.put('/api/admin/bookings/:id/confirm-payment', authRequired, async (req, res
     if (!booking) return res.status(404).json({ error: 'Not found' });
     if (booking.status !== 'approved' || booking.paid) {
       return res.status(400).json({ error: 'Invalid booking state' });
+    }
+    if (!booking.bankTransferPending) {
+      return res.status(400).json({ error: 'No pending bank transfer' });
     }
     booking.paid = true;
     booking.status = 'confirmed';
@@ -1469,7 +1750,18 @@ app.post('/api/admin/products', authRequired, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const { name, description, price, image, category, stock } = req.body;
     if (!name || price == null) return res.status(400).json({ error: 'name, price заавал' });
-    const p = await Product.create({ name, description, price, image, category, stock });
+    if (Number(price) < 0) return res.status(400).json({ error: 'Үнэ сөрөг байж болохгүй' });
+    if (stock != null && Number(stock) < 0) {
+      return res.status(400).json({ error: 'Үлдэгдэл сөрөг байж болохгүй' });
+    }
+    const p = await Product.create({
+      name,
+      description,
+      price: Number(price),
+      image,
+      category,
+      stock: Number(stock) || 0,
+    });
     res.status(201).json(productJson(p));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1481,12 +1773,18 @@ app.put('/api/admin/products/:id', authRequired, async (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const { name, description, price, image, category, stock, isActive } = req.body;
     const updates = {};
+    if (price != null) {
+      if (Number(price) < 0) return res.status(400).json({ error: 'Үнэ сөрөг байж болохгүй' });
+      updates.price = Number(price);
+    }
+    if (stock != null) {
+      if (Number(stock) < 0) return res.status(400).json({ error: 'Үлдэгдэл сөрөг байж болохгүй' });
+      updates.stock = Number(stock);
+    }
     if (name != null) updates.name = name;
     if (description != null) updates.description = description;
-    if (price != null) updates.price = Number(price);
     if (image != null) updates.image = image;
     if (category != null) updates.category = category;
-    if (stock != null) updates.stock = Number(stock);
     if (isActive != null) updates.isActive = isActive;
     const p = await Product.findByIdAndUpdate(req.params.id, updates, { new: true });
     if (!p) return res.status(404).json({ error: 'Not found' });
@@ -1534,6 +1832,9 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
       const p = productMap[item.productId];
       if (!p) throw new Error(`Бүтээгдэхүүн олдсонгүй: ${item.productId}`);
       const qty = Number(item.quantity) || 1;
+      if (qty > (p.stock ?? 0)) {
+        throw new Error(`Үлдэгдэл хүрэлцэхгүй: ${p.name}`);
+      }
       totalAmount += p.price * qty;
       return {
         productId: p._id,
@@ -1589,10 +1890,69 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
   }
 });
 
+app.post('/api/shop/orders/:id/qpay', authRequired, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) return res.status(404).json({ error: 'Not found' });
+    if (order.userId?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+    if (order.paid) return res.status(400).json({ error: 'Already paid' });
+
+    if (req.body?.regenerate) {
+      await Payment.deleteMany({
+        orderId: order._id,
+        type: 'shop_order',
+        paid: false,
+      });
+    }
+
+    let payment = await Payment.findOne({
+      orderId: order._id,
+      type: 'shop_order',
+      paid: false,
+    }).sort({ createdAt: -1 });
+
+    if (!payment) {
+      const invoiceId = `SHOP-${uuidv4().slice(0, 8)}`;
+      order.invoiceId = invoiceId;
+      await order.save();
+      payment = await Payment.create({
+        userId: req.user._id,
+        invoiceId,
+        amount: order.totalAmount,
+        type: 'shop_order',
+        orderId: order._id,
+        paid: false,
+        method: 'qpay',
+      });
+    }
+
+    res.json({
+      invoiceId: payment.invoiceId,
+      amount: payment.amount,
+      qrImage: fakeQrBase64(payment.amount),
+      urls: [
+        { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
+        { name: 'Golomt', link: 'https://qpay.mn', logo: null },
+      ],
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/shop/orders/:id/check', authRequired, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Not found' });
+
+    const isOwner = order.userId?.toString() === req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'Эрх байхгүй' });
+    }
+
     if (order.paid) return res.json({ paid: true, status: order.status });
 
     const age = Date.now() - new Date(order.createdAt).getTime();
@@ -1642,12 +2002,23 @@ app.get('/api/admin/orders', authRequired, async (req, res) => {
   }
 });
 
-app.put('/api/admin/orders/:id/status', authRequired, async (req, res) => {
+app.put('/api/admin/orders/:id/status', authRequired, adminRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const { status } = req.body;
-    const order = await Order.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const valid = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
+    if (!valid.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+    const order = await Order.findById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Not found' });
+    order.status = status;
+    if (status === 'paid' && !order.paid) {
+      order.paid = true;
+      await order.save();
+      await markShopOrderPaid(order._id);
+    } else {
+      await order.save();
+    }
     res.json(orderJson(order));
   } catch (e) {
     res.status(500).json({ error: e.message });

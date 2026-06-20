@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/constants/app_branding.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -44,7 +45,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (authAsync.hasError) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(authAsync.error.toString()),
+          content: Text(formatUserError(authAsync.error)),
           backgroundColor: AppColors.danger,
         ),
       );

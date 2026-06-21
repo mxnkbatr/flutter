@@ -63,7 +63,7 @@ class AppTheme {
         ),
         unselectedLabelStyle: TextStyle(fontSize: 10),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceEl,
         elevation: 0,
         shape: RoundedRectangleBorder(

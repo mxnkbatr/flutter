@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/auth_ambient_scaffold.dart';
 
 class ConnectingView extends StatefulWidget {
   const ConnectingView({
@@ -15,7 +16,7 @@ class ConnectingView extends StatefulWidget {
 
   final String peerName;
   final String? peerImage;
-  final String role; // 'client' | 'monk'
+  final String role;
   final VoidCallback onCancel;
 
   @override
@@ -31,8 +32,8 @@ class _ConnectingViewState extends State<ConnectingView>
     super.initState();
     _pulseCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -46,167 +47,123 @@ class _ConnectingViewState extends State<ConnectingView>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(gradient: AppGradients.heroInk),
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 140,
-              height: 140,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  AnimatedBuilder(
-                    animation: _pulseCtrl,
-                    builder: (_, __) {
-                      final t = _pulseCtrl.value;
-                      return Opacity(
-                        opacity: (1 - t).clamp(0.0, 1.0),
-                        child: Transform.scale(
-                          scale: 0.9 + t * 0.4,
-                          child: Container(
-                            width: 96,
-                            height: 96,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.goldPrime.withOpacity(0.3),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  AnimatedBuilder(
-                    animation: _pulseCtrl,
-                    builder: (_, __) {
-                      final t = (_pulseCtrl.value + 0.5) % 1.0;
-                      return Opacity(
-                        opacity: (1 - t).clamp(0.0, 1.0),
-                        child: Transform.scale(
-                          scale: 0.9 + t * 0.4,
-                          child: Container(
-                            width: 96,
-                            height: 96,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.goldPrime.withOpacity(0.3),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: const BoxDecoration(
-                      gradient: AppGradients.sun,
+    return Scaffold(
+      backgroundColor: AppColors.creamBg,
+      body: Stack(
+        children: [
+          const AuthAmbientBackground(),
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
+                Text(
+                  'Видео дуудлага',
+                  style: AppText.displaySerif(size: 26, color: AppColors.inkDeep),
+                ),
+                const Spacer(),
+                AnimatedBuilder(
+                  animation: _pulseCtrl,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: 1.0 + _pulseCtrl.value * 0.04,
+                      child: child,
+                    );
+                  },
+                  child: Container(
+                    width: 140,
+                    height: 140,
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      gradient: AppGradients.primary,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.orange.withOpacity(0.28),
+                          blurRadius: 28,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
-                    clipBehavior: Clip.hardEdge,
-                    child: widget.peerImage != null &&
-                            widget.peerImage!.isNotEmpty
-                        ? Image.network(
-                            widget.peerImage!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Center(
+                    padding: const EdgeInsets.all(4),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: AppColors.surfaceEl,
+                        shape: BoxShape.circle,
+                      ),
+                      clipBehavior: Clip.hardEdge,
+                      child: widget.peerImage != null &&
+                              widget.peerImage!.isNotEmpty
+                          ? Image.network(
+                              widget.peerImage!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Center(
+                                child: Text(
+                                  _initial,
+                                  style: AppText.displaySerif(
+                                    size: 40,
+                                    color: AppColors.orange,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
                               child: Text(
                                 _initial,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.w700,
+                                style: AppText.displaySerif(
+                                  size: 40,
+                                  color: AppColors.orange,
                                 ),
                               ),
                             ),
-                          )
-                        : Center(
-                            child: Text(
-                              _initial,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
+                    ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              widget.peerName,
-              style: AppText.h3.copyWith(color: Colors.white, fontSize: 17),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Холбогдож байна...',
-              style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
-            ),
-            const SizedBox(height: 12),
-            AnimatedBuilder(
-              animation: _pulseCtrl,
-              builder: (_, __) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(3, (i) {
-                    final t = (_pulseCtrl.value * 3 - i) % 3;
-                    final opacity = t < 1
-                        ? (0.2 + 0.8 * (1 - (t - 0.3).abs() / 0.7))
-                            .clamp(0.2, 1.0)
-                        : 0.2;
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.goldPrime.withOpacity(opacity),
-                        shape: BoxShape.circle,
+                ),
+                const SizedBox(height: 28),
+                Text(
+                  widget.peerName,
+                  style: AppText.h2.copyWith(color: AppColors.inkDeep),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Холбогдож байна...',
+                  style: AppText.bodySmall.copyWith(color: AppColors.textSec),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.orange.withOpacity(0.8),
+                  ),
+                ),
+                const Spacer(flex: 2),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: OutlinedButton(
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      widget.onCancel();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 52),
+                      side: BorderSide(color: AppColors.orange.withOpacity(0.4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    );
-                  }),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                widget.onCancel();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 0.5,
+                    ),
+                    child: Text(
+                      'Цуцлах',
+                      style: AppText.body.copyWith(
+                        color: AppColors.orange,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Цуцлах',
-                  style: AppText.bodySmall.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -4,12 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/shared/widgets/profile_image_picker.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
 
-const _categoryOptions = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
+const _fallbackCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 class _ServiceDraft {
   _ServiceDraft({
@@ -130,96 +132,112 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Шинэ лам нэмэх'),
-      ),
+    final categoryOptions =
+        ref.watch(monkCategoriesProvider).valueOrNull ?? _fallbackCategories;
+
+    return AdminPageScaffold(
+      title: 'Шинэ лам',
+      onBack: () => context.pop(),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          const Text('Нэвтрэх мэдээлэл', style: AppText.h3),
-          const SizedBox(height: 12),
-          SacredInput(
-            label: 'Имэйл',
-            controller: _emailCtrl,
-            prefixIcon: Icons.email_outlined,
-            keyboardType: TextInputType.emailAddress,
-          ),
-          const SizedBox(height: 12),
-          SacredInput(
-            label: 'Нууц үг',
-            controller: _passwordCtrl,
-            prefixIcon: Icons.lock_outline,
-            obscureText: true,
-          ),
-          const SizedBox(height: 24),
-          const Text('Профайл', style: AppText.h3),
-          const SizedBox(height: 12),
-          Center(
-            child: ProfileImagePicker(
-              imageUrl: _imageUrl,
-              onImageChanged: (url) => setState(() => _imageUrl = url),
+          AdminSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Нэвтрэх мэдээлэл', style: AppText.displaySerif(size: 18)),
+                const SizedBox(height: 12),
+                SacredInput(
+                  label: 'Имэйл',
+                  controller: _emailCtrl,
+                  prefixIcon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 12),
+                SacredInput(
+                  label: 'Нууц үг',
+                  controller: _passwordCtrl,
+                  prefixIcon: Icons.lock_outline,
+                  obscureText: true,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
-          SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
-          const SizedBox(height: 12),
-          SacredInput(label: 'Цол', controller: _titleCtrl, prefixIcon: Icons.badge_outlined),
-          const SizedBox(height: 12),
-          SacredInput(
-            label: 'Хийд / Сүм',
-            controller: _templeCtrl,
-            prefixIcon: Icons.temple_buddhist_outlined,
-          ),
-          const SizedBox(height: 12),
-          SacredInput(
-            label: 'Танилцуулга',
-            controller: _bioCtrl,
-            prefixIcon: Icons.notes_outlined,
-            maxLines: 4,
-          ),
-          const SizedBox(height: 16),
-          const Text('Үйлчилгээний төрөл', style: AppText.body),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _categoryOptions.map((cat) {
-              final selected = _selectedCategories.contains(cat);
-              return FilterChip(
-                label: Text(cat),
-                selected: selected,
-                selectedColor: AppColors.sunLight,
-                checkmarkColor: AppColors.sunGold,
-                onSelected: (v) {
-                  setState(() {
-                    if (v) {
-                      _selectedCategories.add(cat);
-                    } else {
-                      _selectedCategories.remove(cat);
-                    }
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            value: _status,
-            decoration: const InputDecoration(
-              labelText: 'Төлөв',
-              border: OutlineInputBorder(),
+          AdminSurfaceCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Профайл', style: AppText.displaySerif(size: 18)),
+                const SizedBox(height: 12),
+                Center(
+                  child: ProfileImagePicker(
+                    imageUrl: _imageUrl,
+                    onImageChanged: (url) => setState(() => _imageUrl = url),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
+                const SizedBox(height: 12),
+                SacredInput(label: 'Цол', controller: _titleCtrl, prefixIcon: Icons.badge_outlined),
+                const SizedBox(height: 12),
+                SacredInput(
+                  label: 'Хийд / Сүм',
+                  controller: _templeCtrl,
+                  prefixIcon: Icons.temple_buddhist_outlined,
+                ),
+                const SizedBox(height: 12),
+                SacredInput(
+                  label: 'Танилцуулга',
+                  controller: _bioCtrl,
+                  prefixIcon: Icons.notes_outlined,
+                  maxLines: 4,
+                ),
+                const SizedBox(height: 16),
+                const Text('Үйлчилгээний төрөл', style: AppText.body),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categoryOptions.map((cat) {
+                    final selected = _selectedCategories.contains(cat);
+                    return FilterChip(
+                      label: Text(cat),
+                      selected: selected,
+                      selectedColor: AppColors.orangeLight,
+                      checkmarkColor: AppColors.orange,
+                      onSelected: (v) {
+                        setState(() {
+                          if (v) {
+                            _selectedCategories.add(cat);
+                          } else {
+                            _selectedCategories.remove(cat);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _status,
+                  decoration: const InputDecoration(
+                    labelText: 'Төлөв',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'active', child: Text('Идэвхтэй')),
+                    DropdownMenuItem(value: 'pending', child: Text('Хүлээгдэж буй')),
+                  ],
+                  onChanged: (v) => setState(() => _status = v ?? 'active'),
+                ),
+              ],
             ),
-            items: const [
-              DropdownMenuItem(value: 'active', child: Text('Идэвхтэй')),
-              DropdownMenuItem(value: 'pending', child: Text('Хүлээгдэж буй')),
-            ],
-            onChanged: (v) => setState(() => _status = v ?? 'active'),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Row(
             children: [
-              const Text('Үйлчилгээнүүд', style: AppText.h3),
+              Text('Үйлчилгээнүүд', style: AppText.displaySerif(size: 18)),
               const Spacer(),
               TextButton.icon(
                 onPressed: _addService,
@@ -232,84 +250,81 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
           ..._services.asMap().entries.map((entry) {
             final i = entry.key;
             final s = entry.value;
-            return Card(
+            return AdminSurfaceCard(
               margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Text('Үйлчилгээ ${i + 1}', style: AppText.body),
-                        const Spacer(),
-                        if (_services.length > 1)
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                            onPressed: () => _removeService(i),
-                          ),
-                      ],
-                    ),
-                    TextFormField(
-                      initialValue: s.name,
-                      decoration: const InputDecoration(
-                        labelText: 'Нэр',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => s.name = v,
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      initialValue: s.description,
-                      decoration: const InputDecoration(
-                        labelText: 'Тайлбар',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (v) => s.description = v,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: '${s.price}',
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Үнэ (₮)',
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (v) =>
-                                s.price = int.tryParse(v) ?? s.price,
-                          ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text('Үйлчилгээ ${i + 1}', style: AppText.body),
+                      const Spacer(),
+                      if (_services.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                          onPressed: () => _removeService(i),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: '${s.durationMinutes}',
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Минут',
-                              border: OutlineInputBorder(),
-                            ),
-                            onChanged: (v) => s.durationMinutes =
-                                int.tryParse(v) ?? s.durationMinutes,
+                    ],
+                  ),
+                  TextFormField(
+                    initialValue: s.name,
+                    decoration: const InputDecoration(
+                      labelText: 'Нэр',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => s.name = v,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    initialValue: s.description,
+                    decoration: const InputDecoration(
+                      labelText: 'Тайлбар',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (v) => s.description = v,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: '${s.price}',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Үнэ (₮)',
+                            border: OutlineInputBorder(),
                           ),
+                          onChanged: (v) =>
+                              s.price = int.tryParse(v) ?? s.price,
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: s.category,
-                      decoration: const InputDecoration(
-                        labelText: 'Ангилал',
-                        border: OutlineInputBorder(),
                       ),
-                      items: _categoryOptions
-                          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                          .toList(),
-                      onChanged: (v) => setState(() => s.category = v ?? s.category),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: '${s.durationMinutes}',
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'Минут',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (v) => s.durationMinutes =
+                              int.tryParse(v) ?? s.durationMinutes,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: s.category,
+                    decoration: const InputDecoration(
+                      labelText: 'Ангилал',
+                      border: OutlineInputBorder(),
                     ),
-                  ],
-                ),
+                    items: categoryOptions
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => s.category = v ?? s.category),
+                  ),
+                ],
               ),
             );
           }),
@@ -318,6 +333,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
             label: 'Лам бүртгэх',
             isLoading: _saving,
             onTap: _submit,
+            sunShadow: true,
           ),
           const SizedBox(height: 40),
         ],

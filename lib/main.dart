@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/notifications/push_notification_service.dart';
 import 'package:sacred_app/core/router/app_router.dart';
 import 'package:sacred_app/core/theme/app_theme.dart';
@@ -45,13 +46,28 @@ class SacredApp extends ConsumerStatefulWidget {
   ConsumerState<SacredApp> createState() => _SacredAppState();
 }
 
-class _SacredAppState extends ConsumerState<SacredApp> {
+class _SacredAppState extends ConsumerState<SacredApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PushNotificationService.initialize(ref);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      PushNotificationService.onAppResumed(ref);
+    }
   }
 
   @override
@@ -70,17 +86,14 @@ class _SacredAppState extends ConsumerState<SacredApp> {
           children: [
             if (child != null) child,
             if (incoming != null)
-              IncomingCallOverlay(
-                callerName: incoming.callerName,
-                callerImage: incoming.callerImage,
-                onAccept: () {
-                  final bookingId = incoming.bookingId;
-                  ref.read(incomingCallProvider.notifier).state = null;
-                  ref.read(appRouterProvider).go('/call/$bookingId');
-                },
-                onDecline: () {
-                  ref.read(incomingCallProvider.notifier).state = null;
-                },
+              Positioned.fill(
+                child: IncomingCallOverlay(
+                  callerName: incoming.callerName,
+                  callerImage: incoming.callerImage,
+                  isScheduledStart: incoming.isScheduledStart,
+                  onAccept: () => CallLaunchService.acceptCall(ref, incoming),
+                  onDecline: () => CallLaunchService.declineCall(ref, incoming),
+                ),
               ),
           ],
         );

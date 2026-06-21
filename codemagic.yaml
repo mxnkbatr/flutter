@@ -1,0 +1,94 @@
+# Gevabal.mn — Codemagic CI/CD
+# Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
+#
+# Required Codemagic setup (Teams → Environment variables):
+#   API_BASE_URL          — production backend, e.g. https://api.gevabal.mn/api
+#   APP_STORE_CONNECT_*   — via Codemagic → Integrations → App Store Connect
+#   ios_signing           — via Codemagic → Code signing identities (Distribution cert + profile for mn.gevabal.app)
+
+definitions:
+  env_versions: &env_versions
+    flutter: 3.22.0
+    xcode: 15.4
+    cocoapods: default
+
+  flutter_setup: &flutter_setup
+    name: Flutter setup
+    script: |
+      flutter pub get
+      flutter --version
+
+  firebase_setup: &firebase_setup
+    name: Firebase config files
+    script: |
+      # Client configs (also in repo under android/ and ios/Runner/)
+      if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+        echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+      fi
+      if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+        echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+      fi
+
+  ios_build: &ios_build
+    name: Build iOS IPA
+    script: |
+      cd ios && pod install && cd ..
+      flutter build ipa --release \
+        --dart-define=API_BASE_URL="${API_BASE_URL:-https://api.gevabal.mn/api}" \
+        --dart-define=PREFER_DEV_AUTH=false \
+        --export-options-plist=ios/export_options.plist
+
+workflows:
+  ios-app-store:
+    name: iOS App Store
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      <<: *env_versions
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: mn.gevabal.app
+      vars:
+        API_BASE_URL: https://api.gevabal.mn/api
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *flutter_setup
+      - *firebase_setup
+      - *ios_build
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+
+  android-release:
+    name: Android Release APK
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      <<: *env_versions
+      vars:
+        API_BASE_URL: https://api.gevabal.mn/api
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - *flutter_setup
+      - *firebase_setup
+      - name: Build Android APK
+        script: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="${API_BASE_URL:-https://api.gevabal.mn/api}" \
+            --dart-define=PREFER_DEV_AUTH=false
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk

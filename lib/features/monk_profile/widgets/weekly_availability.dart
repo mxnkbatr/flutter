@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -133,7 +134,7 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                     const Spacer(),
                     slotsAsync.when(
                       data: (s) => Text(
-                        '${s.slots.length - s.bookedSlots.length} цаг боломжтой',
+                        '${s.slots.where((slot) => !s.isUnavailable(slot, dateStr!)).length} цаг боломжтой',
                         style: AppText.caption.copyWith(
                           color: AppColors.sunGold,
                           fontWeight: FontWeight.w600,
@@ -168,17 +169,19 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                         style: AppText.bodySmall,
                       );
                     }
+                    final dateKey = dateStr!;
                     return Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: schedule.slots.map((slot) {
-                        final isBooked = schedule.bookedSlots.contains(slot);
+                        final unavailable =
+                            schedule.isUnavailable(slot, dateKey);
                         final isSelected = _selectedSlot == slot;
                         return TimeSlotChip(
                           time: slot,
                           isSelected: isSelected,
-                          isBooked: isBooked,
-                          onTap: isBooked
+                          isBooked: unavailable,
+                          onTap: unavailable
                               ? null
                               : () {
                                   setState(() => _selectedSlot = slot);

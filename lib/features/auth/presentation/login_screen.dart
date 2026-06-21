@@ -8,10 +8,9 @@ import 'package:sacred_app/core/api/api_config.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
-import 'package:sacred_app/core/constants/app_branding.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
+import 'package:sacred_app/shared/widgets/auth_ambient_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
@@ -32,6 +31,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   String? _emailError;
   String? _passError;
   String? _formError;
+
+  @override
+  void initState() {
+    super.initState();
+    setAuthSystemUI();
+  }
 
   @override
   void dispose() {
@@ -134,7 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       context: context,
       backgroundColor: AppColors.surfaceEl,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -152,16 +157,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 children: [
                   Center(
                     child: Container(
-                      width: 36,
+                      width: 40,
                       height: 4,
                       decoration: BoxDecoration(
                         color: AppColors.border,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Text('Нууц үг сэргээх', style: AppText.h2),
+                  Text('Нууц үг сэргээх', style: AppText.displaySerif(size: 22)),
                   const SizedBox(height: 8),
                   Text(
                     'Бүртгэлтэй и-мэйл хаягаа оруулна уу',
@@ -200,9 +205,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         SnackBar(
                           content: Text(
                             'Сэргээх холбоос $email руу илгээгдлээ',
-                            style: AppText.bodySmall.copyWith(
-                              color: AppColors.onDark,
-                            ),
                           ),
                           backgroundColor: AppColors.inkDeep,
                         ),
@@ -221,181 +223,173 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.inkDeep,
-      body: Column(
+      backgroundColor: AppColors.creamBg,
+      body: Stack(
         children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.32,
-            child: SafeArea(
-              bottom: false,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const GevabalLogo(size: 72),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppBranding.name,
-                      style: AppText.brandTitle.copyWith(
-                        color: AppColors.goldPrime,
-                        fontSize: 28,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      AppBranding.tagline,
-                      style: AppText.bodySmall.copyWith(
-                        color: AppColors.goldMuted,
-                      ),
-                    ),
-                  ],
+          const AuthAmbientBackground(),
+          Column(
+            children: [
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.28,
+                child: SafeArea(
+                  bottom: false,
+                  child: Center(
+                    child: const AuthBrandHero(logoHeight: 80, compact: true),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (kDebugMode) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.goldLight,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.goldPrime.withOpacity(0.4),
+              Expanded(
+                child: AuthFormSheet(
+                  title: 'Нэвтрэх',
+                  subtitle: 'Өөрийн бүртгэлээр орно уу',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (kDebugMode) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.orangeSoft,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.orange.withOpacity(0.25),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isApiConfigured
+                                    ? 'Local API нэвтрэлт'
+                                    : 'Dev нэвтрэлт',
+                                style: AppText.caption.copyWith(
+                                  color: AppColors.orangeDeep,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isApiConfigured
+                                    ? '${ApiConfig.seedClientEmail} / ${ApiConfig.seedClientPassword}'
+                                    : '${DevAuthStore.defaultEmail} / ${DevAuthStore.defaultPassword}',
+                                style: AppText.caption.copyWith(
+                                  color: AppColors.inkDeep,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isApiConfigured
-                                  ? 'Local API нэвтрэлт'
-                                  : 'Dev нэвтрэлт',
-                              style: AppText.goldLabel,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              isApiConfigured
-                                  ? '${ApiConfig.seedClientEmail} / ${ApiConfig.seedClientPassword}'
-                                  : '${DevAuthStore.defaultEmail} / ${DevAuthStore.defaultPassword}',
-                              style: AppText.caption.copyWith(
-                                color: AppColors.inkDeep,
-                              ),
-                            ),
-                          ],
-                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      SacredInput(
+                        label: 'И-мэйл',
+                        hint: 'name@example.com',
+                        keyboardType: TextInputType.emailAddress,
+                        controller: _emailCtrl,
+                        prefixIcon: Icons.mail_outline_rounded,
+                        errorText: _emailError,
+                        textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: 16),
-                    ],
-                    SacredInput(
-                      label: 'И-мэйл',
-                      hint: 'name@example.com',
-                      keyboardType: TextInputType.emailAddress,
-                      controller: _emailCtrl,
-                      prefixIcon: Icons.mail_outline_rounded,
-                      errorText: _emailError,
-                      textInputAction: TextInputAction.next,
-                    ),
-                    const SizedBox(height: 16),
-                    SacredInput(
-                      label: 'Нууц үг',
-                      hint: '••••••••',
-                      obscureText: _obscure,
-                      controller: _passCtrl,
-                      prefixIcon: Icons.lock_outline_rounded,
-                      errorText: _passError,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _login(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                          size: 20,
-                          color: AppColors.textSec,
-                        ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => _showForgotPassword(context),
-                        child: Text(
-                          'Нууц үг мартсан?',
-                          style: AppText.bodySmall.copyWith(
-                            color: AppColors.goldPrime,
+                      SacredInput(
+                        label: 'Нууц үг',
+                        hint: '••••••••',
+                        obscureText: _obscure,
+                        controller: _passCtrl,
+                        prefixIcon: Icons.lock_outline_rounded,
+                        errorText: _passError,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _login(),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscure
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: AppColors.textSec,
                           ),
+                          onPressed: () => setState(() => _obscure = !_obscure),
                         ),
                       ),
-                    ),
-                    if (_formError != null) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        _formError!,
-                        style: AppText.caption.copyWith(color: AppColors.danger),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    SacredButton(
-                      label: 'Нэвтрэх',
-                      isLoading: _loading,
-                      onTap: _login,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Expanded(child: SacredDivider()),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Text('эсвэл', style: AppText.caption),
-                        ),
-                        const Expanded(child: SacredDivider()),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    SacredOutlineBtn(
-                      label: 'Google-ээр нэвтрэх',
-                      prefixWidget: SvgPicture.asset(
-                        'assets/icons/google.svg',
-                        width: 20,
-                      ),
-                      onTap: _googleLogin,
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Бүртгэл байхгүй юу? ', style: AppText.bodySmall),
-                        GestureDetector(
-                          onTap: () => context.go('/auth/signup'),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => _showForgotPassword(context),
                           child: Text(
-                            'Бүртгүүлэх',
+                            'Нууц үг мартсан?',
                             style: AppText.bodySmall.copyWith(
-                              color: AppColors.goldPrime,
+                              color: AppColors.orange,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
+                      ),
+                      if (_formError != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _formError!,
+                            style: AppText.caption.copyWith(
+                              color: AppColors.danger,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                       ],
-                    ),
-                  ],
+                      SacredButton(
+                        label: 'Нэвтрэх',
+                        isLoading: _loading,
+                        onTap: _login,
+                        sunShadow: true,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                          const Expanded(child: SacredDivider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('эсвэл', style: AppText.caption),
+                          ),
+                          const Expanded(child: SacredDivider()),
+                        ],
+                      ),
+                      const SizedBox(height: 24),
+                      SacredOutlineBtn(
+                        label: 'Google-ээр нэвтрэх',
+                        prefixWidget: SvgPicture.asset(
+                          'assets/icons/google.svg',
+                          width: 20,
+                        ),
+                        onTap: _googleLogin,
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('Бүртгэл байхгүй юу? ', style: AppText.bodySmall),
+                          GestureDetector(
+                            onTap: () => context.go('/auth/signup'),
+                            child: Text(
+                              'Бүртгүүлэх',
+                              style: AppText.bodySmall.copyWith(
+                                color: AppColors.orange,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ],
       ),

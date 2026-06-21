@@ -6,16 +6,18 @@ import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/models/client_booking.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
-import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/booking/widgets/bookings_page_scaffold.dart';
 import 'package:sacred_app/features/booking/widgets/review_sheet.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
-import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
 
+import 'package:sacred_app/features/profile/utils/booking_summary.dart';
+
 class MyBookingsScreen extends ConsumerWidget {
-  const MyBookingsScreen({super.key});
+  const MyBookingsScreen({super.key, this.initialFilter});
+
+  final BookingListFilter? initialFilter;
 
   Widget _emptyState(BuildContext context) {
     return LayoutBuilder(
@@ -110,24 +112,72 @@ class MyBookingsScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(myBookingsProvider),
         ),
         data: (bookings) {
+          final filter = initialFilter;
+          final filtered = filterBookings(bookings, filter);
+
           if (bookings.isEmpty) return _emptyState(context);
+
+          if (filtered.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${filter?.label ?? 'Захиалга'} байхгүй',
+                      style: AppText.body,
+                      textAlign: TextAlign.center,
+                    ),
+                    if (filter != null) ...[
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => context.go('/bookings'),
+                        child: const Text('Бүх захиалга харах'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
 
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
             padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
-            itemCount: bookings.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (_, i) => _BookingCard(
-              booking: bookings[i],
-              onCall: () {
-                if (!TierGating.checkVideoCall(context, ref)) return;
-                context.go('/call/${bookings[i].id}');
-              },
-              onPay: () => context.go('/payment/${bookings[i].id}'),
-              fmt: _fmt,
-            ),
+            itemCount: filtered.length + (filter != null ? 1 : 0),
+            separatorBuilder: (_, i) {
+              if (filter != null && i == 0) return const SizedBox(height: 16);
+              return const SizedBox(height: 12);
+            },
+            itemBuilder: (_, i) {
+              if (filter != null && i == 0) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        filter.label,
+                        style: AppText.h3.copyWith(fontSize: 16),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => context.go('/bookings'),
+                      child: const Text('Бүгд'),
+                    ),
+                  ],
+                );
+              }
+              final index = filter != null ? i - 1 : i;
+              final booking = filtered[index];
+              return _BookingCard(
+                booking: booking,
+                onCall: () => context.go('/call/${booking.id}'),
+                onPay: () => context.go('/payment/${booking.id}'),
+                fmt: _fmt,
+              );
+            },
           );
         },
       ),

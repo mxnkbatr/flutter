@@ -65,6 +65,7 @@ const userSchema = new mongoose.Schema(
     tierExpiresAt: Date,
     fcmToken: String,
     monkProfileId: { type: mongoose.Schema.Types.ObjectId, ref: 'Monk' },
+    phone: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true },
@@ -86,6 +87,7 @@ const bookingSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     bankTransferPending: { type: Boolean, default: false },
     reviewed: { type: Boolean, default: false },
+    callReminderSent: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -173,6 +175,14 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+const monkCategorySchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, unique: true, trim: true },
+    sortOrder: { type: Number, default: 0 },
+  },
+  { timestamps: true },
+);
+
 export const User = mongoose.model('User', userSchema);
 export const Monk = mongoose.model('Monk', monkSchema);
 export const Booking = mongoose.model('Booking', bookingSchema);
@@ -182,3 +192,4 @@ export const Message = mongoose.model('Message', messageSchema);
 export const Product = mongoose.model('Product', productSchema);
 export const Order = mongoose.model('Order', orderSchema);
 export const Review = mongoose.model('Review', reviewSchema);
+export const MonkCategory = mongoose.model('MonkCategory', monkCategorySchema);

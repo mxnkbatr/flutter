@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/utils/date_helpers.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
 
@@ -87,11 +88,7 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
       data: {
         'monkId': state.monkId,
         'serviceId': state.service!.id,
-        'date': DateTime(
-          state.date!.year,
-          state.date!.month,
-          state.date!.day,
-        ).toIso8601String(),
+        'date': DateHelpers.toApiDate(state.date!),
         'slot': state.slot,
       },
     );

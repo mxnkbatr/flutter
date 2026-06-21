@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -10,6 +11,7 @@ import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/features/video_call/widgets/call_error_view.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
 import 'package:sacred_app/features/video_call/widgets/call_top_bar.dart';
 import 'package:sacred_app/features/video_call/widgets/connecting_view.dart';
@@ -48,6 +50,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+      }
+    });
     _connect();
     _startTimer();
   }
@@ -77,15 +84,23 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               '/bookings/${widget.bookingId}',
             );
         final booking = bookingRes.data as Map<String, dynamic>;
-        final monkName = booking['monkName'] as String? ??
-            (booking['monk'] as Map<String, dynamic>?)?['name']?['mn'] as String?;
-        if (monkName != null && monkName.isNotEmpty) {
-          _peerName = monkName;
-        }
-        final monkImage = booking['monkImage'] as String? ??
-            (booking['monk'] as Map<String, dynamic>?)?['image'] as String?;
-        if (monkImage != null && monkImage.isNotEmpty) {
-          _peerImage = monkImage;
+        if (widget.role == 'monk') {
+          final clientName = booking['clientName'] as String?;
+          if (clientName != null && clientName.isNotEmpty) {
+            _peerName = clientName;
+          }
+        } else {
+          final monkName = booking['monkName'] as String? ??
+              (booking['monk'] as Map<String, dynamic>?)?['name']?['mn']
+                  as String?;
+          if (monkName != null && monkName.isNotEmpty) {
+            _peerName = monkName;
+          }
+          final monkImage = booking['monkImage'] as String? ??
+              (booking['monk'] as Map<String, dynamic>?)?['image'] as String?;
+          if (monkImage != null && monkImage.isNotEmpty) {
+            _peerImage = monkImage;
+          }
         }
         if (mounted) setState(() {});
       } catch (_) {}
@@ -119,8 +134,13 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       );
 
       await room.connect(wsUrl, token);
-      await room.localParticipant?.setCameraEnabled(true);
-      await room.localParticipant?.setMicrophoneEnabled(true);
+      try {
+        await room.localParticipant?.setCameraEnabled(true);
+        await room.localParticipant?.setMicrophoneEnabled(true);
+      } catch (e) {
+        if (kDebugMode) debugPrint('Camera/mic enable: $e');
+        await room.localParticipant?.setMicrophoneEnabled(true);
+      }
 
       room.addListener(_onRoomEvent);
 
@@ -180,9 +200,22 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     } catch (_) {}
   }
 
+  void _leaveCallScreen() {
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    if (widget.role == 'monk') {
+      context.go('/monk/dashboard?tab=2');
+    } else {
+      context.go('/bookings');
+    }
+  }
+
   Future<void> _cancelConnecting() async {
     await _room?.disconnect();
-    if (mounted) context.pop();
+    if (mounted) _leaveCallScreen();
   }
 
   Future<void> _endCall() async {
@@ -279,37 +312,25 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   Widget build(BuildContext context) {
     if (_connecting) {
-      return Scaffold(
-        backgroundColor: AppColors.inkDeep,
-        body: ConnectingView(
-          peerName: _peerName,
-          peerImage: _peerImage,
-          role: widget.role,
-          onCancel: _cancelConnecting,
-        ),
+      return ConnectingView(
+        peerName: _peerName,
+        peerImage: _peerImage,
+        role: widget.role,
+        onCancel: _cancelConnecting,
       );
     }
 
     if (_error != null) {
-      return Scaffold(
-        backgroundColor: AppColors.inkDeep,
-        appBar: AppBar(title: const Text('Видео дуудлага')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(_error!, style: AppText.bodySmall, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => context.pop(),
-                  child: const Text('Буцах'),
-                ),
-              ],
-            ),
-          ),
-        ),
+      return CallErrorView(
+        message: _error!,
+        onBack: _leaveCallScreen,
+        onRetry: () {
+          setState(() {
+            _error = null;
+            _connecting = true;
+          });
+          _connect();
+        },
       );
     }
 

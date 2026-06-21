@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -27,7 +28,7 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
-    final focusedMonth = _focusedMonth ?? draft.date ?? DateTime.now();
+    final focusedMonth = _focusedMonth ?? draft.date ?? AppTimezone.now();
     final scheduleAsync = ref.watch(monkScheduleProvider(widget.monkId));
     final dateStr = draft.date != null
         ? DateFormat('yyyy-MM-dd').format(draft.date!)
@@ -169,8 +170,9 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                       style: AppText.bodySmall,
                     ),
                     data: (schedule) {
+                      final dateKey = dateStr!;
                       final available = schedule.slots
-                          .where((s) => !schedule.bookedSlots.contains(s))
+                          .where((s) => !schedule.isUnavailable(s, dateKey))
                           .toList();
                       if (available.isEmpty) {
                         return const Text(
@@ -182,12 +184,13 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                         spacing: 10,
                         runSpacing: 10,
                         children: schedule.slots.map((slot) {
-                          final isBooked = schedule.bookedSlots.contains(slot);
+                          final unavailable =
+                              schedule.isUnavailable(slot, dateKey);
                           return TimeSlotChip(
                             time: slot,
                             isSelected: draft.slot == slot,
-                            isBooked: isBooked,
-                            onTap: isBooked
+                            isBooked: unavailable,
+                            onTap: unavailable
                                 ? null
                                 : () {
                                     HapticFeedback.lightImpact();

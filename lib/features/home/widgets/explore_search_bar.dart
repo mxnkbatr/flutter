@@ -17,7 +17,6 @@ class ExploreSearchBar extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onFilterTap;
   final String? value;
-  /// Clean pill — white bg, thin border, no gradient filter button.
   final bool minimal;
 
   @override
@@ -28,18 +27,26 @@ class ExploreSearchBar extends StatelessWidget {
         onTap();
       },
       child: Container(
-        height: 52,
+        height: 54,
         padding: EdgeInsets.only(
-          left: 18,
-          right: minimal ? 18 : 6,
+          left: 8,
+          right: minimal ? 8 : 6,
         ),
         decoration: BoxDecoration(
           color: AppColors.surfaceEl,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.borderSub, width: 1.5),
+          border: Border.all(
+            color: AppColors.borderSub,
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: AppColors.orange.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -47,10 +54,19 @@ class ExploreSearchBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              Icons.search_rounded,
-              color: AppColors.textSec.withOpacity(0.7),
-              size: 22,
+            Container(
+              width: 40,
+              height: 40,
+              margin: const EdgeInsets.only(left: 4),
+              decoration: BoxDecoration(
+                color: AppColors.orangeSoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.search_rounded,
+                color: AppColors.orange.withOpacity(0.85),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -61,6 +77,7 @@ class ExploreSearchBar extends StatelessWidget {
                       ? AppColors.textPri
                       : AppColors.textSec,
                   fontWeight: FontWeight.w400,
+                  letterSpacing: -0.1,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -76,12 +93,12 @@ class ExploreSearchBar extends StatelessWidget {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.earthBrownLight,
+                    color: AppColors.orangeSoft,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.tune_rounded,
-                    color: AppColors.earthBrown,
+                    color: AppColors.orangeDeep,
                     size: 20,
                   ),
                 ),

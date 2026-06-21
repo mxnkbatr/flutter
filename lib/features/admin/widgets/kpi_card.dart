@@ -26,9 +26,18 @@ class KpiCard extends StatelessWidget {
         color: dark ? AppColors.inkDeep : AppColors.surfaceEl,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: dark ? AppColors.inkLight : AppColors.border,
+          color: dark ? AppColors.inkLight : AppColors.borderSub,
           width: 0.5,
         ),
+        boxShadow: dark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

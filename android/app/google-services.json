@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "616157786188",
+    "project_id": "gevabal-da4f2",
+    "storage_bucket": "gevabal-da4f2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616157786188:android:ea5658b6c0a4dfc0d684e9",
+        "android_client_info": {
+          "package_name": "mn.gevabal.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDY7KCNMXlWE209EV7Kfxx6gC1XQxO6FD4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

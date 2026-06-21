@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -33,8 +34,7 @@ class MonthCalendar extends StatelessWidget {
   }
 
   bool _isAvailable(DateTime date) {
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
+    final todayDate = AppTimezone.startOfToday();
     if (date.isBefore(todayDate)) return false;
     final avail = _availabilityFor(date);
     if (avail == null) {
@@ -115,9 +115,7 @@ class MonthCalendar extends StatelessWidget {
     final available = _isAvailable(date);
     final selected =
         selectedDate != null && _isSameDay(date, selectedDate!);
-    final isPast = date.isBefore(
-      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day),
-    );
+    final isPast = date.isBefore(AppTimezone.startOfToday());
 
     return GestureDetector(
       onTap: available ? () => onDateSelected(date) : null,

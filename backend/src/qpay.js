@@ -119,6 +119,7 @@ export async function createInvoice({
   amount,
   callbackUrl,
 }) {
+  const roundedAmount = Math.round(amount);
   return authorizedRequest('/invoice', {
     method: 'POST',
     body: JSON.stringify({
@@ -126,8 +127,15 @@ export async function createInvoice({
       sender_invoice_no: senderInvoiceNo,
       invoice_receiver_code: 'terminal',
       invoice_description: description,
-      amount: Math.round(amount),
+      amount: roundedAmount,
       callback_url: callbackUrl,
+      lines: [
+        {
+          line_description: description || 'Gevabal төлбөр',
+          line_quantity: '1',
+          line_unit_price: String(roundedAmount),
+        },
+      ],
     }),
   });
 }

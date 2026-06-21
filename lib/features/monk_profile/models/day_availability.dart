@@ -1,3 +1,5 @@
+import 'package:sacred_app/core/utils/app_timezone.dart';
+
 class DayAvailability {
   const DayAvailability({
     required this.date,
@@ -15,7 +17,7 @@ class DayAvailability {
     final slots = json['slots'] as List?;
     final hasSlots = slots != null && slots.isNotEmpty;
     return DayAvailability(
-      date: DateTime.parse(json['date'] as String),
+      date: AppTimezone.parseDateOnly(json['date'] as String),
       isAvailable: json['isAvailable'] as bool? ?? hasSlots,
       isBooked: json['isBooked'] as bool? ?? false,
       slotCount: slots?.length ?? json['slotCount'] as int? ?? 0,

@@ -5,11 +5,15 @@ class IncomingCallState {
     required this.callerName,
     required this.callerImage,
     required this.bookingId,
+    this.recipientRole = 'client',
+    this.isScheduledStart = false,
   });
 
   final String callerName;
   final String callerImage;
   final String bookingId;
+  final String recipientRole;
+  final bool isScheduledStart;
 }
 
 final incomingCallProvider = StateProvider<IncomingCallState?>((ref) => null);

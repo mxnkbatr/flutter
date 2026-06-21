@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/tier_cache.dart';
+import 'package:sacred_app/core/config/feature_flags.dart';
 
 final tierCacheProvider = FutureProvider<TierCacheData?>((ref) async {
   return TierCache.load();
@@ -10,6 +11,8 @@ final tierCacheProvider = FutureProvider<TierCacheData?>((ref) async {
 
 /// Effective tier — auth state + offline cache, expired tiers fall back to free.
 final userTierProvider = Provider<String>((ref) {
+  if (!FeatureFlags.premiumSubscriptionsEnabled) return 'free';
+
   final auth = ref.watch(authStateProvider).valueOrNull;
   final cached = ref.watch(tierCacheProvider).valueOrNull;
 
@@ -48,11 +51,14 @@ extension TierExtension on String {
   bool get canGroupCall => true;
   bool get canBookUnlimited => true;
 
-  int get discountPercent => switch (this) {
-        'premium' => 20,
-        'vip' => 20,
-        _ => 0,
-      };
+  int get discountPercent {
+    if (!FeatureFlags.premiumSubscriptionsEnabled) return 0;
+    return switch (this) {
+      'premium' => 20,
+      'vip' => 20,
+      _ => 0,
+    };
+  }
 }
 
 String tierLabel(String tier) => switch (tier) {

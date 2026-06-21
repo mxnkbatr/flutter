@@ -2,12 +2,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
-/// Compact white list card for "Бусад ламнар".
+/// Compact list card for "Бусад ламнар" — soft surface + accent avatar ring.
 class ExploreMonkCard extends StatelessWidget {
   const ExploreMonkCard({
     super.key,
@@ -28,8 +28,19 @@ class ExploreMonkCard extends StatelessWidget {
       pressedScale: 0.985,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: MinimalStyle.card(),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceEl,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.borderSub.withOpacity(0.9)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.035),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Row(
           children: [
             _Avatar(monk: monk),
@@ -43,6 +54,7 @@ class ExploreMonkCard extends StatelessWidget {
                     style: AppText.body.copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
+                      letterSpacing: -0.2,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -51,21 +63,31 @@ class ExploreMonkCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       monk.displayTitle!,
-                      style: AppText.caption.copyWith(fontSize: 12),
+                      style: AppText.caption.copyWith(
+                        color: AppColors.textSec,
+                        fontSize: 12,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Row(
-                    children: List.generate(5, (i) {
-                      final filled = i < monk.rating.floor();
-                      return Icon(
-                        filled ? Icons.star_rounded : Icons.star_outline_rounded,
-                        size: 14,
-                        color: AppColors.orange,
-                      );
-                    }),
+                    children: [
+                      Icon(Icons.star_rounded, size: 14, color: AppColors.orange),
+                      const SizedBox(width: 4),
+                      Text(
+                        monk.rating.toStringAsFixed(1),
+                        style: AppText.caption.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.inkDeep,
+                        ),
+                      ),
+                      Text(
+                        ' · ${monk.reviewCount} үнэлгээ',
+                        style: AppText.caption.copyWith(color: AppColors.textHint),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -78,7 +100,7 @@ class ExploreMonkCard extends StatelessWidget {
                       onFavorite!();
                     },
               child: Padding(
-                padding: const EdgeInsets.only(right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
                   isFavorite
                       ? Icons.favorite_rounded
@@ -89,17 +111,23 @@ class ExploreMonkCard extends StatelessWidget {
               ),
             ),
             Container(
-              width: 36,
-              height: 36,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F0F0),
+                gradient: AppGradients.primary,
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.borderSub),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.orange.withOpacity(0.28),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: const Icon(
                 Icons.arrow_forward_rounded,
-                size: 16,
-                color: AppColors.textSec,
+                size: 17,
+                color: Colors.white,
               ),
             ),
           ],
@@ -116,29 +144,30 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (monk.image != null) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Hero(
-          tag: Monk.heroTag(monk.id),
-          child: CachedNetworkImage(
-            imageUrl: monk.image!,
-            width: 56,
-            height: 56,
-            fit: BoxFit.cover,
-            errorWidget: (_, __, ___) => _Placeholder(
-              initial: monk.displayName.isNotEmpty
-                  ? monk.displayName[0].toUpperCase()
-                  : '?',
-            ),
-          ),
-        ),
-      );
-    }
-    return _Placeholder(
-      initial: monk.displayName.isNotEmpty
-          ? monk.displayName[0].toUpperCase()
-          : '?',
+    final initial = monk.displayName.isNotEmpty
+        ? monk.displayName[0].toUpperCase()
+        : '?';
+
+    return Container(
+      padding: const EdgeInsets.all(2.5),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: AppGradients.primary,
+      ),
+      child: ClipOval(
+        child: monk.image != null
+            ? Hero(
+                tag: Monk.heroTag(monk.id),
+                child: CachedNetworkImage(
+                  imageUrl: monk.image!,
+                  width: 52,
+                  height: 52,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => _Placeholder(initial: initial),
+                ),
+              )
+            : _Placeholder(initial: initial),
+      ),
     );
   }
 }
@@ -151,16 +180,16 @@ class _Placeholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 56,
-      height: 56,
-      decoration: MinimalStyle.avatarBox(radius: 28),
+      width: 52,
+      height: 52,
+      color: AppColors.orangeLight,
       alignment: Alignment.center,
       child: Text(
         initial,
         style: AppText.h3.copyWith(
-          color: AppColors.inkDeep,
+          color: AppColors.orangeDeep,
           fontWeight: FontWeight.w700,
-          fontSize: 22,
+          fontSize: 20,
         ),
       ),
     );

@@ -15,6 +15,7 @@ import {
   Review,
   Product,
   Order,
+  MonkCategory,
 } from './db.js';
 import { authRequired, adminRequired, signToken } from './middleware/auth.js';
 import {
@@ -23,8 +24,10 @@ import {
   getScheduleOverview,
   getSlotsForDate,
 } from './scheduleUtils.js';
+import { isPastSlot, todayDateStr, currentTimeMinutes, slotToMinutes } from './timezoneUtils.js';
 import {
   sendIncomingCallPush,
+  sendCallTimePush,
   sendBookingStatusPush,
   sendMessagePush,
 } from './push.js';
@@ -35,6 +38,7 @@ import {
   cancelInvoice as cancelQPayInvoice,
   mapQPayUrls,
 } from './qpay.js';
+import { ensureUploadsDir, uploadsRoot, saveBase64Image } from './uploadUtils.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +50,28 @@ const TIER_DISCOUNTS = {
 };
 
 const PLATFORM_FEE_RATE = 0.1;
+
+/** Premium subscriptions — disabled until a future app release. */
+const PREMIUM_SUBSCRIPTIONS_ENABLED = false;
+
+const DEFAULT_MONK_CATEGORIES = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
+
+/** Dev-only: simulate incoming call for clients without FCM (polled by Flutter debug). */
+const pendingTestCalls = new Map();
+
+async function ensureMonkCategories() {
+  const count = await MonkCategory.countDocuments();
+  if (count > 0) return;
+  await MonkCategory.insertMany(
+    DEFAULT_MONK_CATEGORIES.map((name, i) => ({ name, sortOrder: i })),
+  );
+}
+
+async function listMonkCategoryNames() {
+  await ensureMonkCategories();
+  const rows = await MonkCategory.find().sort({ sortOrder: 1, name: 1 }).lean();
+  return rows.map((c) => c.name);
+}
 
 ensureUploadsDir('monks');
 
@@ -156,6 +182,7 @@ function userJson(u) {
     _id: u._id.toString(),
     email: u.email,
     name: u.name,
+    phone: u.phone || '',
     role: u.role,
     tier: u.tier,
     tierExpiresAt: u.tierExpiresAt?.toISOString(),
@@ -223,6 +250,61 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', authRequired, (req, res) => {
   res.json(userJson(req.user));
+});
+
+// ─── Monk categories (public list for filters) ───
+app.get('/api/categories', async (_req, res) => {
+  try {
+    const names = await listMonkCategoryNames();
+    res.json(names);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/categories', authRequired, adminRequired, async (_req, res) => {
+  try {
+    await ensureMonkCategories();
+    const rows = await MonkCategory.find().sort({ sortOrder: 1, name: 1 }).lean();
+    res.json(
+      rows.map((c) => ({
+        id: c._id.toString(),
+        name: c.name,
+        sortOrder: c.sortOrder ?? 0,
+      })),
+    );
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/categories', authRequired, adminRequired, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Ангиллын нэр шаардлагатай' });
+    const exists = await MonkCategory.findOne({ name });
+    if (exists) return res.status(409).json({ error: 'Энэ ангилал аль хэдийн байна' });
+    const maxOrder = await MonkCategory.findOne().sort({ sortOrder: -1 }).lean();
+    const cat = await MonkCategory.create({
+      name,
+      sortOrder: (maxOrder?.sortOrder ?? -1) + 1,
+    });
+    res.json({ id: cat._id.toString(), name: cat.name, sortOrder: cat.sortOrder });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/categories/:id', authRequired, adminRequired, async (req, res) => {
+  try {
+    const cat = await MonkCategory.findById(req.params.id);
+    if (!cat) return res.status(404).json({ error: 'Олдсонгүй' });
+    await MonkCategory.deleteOne({ _id: cat._id });
+    await Monk.updateMany({}, { $pull: { categories: cat.name } });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Monks ───
@@ -459,6 +541,9 @@ app.post('/api/bookings', authRequired, async (req, res) => {
     if (bookedSlots.includes(slot)) {
       return res.status(409).json({ error: 'Time slot already booked' });
     }
+    if (isPastSlot(dateStr, slot)) {
+      return res.status(400).json({ error: 'Энэ цаг өнгөрсөн байна' });
+    }
 
     const svcIdx = serviceId?.split('_svc_')[1];
     const service = svcIdx != null ? monk.services[Number(svcIdx)] : monk.services[0];
@@ -540,6 +625,7 @@ async function bookingAccess(bookingId, user) {
 }
 
 function effectiveTier(user) {
+  if (!PREMIUM_SUBSCRIPTIONS_ENABLED) return 'free';
   const tier = user.tier || 'free';
   if (user.tierExpiresAt && new Date(user.tierExpiresAt) < new Date()) return 'free';
   return tier;
@@ -836,28 +922,63 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
     const { booking, monk, isClient, isAdmin } = access;
 
     const client = await User.findById(booking.clientId).lean();
-    const payment = await Payment.findOne({
+    const canPay =
+      isClient &&
+      ['pending', 'approved'].includes(booking.status) &&
+      !booking.paid;
+
+    let payment = await Payment.findOne({
       bookingId: booking._id,
       type: 'booking',
       paid: false,
+      method: 'qpay',
     }).sort({ createdAt: -1 });
+
+    const monkName = monk?.name?.mn ?? monk?.name?.en ?? 'Лам';
+    const description = `Gevabal захиалга — ${monkName} (${booking.serviceName || 'үйлчилгээ'})`;
+
+    if (canPay) {
+      if (!payment) {
+        payment = await Payment.create({
+          invoiceId: `INV-${uuidv4().slice(0, 8)}`,
+          type: 'booking',
+          bookingId: booking._id,
+          userId: req.user._id,
+          amount: booking.amount,
+          method: 'qpay',
+          paid: false,
+        });
+      }
+      if (!payment.qpayInvoiceId || !payment.qrImage) {
+        try {
+          await issueQPayForPayment(payment, description);
+          payment = await Payment.findById(payment._id);
+        } catch (e) {
+          console.error('QPay invoice error:', e.message);
+        }
+      }
+    } else {
+      payment = await Payment.findOne({
+        bookingId: booking._id,
+        type: 'booking',
+        paid: false,
+      }).sort({ createdAt: -1 });
+    }
 
     const showQpay = isClient || isAdmin;
 
     res.json({
       booking: {
         ...bookingJson(booking),
-        monkName: monk?.name?.mn ?? monk?.name?.en ?? '',
+        monkName,
         monkImage: monk?.image ?? '',
         clientName: client?.name ?? '',
       },
       bank: PLATFORM_BANK,
       reference: booking._id.toString().slice(-8).toUpperCase(),
-      canPay: isClient &&
-          ['pending', 'approved'].includes(booking.status) &&
-          !booking.paid,
+      canPay,
       paymentPending: booking.bankTransferPending === true,
-      qpay: showQpay && payment?.method === 'qpay'
+      qpay: showQpay && payment?.method === 'qpay' && payment?.qrImage
           ? paymentQPayPayload(payment)
           : null,
     });
@@ -1000,9 +1121,6 @@ app.get('/api/livekit', authRequired, async (req, res) => {
       if (!booking.paid || booking.status !== 'confirmed') {
         return res.status(403).json({ error: 'Захиалга баталгаажаагүй байна' });
       }
-      if (isClient && effectiveTier(req.user) === 'free') {
-        return res.status(403).json({ error: 'Видео дуудлага Premium гишүүдэд нээлттэй' });
-      }
     } else {
       if (req.user.role !== 'admin') {
         return res.status(403).json({ error: 'Эрх байхгүй' });
@@ -1029,19 +1147,25 @@ app.get('/api/livekit', authRequired, async (req, res) => {
       if (booking) {
         const isCallerMonk = req.user.role === 'monk';
         let recipientUser;
+        let monkDoc;
 
         if (isCallerMonk) {
           recipientUser = await User.findById(booking.clientId);
         } else {
-          const monkDoc = await Monk.findById(booking.monkId);
+          monkDoc = await Monk.findById(booking.monkId);
           recipientUser = monkDoc?.userId ? await User.findById(monkDoc.userId) : null;
         }
 
         if (recipientUser?.fcmToken) {
+          const recipientRole = isCallerMonk ? 'client' : 'monk';
+          const callerImage = isCallerMonk
+              ? (req.user.avatar || '')
+              : (monkDoc?.image ?? '');
           await sendIncomingCallPush(recipientUser.fcmToken, {
             callerName: req.user.name,
-            callerImage: '',
+            callerImage,
             bookingId,
+            recipientRole,
           });
         }
       }
@@ -1108,9 +1232,10 @@ app.post('/api/subscription/activate', authRequired, async (req, res) => {
 
 // ─── Users profile / FCM ───
 app.put('/api/users/profile', authRequired, async (req, res) => {
-  const { fcmToken, name } = req.body;
+  const { fcmToken, name, phone } = req.body;
   if (fcmToken) req.user.fcmToken = fcmToken;
   if (name) req.user.name = name;
+  if (phone !== undefined) req.user.phone = phone;
   await req.user.save();
   res.json(userJson(req.user));
 });
@@ -1774,7 +1899,18 @@ app.put('/api/admin/bookings/:id/approve', authRequired, async (req, res) => {
     booking.approvedAt = new Date();
     booking.approvedBy = req.user._id;
     await booking.save();
-    res.json({ ok: true, status: 'approved' });
+
+    const monk = await Monk.findById(booking.monkId);
+    const client = await User.findById(booking.clientId);
+    if (client?.fcmToken) {
+      await sendBookingStatusPush(client.fcmToken, {
+        status: booking.status === 'confirmed' ? 'confirmed' : 'approved',
+        monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+        bookingId: booking._id.toString(),
+      });
+    }
+
+    res.json({ ok: true, status: booking.status });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -2246,8 +2382,148 @@ app.put('/api/admin/orders/:id/status', authRequired, adminRequired, async (req,
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
+if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/dev/test-incoming-call', async (req, res) => {
+    try {
+      const clientEmail = (req.body?.clientEmail || '').toLowerCase();
+      const monkQuery = req.body?.monkName || 'Buyntsog';
+
+      const client = await User.findOne({ email: clientEmail });
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found' });
+      }
+
+      const monk = await Monk.findOne({
+        $or: [
+          { 'name.mn': new RegExp(monkQuery, 'i') },
+          { 'name.en': new RegExp(monkQuery, 'i') },
+        ],
+      });
+      if (!monk) {
+        return res.status(404).json({ error: 'Monk not found' });
+      }
+
+      const monkName = monk.name?.mn ?? monk.name?.en ?? monkQuery;
+      let booking = await Booking.findOne({
+        clientId: client._id,
+        monkId: monk._id,
+        status: 'confirmed',
+        paid: true,
+      }).sort({ updatedAt: -1 });
+
+      const today = todayDateStr();
+      const nowMin = currentTimeMinutes();
+      const slot = `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${nowMin % 60 < 30 ? '00' : '30'}`;
+
+      if (!booking) {
+        booking = await Booking.create({
+          clientId: client._id,
+          monkId: monk._id,
+          serviceName: 'Тест дуудлага',
+          date: today,
+          slot,
+          amount: 50000,
+          status: 'confirmed',
+          paid: true,
+        });
+      } else {
+        await Booking.findByIdAndUpdate(booking._id, { date: today, slot });
+      }
+
+      const bookingId = booking._id.toString();
+      const payload = {
+        callerName: monkName,
+        callerImage: monk.image || '',
+        bookingId,
+        recipientRole: 'client',
+      };
+
+      pendingTestCalls.set(client._id.toString(), payload);
+
+      let pushed = false;
+      if (client.fcmToken) {
+        pushed = await sendIncomingCallPush(client.fcmToken, payload);
+      }
+
+      res.json({
+        ok: true,
+        bookingId,
+        clientEmail: client.email,
+        monkName,
+        pushed,
+        polled: true,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.get('/api/dev/incoming-call-pending', authRequired, (req, res) => {
+    const userId = req.user._id.toString();
+    const pending = pendingTestCalls.get(userId);
+    if (pending) {
+      pendingTestCalls.delete(userId);
+      return res.json(pending);
+    }
+    res.json(null);
+  });
+}
+
+async function processCallTimeReminders() {
+  try {
+    const today = todayDateStr();
+    const nowMin = currentTimeMinutes();
+
+    const bookings = await Booking.find({
+      status: 'confirmed',
+      paid: true,
+      callReminderSent: { $ne: true },
+      date: { $regex: `^${today}` },
+    }).lean();
+
+    for (const booking of bookings) {
+      const slotMin = slotToMinutes(booking.slot || '00:00');
+      if (nowMin < slotMin || nowMin >= slotMin + 5) continue;
+
+      const monk = await Monk.findById(booking.monkId).lean();
+      const client = await User.findById(booking.clientId).lean();
+      const monkUser = monk?.userId
+          ? await User.findById(monk.userId).lean()
+          : null;
+
+      const monkName = monk?.name?.mn ?? monk?.name?.en ?? 'Лам';
+      const clientName = client?.name ?? 'Хэрэглэгч';
+      const bookingId = booking._id.toString();
+
+      if (client?.fcmToken) {
+        await sendCallTimePush(client.fcmToken, {
+          peerName: monkName,
+          peerImage: monk?.image ?? '',
+          bookingId,
+          recipientRole: 'client',
+        });
+      }
+      if (monkUser?.fcmToken) {
+        await sendCallTimePush(monkUser.fcmToken, {
+          peerName: clientName,
+          peerImage: client?.avatar ?? '',
+          bookingId,
+          recipientRole: 'monk',
+        });
+      }
+
+      await Booking.findByIdAndUpdate(booking._id, { callReminderSent: true });
+    }
+  } catch (e) {
+    console.warn('Call reminder алдаа:', e.message);
+  }
+}
+
 async function start() {
   await connectDb();
+  await ensureMonkCategories();
+  setInterval(processCallTimeReminders, 60_000);
+  processCallTimeReminders();
   app.listen(PORT, () => {
     console.log(`Sacred API running on http://localhost:${PORT}/api`);
   });

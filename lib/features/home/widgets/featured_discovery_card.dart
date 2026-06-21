@@ -7,7 +7,7 @@ import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
-/// Featured monk card — full-bleed hero image with warm glow.
+/// Featured monk — editorial hero card with overlay typography.
 class FeaturedDiscoveryCard extends StatelessWidget {
   const FeaturedDiscoveryCard({
     super.key,
@@ -30,18 +30,18 @@ class FeaturedDiscoveryCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppColors.borderSub, width: 1),
+          borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: AppColors.orange.withOpacity(0.1),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+              color: AppColors.orange.withOpacity(0.12),
+              blurRadius: 32,
+              spreadRadius: -4,
+              offset: const Offset(0, 16),
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
@@ -49,95 +49,14 @@ class FeaturedDiscoveryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _FeaturedHero(monk: monk, isFavorite: isFavorite, onFavorite: onFavorite),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 16, 14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          monk.displayName,
-                          style: AppText.h2.copyWith(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.inkDeep,
-                          ),
-                        ),
-                        if (monk.displayTitle != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            monk.displayTitle!,
-                            style: AppText.bodySmall.copyWith(
-                              color: AppColors.textSec,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  _FavoriteBtn(
-                    isFavorite: isFavorite,
-                    onTap: onFavorite,
-                  ),
-                ],
-              ),
-            ),
-            _FeaturedHeroImage(monk: monk),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
               child: Row(
                 children: [
-                  ...List.generate(5, (i) {
-                    return Icon(
-                      i < monk.rating.floor()
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      size: 16,
-                      color: AppColors.orange,
-                    );
-                  }),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${monk.rating.toStringAsFixed(1)} (${monk.reviewCount})',
-                    style: AppText.bodySmall.copyWith(
-                      color: AppColors.textSec,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  _RatingPill(rating: monk.rating, count: monk.reviewCount),
                   const Spacer(),
-                  Text(
-                    'Дэлгэрэнгүй',
-                    style: AppText.caption.copyWith(
-                      color: AppColors.orangeDeep,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.orange.withOpacity(0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    ),
-                  ),
+                  _DetailCta(),
                 ],
               ),
             ),
@@ -148,106 +67,215 @@ class FeaturedDiscoveryCard extends StatelessWidget {
   }
 }
 
-class _FeaturedHeroImage extends StatelessWidget {
-  const _FeaturedHeroImage({required this.monk});
+class _FeaturedHero extends StatelessWidget {
+  const _FeaturedHero({
+    required this.monk,
+    required this.isFavorite,
+    this.onFavorite,
+  });
 
   final Monk monk;
+  final bool isFavorite;
+  final VoidCallback? onFavorite;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 232,
-      width: double.infinity,
-      child: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.orange.withOpacity(0.22),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+      height: 248,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (monk.image != null)
+            Hero(
+              tag: Monk.heroTag(monk.id),
+              child: CachedNetworkImage(
+                imageUrl: monk.image!,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => const _HeroPlaceholder(),
+                errorWidget: (_, __, ___) => const _HeroPlaceholder(),
+              ),
+            )
+          else
+            const _HeroPlaceholder(),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.08),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.55),
+                ],
+                stops: const [0, 0.45, 1],
+              ),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (monk.image != null)
-                Hero(
-                  tag: Monk.heroTag(monk.id),
-                  child: CachedNetworkImage(
-                    imageUrl: monk.image!,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    placeholder: (_, __) => const _HeroPlaceholder(),
-                    errorWidget: (_, __, ___) => const _HeroPlaceholder(),
-                  ),
-                )
-              else
-                const _HeroPlaceholder(),
-              // Warm shine — top-left highlight
-              DecoratedBox(
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 80,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.22),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (monk.isSpecial)
+            Positioned(
+              top: 16,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.18),
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.15),
-                    ],
-                    stops: const [0, 0.35, 0.65, 1],
-                  ),
+                  color: Colors.white.withOpacity(0.92),
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.orange.withOpacity(0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ),
-              // Orange rim glow
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.symmetric(
-                      vertical: BorderSide(
-                        color: AppColors.orange.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (monk.isSpecial)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: AppGradients.primary,
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.orange.withOpacity(0.4),
-                          blurRadius: 8,
-                        ),
-                      ],
-                    ),
-                    child: const Text(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 13, color: AppColors.orange),
+                    const SizedBox(width: 5),
+                    Text(
                       'Онцлох',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
+                      style: AppText.caption.copyWith(
+                        color: AppColors.orangeDeep,
                         fontWeight: FontWeight.w700,
+                        fontSize: 11,
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: _FavoriteBtn(isFavorite: isFavorite, onTap: onFavorite, light: true),
+          ),
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  monk.displayName,
+                  style: AppText.displaySerif(
+                    size: 26,
+                    color: Colors.white,
                   ),
                 ),
-            ],
+                if (monk.displayTitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    monk.displayTitle!,
+                    style: AppText.bodySmall.copyWith(
+                      color: Colors.white.withOpacity(0.88),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RatingPill extends StatelessWidget {
+  const _RatingPill({required this.rating, required this.count});
+
+  final double rating;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.orangeSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ...List.generate(5, (i) {
+            return Icon(
+              i < rating.floor()
+                  ? Icons.star_rounded
+                  : Icons.star_outline_rounded,
+              size: 15,
+              color: AppColors.orange,
+            );
+          }),
+          const SizedBox(width: 6),
+          Text(
+            '${rating.toStringAsFixed(1)} ($count)',
+            style: AppText.caption.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.inkDeep,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailCta extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Дэлгэрэнгүй',
+          style: AppText.caption.copyWith(
+            color: AppColors.orangeDeep,
+            fontWeight: FontWeight.w600,
           ),
         ),
-      ),
+        const SizedBox(width: 8),
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            gradient: AppGradients.primary,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.orange.withOpacity(0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.arrow_forward_rounded,
+            size: 18,
+            color: Colors.white,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -258,23 +286,22 @@ class _HeroPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
             Color(0xFFFFF0E5),
-            Color(0xFFFFE8D6),
-            Color(0xFFFFD4B8),
+            Color(0xFFFFE0C8),
+            Color(0xFFFFC999),
           ],
         ),
       ),
-      child: const Center(
+      child: Center(
         child: Icon(
           Icons.self_improvement_rounded,
           size: 72,
-          color: AppColors.orange,
+          color: AppColors.orange.withOpacity(0.7),
         ),
       ),
     );
@@ -282,10 +309,15 @@ class _HeroPlaceholder extends StatelessWidget {
 }
 
 class _FavoriteBtn extends StatelessWidget {
-  const _FavoriteBtn({required this.isFavorite, this.onTap});
+  const _FavoriteBtn({
+    required this.isFavorite,
+    this.onTap,
+    this.light = false,
+  });
 
   final bool isFavorite;
   final VoidCallback? onTap;
+  final bool light;
 
   @override
   Widget build(BuildContext context) {
@@ -296,10 +328,27 @@ class _FavoriteBtn extends StatelessWidget {
               HapticFeedback.lightImpact();
               onTap!();
             },
-      child: Icon(
-        isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        size: 22,
-        color: isFavorite ? AppColors.danger : AppColors.textHint,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: light
+              ? Colors.black.withOpacity(0.25)
+              : AppColors.orangeSoft,
+          shape: BoxShape.circle,
+          border: light
+              ? Border.all(color: Colors.white.withOpacity(0.3))
+              : null,
+        ),
+        child: Icon(
+          isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          size: 20,
+          color: isFavorite
+              ? AppColors.danger
+              : light
+                  ? Colors.white
+                  : AppColors.textHint,
+        ),
       ),
     );
   }

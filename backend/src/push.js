@@ -35,6 +35,10 @@ export async function sendPush(fcmToken, payload) {
   if (!fcmToken) return false;
   if (!ensureInit()) return false;
 
+  const isCall =
+      payload.data?.type === 'incoming_call' ||
+      payload.data?.type === 'call_time';
+
   try {
     await getMessaging().send({
       token: fcmToken,
@@ -43,10 +47,24 @@ export async function sendPush(fcmToken, payload) {
         body: payload.body,
       },
       data: payload.data || {},
-      android: { priority: 'high' },
+      android: {
+        priority: 'high',
+        notification: isCall
+            ? {
+                channelId: 'incoming_calls',
+                priority: 'max',
+                visibility: 'public',
+                defaultSound: true,
+              }
+            : undefined,
+      },
       apns: {
         payload: {
-          aps: { sound: 'default', contentAvailable: true },
+          aps: {
+            sound: 'default',
+            contentAvailable: true,
+            interruptionLevel: isCall ? 'time-sensitive' : 'active',
+          },
         },
       },
     });
@@ -60,7 +78,10 @@ export async function sendPush(fcmToken, payload) {
 /**
  * Дуудлагын мэдэгдэл — incoming_call төрөл
  */
-export async function sendIncomingCallPush(fcmToken, { callerName, callerImage, bookingId }) {
+export async function sendIncomingCallPush(
+  fcmToken,
+  { callerName, callerImage, bookingId, recipientRole = 'client' },
+) {
   return sendPush(fcmToken, {
     title: 'Дуудлага ирж байна',
     body: `${callerName} видео дуудлага хийж байна`,
@@ -69,6 +90,27 @@ export async function sendIncomingCallPush(fcmToken, { callerName, callerImage, 
       callerName: callerName || '',
       callerImage: callerImage || '',
       bookingId: bookingId || '',
+      recipientRole: recipientRole || 'client',
+    },
+  });
+}
+
+/**
+ * Захиалгын цаг болсон — call_time (app нээхэд шууд дуудлагад орох)
+ */
+export async function sendCallTimePush(
+  fcmToken,
+  { peerName, peerImage, bookingId, recipientRole = 'client' },
+) {
+  return sendPush(fcmToken, {
+    title: 'Уулзалтын цаг боллоо',
+    body: `${peerName} — одоо видео дуудлагад орох боломжтой`,
+    data: {
+      type: 'call_time',
+      callerName: peerName || '',
+      callerImage: peerImage || '',
+      bookingId: bookingId || '',
+      recipientRole: recipientRole || 'client',
     },
   });
 }

@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 
 class DateHelpers {
   static final _dateFormat = DateFormat('yyyy-MM-dd');
@@ -6,6 +7,8 @@ class DateHelpers {
   static final _timeFormat = DateFormat('HH:mm');
 
   static String toApiDate(DateTime date) => _dateFormat.format(date);
+
+  static String todayApiDate() => AppTimezone.todayDateStr();
 
   static String displayDate(DateTime date) => _displayFormat.format(date);
 

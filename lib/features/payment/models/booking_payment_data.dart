@@ -58,7 +58,7 @@ class BookingPaymentData {
   final bool paymentPending;
   final QPayData? qpay;
 
-  bool get canOpenPayment => status == 'approved' && !paid;
+  bool get canOpenPayment => canPay && !paid;
 
   factory BookingPaymentData.fromJson(Map<String, dynamic> json) {
     final booking = json['booking'] as Map<String, dynamic>;
@@ -74,6 +74,7 @@ class BookingPaymentData {
       );
     }
 
+    final bankRaw = json['bank'];
     return BookingPaymentData(
       bookingId: booking['id'] as String? ?? '',
       amount: (booking['amount'] as num?)?.toInt() ?? 0,
@@ -85,7 +86,13 @@ class BookingPaymentData {
       date: booking['date'] as String? ?? '',
       monkImage: booking['monkImage'] as String?,
       clientName: booking['clientName'] as String?,
-      bank: BankAccountInfo.fromJson(json['bank'] as Map<String, dynamic>),
+      bank: bankRaw is Map<String, dynamic>
+          ? BankAccountInfo.fromJson(bankRaw)
+          : const BankAccountInfo(
+              bankName: '',
+              accountNumber: '',
+              accountHolder: '',
+            ),
       reference: json['reference'] as String? ?? '',
       canPay: json['canPay'] as bool? ?? false,
       paymentPending: json['paymentPending'] as bool? ?? false,

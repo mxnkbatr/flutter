@@ -6,6 +6,7 @@ import 'package:sacred_app/shared/widgets/ios_grouped_section.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 
 const _kBookingNotif = 'notif_booking_updates';
+const _kBookingReminderNotif = 'notif_booking_reminders';
 const _kMessageNotif = 'notif_messages';
 const _kPromoNotif = 'notif_promotions';
 const _kCallNotif = 'notif_incoming_calls';
@@ -21,6 +22,7 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
 class _NotificationSettingsScreenState
     extends ConsumerState<NotificationSettingsScreen> {
   bool _booking = true;
+  bool _bookingReminder = true;
   bool _message = true;
   bool _promo = true;
   bool _call = true;
@@ -36,6 +38,7 @@ class _NotificationSettingsScreenState
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _booking = prefs.getBool(_kBookingNotif) ?? true;
+      _bookingReminder = prefs.getBool(_kBookingReminderNotif) ?? true;
       _message = prefs.getBool(_kMessageNotif) ?? true;
       _promo = prefs.getBool(_kPromoNotif) ?? true;
       _call = prefs.getBool(_kCallNotif) ?? true;
@@ -83,6 +86,19 @@ class _NotificationSettingsScreenState
                     _set(_kBookingNotif, v);
                   },
                 ),
+                SwitchListTile.adaptive(
+                  title: const Text('Захиалгын сануулагч'),
+                  subtitle: const Text(
+                    'Уулзалтын цаг ойртоход сануулах',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  value: _bookingReminder,
+                  activeColor: AppColors.goldPrime,
+                  onChanged: (v) {
+                    setState(() => _bookingReminder = v);
+                    _set(_kBookingReminderNotif, v);
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -118,7 +134,7 @@ class _NotificationSettingsScreenState
               title: 'Бусад',
               children: [
                 SwitchListTile.adaptive(
-                  title: const Text('Урамшуулал, мэдээ'),
+                  title: const Text('Шинэ лам нэмэгдсэн'),
                   subtitle: const Text(
                     'Шинэ лам, хямдрал, тусгай саналууд',
                     style: TextStyle(fontSize: 12),

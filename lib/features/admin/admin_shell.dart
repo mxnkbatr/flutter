@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class AdminShell extends StatelessWidget {
   const AdminShell({super.key, required this.child});
@@ -32,53 +35,70 @@ class AdminShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final index = _selectedIndex(context);
+    final bottom = MediaQuery.of(context).padding.bottom;
+
     return Scaffold(
+      backgroundColor: AppColors.creamBg,
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.inkDeep,
-          border: Border(top: BorderSide(color: AppColors.inkLight, width: 0.5)),
-        ),
-        child: BottomNavigationBar(
-          backgroundColor: AppColors.inkDeep,
-          selectedItemColor: AppColors.goldPrime,
-          unselectedItemColor: AppColors.goldMuted,
-          selectedLabelStyle: AppText.caption.copyWith(
-            fontWeight: FontWeight.w600,
-            fontSize: 10,
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 10),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceEl.withOpacity(0.96),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.borderSub),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.orange.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          unselectedLabelStyle: AppText.caption.copyWith(fontSize: 9),
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          currentIndex: _selectedIndex(context),
-          onTap: (i) => _onTap(context, i),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard_outlined),
-              label: 'Самбар',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.self_improvement_outlined),
-              label: 'Лам',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              label: 'Хэрэгл.',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today_outlined),
-              label: 'Захиал.',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              label: 'Санхүү',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.storefront_outlined),
-              activeIcon: Icon(Icons.storefront_rounded),
-              label: 'Дэлгүүр',
-            ),
-          ],
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(6, (i) {
+              final selected = i == index;
+              final icons = [
+                Icons.dashboard_outlined,
+                Icons.self_improvement_outlined,
+                Icons.people_outline,
+                Icons.calendar_today_outlined,
+                Icons.account_balance_wallet_outlined,
+                Icons.storefront_outlined,
+              ];
+              final activeIcons = [
+                Icons.dashboard_rounded,
+                Icons.self_improvement,
+                Icons.people_rounded,
+                Icons.calendar_today_rounded,
+                Icons.account_balance_wallet_rounded,
+                Icons.storefront_rounded,
+              ];
+              return ScaleTap(
+                pressedScale: 0.92,
+                onTap: () => _onTap(context, i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 48,
+                  height: 48,
+                  decoration: selected
+                      ? BoxDecoration(
+                          gradient: AppGradients.primary,
+                          borderRadius: BorderRadius.circular(16),
+                        )
+                      : null,
+                  child: Icon(
+                    selected ? activeIcons[i] : icons[i],
+                    size: 22,
+                    color: selected ? Colors.white : AppColors.textHint,
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );

@@ -1,22 +1,7 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { connectDb, User, Monk, Review, Product } from './db.js';
-
-function slotsForDate(dateStr) {
-  return ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00'];
-}
-
-function nextDays(count) {
-  const days = [];
-  const now = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
-    days.push({ date: iso, slots: slotsForDate(iso) });
-  }
-  return days;
-}
+import { DEFAULT_WEEKLY_SCHEDULE } from './scheduleUtils.js';
 
 async function seedShopProducts() {
   const productCount = await Product.countDocuments();
@@ -138,7 +123,7 @@ async function seed() {
       { name: 'Ерөөл', description: 'Богино ерөөл', durationMinutes: 30, price: 50000, category: 'Ерөөл' },
       { name: 'Тахилга', description: 'Гэрийн тахилга', durationMinutes: 60, price: 80000, category: 'Тахилга' },
     ],
-    schedule: nextDays(14),
+    schedule: DEFAULT_WEEKLY_SCHEDULE,
   });
 
   const monk2 = await Monk.create({
@@ -157,7 +142,7 @@ async function seed() {
       { name: 'Зурхай', description: 'Жилийн зурхай', durationMinutes: 45, price: 70000, category: 'Зурхай' },
       { name: 'Номын тайлбар', description: 'Богино тайлбар', durationMinutes: 30, price: 45000, category: 'Номын тайлбар' },
     ],
-    schedule: nextDays(14),
+    schedule: DEFAULT_WEEKLY_SCHEDULE,
   });
 
   const monk3 = await Monk.create({
@@ -173,7 +158,7 @@ async function seed() {
     services: [
       { name: 'Медитаци', description: 'Удирдлагатай медитаци', durationMinutes: 40, price: 40000, category: 'Номын тайлбар' },
     ],
-    schedule: nextDays(14),
+    schedule: DEFAULT_WEEKLY_SCHEDULE,
   });
 
   monkUser1.monkProfileId = monk1._id;

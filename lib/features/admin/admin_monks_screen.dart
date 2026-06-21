@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_monk.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
-import 'package:go_router/go_router.dart';
 import 'package:sacred_app/features/admin/widgets/admin_monk_card.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 
 class AdminMonksScreen extends ConsumerStatefulWidget {
   const AdminMonksScreen({super.key});
@@ -100,56 +101,59 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
     final filter = ref.watch(adminMonkFilterProvider);
     final monksAsync = ref.watch(adminMonksProvider(filter));
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Лам нарын удирдлага'),
-        actions: [
-          if (_canReorder)
-            IconButton(
-              tooltip: _reordering ? 'Дуусгах' : 'Дараалал өөрчлөх',
-              icon: Icon(_reordering ? Icons.check : Icons.swap_vert),
-              onPressed: () => setState(() => _reordering = !_reordering),
-            ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => context.push('/admin/monks/add'),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.goldPrime,
-          labelColor: AppColors.goldPrime,
-          unselectedLabelColor: AppColors.goldMuted,
-          tabs: const [
-            Tab(text: 'Бүгд'),
-            Tab(text: 'Хүлээгдэж буй'),
-            Tab(text: 'Идэвхтэй'),
-            Tab(text: 'Хаагдсан'),
-          ],
+    return AdminPageScaffold(
+      title: 'Лам нар',
+      actions: [
+        IconButton(
+          tooltip: 'Ангилал',
+          icon: const Icon(Icons.category_outlined, color: AppColors.orange),
+          onPressed: () => context.push('/admin/categories'),
         ),
+        if (_canReorder)
+          IconButton(
+            tooltip: _reordering ? 'Дуусгах' : 'Дараалал',
+            icon: Icon(_reordering ? Icons.check_rounded : Icons.swap_vert_rounded),
+            color: AppColors.orange,
+            onPressed: () => setState(() => _reordering = !_reordering),
+          ),
+        IconButton(
+          icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.orange),
+          onPressed: () => context.push('/admin/monks/add'),
+        ),
+      ],
+      bottom: TabBar(
+        controller: _tabController,
+        indicatorColor: AppColors.orange,
+        labelColor: AppColors.orange,
+        unselectedLabelColor: AppColors.textSec,
+        labelStyle: AppText.caption.copyWith(fontWeight: FontWeight.w700),
+        tabs: const [
+          Tab(text: 'Бүгд'),
+          Tab(text: 'Хүлээгдэж буй'),
+          Tab(text: 'Идэвхтэй'),
+          Tab(text: 'Хаагдсан'),
+        ],
       ),
       body: monksAsync.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.goldPrime),
+          child: CircularProgressIndicator(color: AppColors.orange),
         ),
         error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (monks) => RefreshIndicator(
-          color: AppColors.goldPrime,
+          color: AppColors.orange,
           onRefresh: () => ref.refresh(adminMonksProvider(filter).future),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_reordering && _canReorder)
-                Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.sunLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Ламыг бариад чирж дарааллыг өөрчилнө. Дээрх ✓ дарж хадгална.',
-                    style: AppText.caption.copyWith(color: AppColors.inkDeep),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: AdminSurfaceCard(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      'Ламыг бариад чирж дарааллыг өөрчилнө.',
+                      style: AppText.caption.copyWith(color: AppColors.inkDeep),
+                    ),
                   ),
                 ),
               Expanded(child: _buildList(monks, filter)),

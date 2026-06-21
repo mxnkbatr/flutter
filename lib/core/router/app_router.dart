@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/config/feature_flags.dart';
 import 'package:sacred_app/core/router/ios_page_transitions.dart';
 import 'package:sacred_app/features/admin/admin_bookings_screen.dart';
 import 'package:sacred_app/features/admin/admin_dashboard_screen.dart';
 import 'package:sacred_app/features/admin/admin_finance_screen.dart';
 import 'package:sacred_app/features/admin/admin_monks_screen.dart';
 import 'package:sacred_app/features/admin/screens/admin_add_monk_screen.dart';
+import 'package:sacred_app/features/admin/screens/admin_categories_screen.dart';
 import 'package:sacred_app/features/admin/screens/admin_edit_monk_screen.dart';
 import 'package:sacred_app/features/admin/admin_shell.dart';
 import 'package:sacred_app/features/admin/admin_users_screen.dart';
@@ -27,6 +29,12 @@ import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/features/payment/payment_screen.dart';
 import 'package:sacred_app/features/payment/payment_success_screen.dart';
 import 'package:sacred_app/features/admin/screens/admin_products_screen.dart';
+import 'package:sacred_app/features/profile/presentation/contact_support_screen.dart';
+import 'package:sacred_app/features/profile/presentation/edit_profile_screen.dart';
+import 'package:sacred_app/features/profile/presentation/faq_screen.dart';
+import 'package:sacred_app/features/profile/presentation/language_region_screen.dart';
+import 'package:sacred_app/features/profile/presentation/legal_document_screen.dart';
+import 'package:sacred_app/features/profile/utils/booking_summary.dart';
 import 'package:sacred_app/features/profile/presentation/profile_screen.dart';
 import 'package:sacred_app/features/notifications/notifications_screen.dart';
 import 'package:sacred_app/features/profile/notification_settings_screen.dart';
@@ -74,6 +82,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoggedIn) {
+        if (!FeatureFlags.premiumSubscriptionsEnabled &&
+            state.matchedLocation.startsWith('/subscription')) {
+          return '/profile';
+        }
         return _guardRole(state.matchedLocation, auth.role);
       }
 
@@ -188,7 +200,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/bookings',
-            builder: (context, state) => const MyBookingsScreen(),
+            builder: (context, state) => MyBookingsScreen(
+              initialFilter: BookingListFilterX.fromQuery(
+                state.uri.queryParameters['filter'],
+              ),
+            ),
           ),
           GoRoute(
             path: '/shop',
@@ -240,10 +256,52 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ProfileScreen(),
             routes: [
               GoRoute(
+                path: 'edit',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const EditProfileScreen(),
+                ),
+              ),
+              GoRoute(
                 path: 'notifications',
                 pageBuilder: (context, state) => iosCupertinoPage(
                   state: state,
                   child: const NotificationSettingsScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'language',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const LanguageRegionScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'faq',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const FaqScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'terms',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const LegalDocumentScreen(type: LegalDocumentType.terms),
+                ),
+              ),
+              GoRoute(
+                path: 'privacy',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const LegalDocumentScreen(type: LegalDocumentType.privacy),
+                ),
+              ),
+              GoRoute(
+                path: 'contact',
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const ContactSupportScreen(),
                 ),
               ),
             ],
@@ -320,6 +378,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/admin/finance',
             builder: (context, state) => const AdminFinanceScreen(),
+          ),
+          GoRoute(
+            path: '/admin/categories',
+            builder: (context, state) => const AdminCategoriesScreen(),
           ),
           GoRoute(
             path: '/admin/products',

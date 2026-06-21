@@ -20,11 +20,11 @@ class LocalVideoWidget extends StatelessWidget {
       width: 78,
       height: 104,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.goldPrime, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.orange, width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.inkDeep.withOpacity(0.4),
+            color: AppColors.orange.withOpacity(0.2),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -40,7 +40,7 @@ class LocalVideoWidget extends StatelessWidget {
                     child: Center(
                       child: Icon(
                         Icons.videocam_off_rounded,
-                        color: AppColors.goldMuted,
+                        color: AppColors.orange,
                         size: 22,
                       ),
                     ),

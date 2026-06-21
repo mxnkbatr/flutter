@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class ClientShell extends StatelessWidget {
@@ -35,34 +36,46 @@ class ClientShell extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
+      extendBody: true,
       body: child,
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceEl,
-          border: Border(
-            top: BorderSide(color: AppColors.borderSub, width: 1),
-          ),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(8, 8, 8, bottom > 0 ? 4 : 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_tabs.length, (i) {
-                final tab = _tabs[i];
-                final selected = i == index;
-                return _NavItem(
-                  icon: selected ? tab.activeIcon : tab.icon,
-                  label: tab.label,
-                  selected: selected,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    context.go(tab.path);
-                  },
-                );
-              }),
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 12),
+        child: Container(
+          height: 68,
+          decoration: BoxDecoration(
+            color: AppColors.surfaceEl.withOpacity(0.96),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: AppColors.borderSub.withOpacity(0.9),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.orange.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(_tabs.length, (i) {
+              final tab = _tabs[i];
+              final selected = i == index;
+              return _NavItem(
+                icon: selected ? tab.activeIcon : tab.icon,
+                label: tab.label,
+                selected: selected,
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  context.go(tab.path);
+                },
+              );
+            }),
           ),
         ),
       ),
@@ -88,38 +101,41 @@ class _NavItem extends StatelessWidget {
     return ScaleTap(
       pressedScale: 0.92,
       onTap: onTap,
-      child: SizedBox(
-        width: 58,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: 56,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: selected
+            ? BoxDecoration(
+                gradient: AppGradients.primary,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.orange.withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              )
+            : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOutCubic,
-              width: 44,
-              height: 44,
-              decoration: selected
-                  ? BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.orange,
-                        width: 2,
-                      ),
-                    )
-                  : null,
-              child: Icon(
-                icon,
-                size: 22,
-                color: selected ? AppColors.orange : AppColors.textHint,
-              ),
+            Icon(
+              icon,
+              size: 21,
+              color: selected ? Colors.white : AppColors.textHint,
             ),
             const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: selected ? AppColors.orange : AppColors.textHint,
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? Colors.white : AppColors.textHint,
+                fontSize: 9.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: -0.2,
               ),
             ),
           ],

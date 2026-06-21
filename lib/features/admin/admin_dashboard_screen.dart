@@ -3,15 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
 import 'package:sacred_app/features/admin/utils/admin_format.dart';
 import 'package:sacred_app/features/admin/widgets/admin_booking_row.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/features/admin/widgets/kpi_card.dart';
 import 'package:sacred_app/features/admin/widgets/pending_monk_card.dart';
 import 'package:sacred_app/features/admin/widgets/revenue_chart.dart';
-import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
-import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -20,27 +20,24 @@ class AdminDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(adminDashboardProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Платформын самбар'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Мэдэгдлийн төв удахгүй нээгдэнэ'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+    return AdminPageScaffold(
+      title: 'Платформын самбар',
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: AppColors.inkDeep),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Мэдэгдлийн төв удахгүй нээгдэнэ'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        ),
+      ],
       body: statsAsync.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.goldPrime),
+          child: CircularProgressIndicator(color: AppColors.orange),
         ),
         error: (e, _) => ErrorState(
           error: e,
@@ -48,11 +45,11 @@ class AdminDashboardScreen extends ConsumerWidget {
           onRetry: () => ref.invalidate(adminDashboardProvider),
         ),
         data: (stats) => RefreshIndicator(
-          color: AppColors.goldPrime,
+          color: AppColors.orange,
           onRefresh: () => ref.refresh(adminDashboardProvider.future),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             child: Column(
               children: [
                 GridView.count(
@@ -90,12 +87,12 @@ class AdminDashboardScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                SacredCard(
+                const SizedBox(height: 20),
+                AdminSurfaceCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Сарын орлого', style: AppText.h3),
+                      Text('Сарын орлого', style: AppText.h3),
                       const SizedBox(height: 16),
                       SizedBox(
                         height: 180,
@@ -106,7 +103,7 @@ class AdminDashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 if (stats.pendingMonks > 0)
-                  SacredCard(
+                  AdminSurfaceCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -138,13 +135,13 @@ class AdminDashboardScreen extends ConsumerWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Сүүлийн захиалгууд', style: AppText.h3),
+                    Text('Сүүлийн захиалгууд', style: AppText.h3),
                     TextButton(
                       onPressed: () => context.go('/admin/bookings'),
                       child: Text(
                         'Бүгд харах',
                         style: AppText.bodySmall.copyWith(
-                          color: AppColors.goldPrime,
+                          color: AppColors.orange,
                         ),
                       ),
                     ),

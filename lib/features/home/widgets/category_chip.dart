@@ -36,7 +36,6 @@ class CategoryChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chipIcon = icon ?? iconFor(label);
-    const inactiveBorder = AppColors.orange;
 
     return GestureDetector(
       onTap: () {
@@ -44,38 +43,44 @@ class CategoryChip extends StatelessWidget {
         onTap();
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           gradient: isSelected ? AppGradients.primary : null,
           color: isSelected ? null : AppColors.surfaceEl,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
-            color: isSelected ? AppColors.orangeDeep : inactiveBorder,
+            color: isSelected
+                ? Colors.transparent
+                : AppColors.orange.withOpacity(0.35),
             width: 1.2,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.orange.withOpacity(0.22),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: AppColors.orange.withOpacity(0.28),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (label != 'Бүгд') ...[
-              Icon(
-                chipIcon,
-                size: 15,
-                color: isSelected ? Colors.white : AppColors.orange,
-              ),
-              const SizedBox(width: 6),
-            ],
+            Icon(
+              chipIcon,
+              size: 15,
+              color: isSelected ? Colors.white : AppColors.orange,
+            ),
+            const SizedBox(width: 6),
             Text(
               label,
               style: isSelected ? AppText.chipActive : AppText.chipInactive,

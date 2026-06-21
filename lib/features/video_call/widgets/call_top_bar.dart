@@ -30,123 +30,125 @@ class CallTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 8,
-        left: 16,
-        right: 16,
-        bottom: 24,
-      ),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.inkDeep.withOpacity(0.85),
-            AppColors.transparent,
-          ],
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  monkName,
-                  style: AppText.h3.copyWith(
-                    color: AppColors.onDark,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Row(
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 16,
+            right: 16,
+            bottom: 16,
+          ),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceEl.withOpacity(0.88),
+            border: Border(
+              bottom: BorderSide(color: AppColors.borderSub.withOpacity(0.8)),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: isConnected
-                            ? AppColors.success
-                            : AppColors.warning,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
                     Text(
-                      isConnected
-                          ? 'Холбогдсон · HD'
-                          : 'Холбогдож байна...',
-                      style: AppText.caption.copyWith(
-                        color: isConnected
-                            ? AppColors.success
-                            : AppColors.goldMuted,
-                        fontWeight: FontWeight.w600,
+                      monkName,
+                      style: AppText.h3.copyWith(
+                        color: AppColors.inkDeep,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: isConnected
+                                ? AppColors.success
+                                : AppColors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isConnected ? 'Холбогдсон · HD' : 'Холбогдож байна...',
+                          style: AppText.caption.copyWith(
+                            color: isConnected
+                                ? AppColors.success
+                                : AppColors.textSec,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.orangeLight,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.orange.withOpacity(0.25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _RecordingDot(active: isConnected),
+                    const SizedBox(width: 6),
+                    Text(
+                      _elapsedText,
+                      style: AppText.bodySmall.copyWith(
+                        color: AppColors.orange,
+                        fontWeight: FontWeight.w700,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.goldPrime.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.goldPrime.withOpacity(0.3),
-                width: 0.5,
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _RecordingDot(),
-                const SizedBox(width: 5),
-                Text(
-                  _elapsedText,
-                  style: AppText.bodySmall.copyWith(
-                    color: AppColors.goldPrime,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+              if (onNote != null) ...[
+                const SizedBox(width: 8),
+                Material(
+                  color: AppColors.orangeLight,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    onTap: onNote,
+                    borderRadius: BorderRadius.circular(12),
+                    child: const SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Icon(
+                        Icons.note_alt_outlined,
+                        color: AppColors.orange,
+                        size: 18,
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
+            ],
           ),
-          if (onNote != null) ...[
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: onNote,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.note_alt_outlined,
-                  color: AppColors.goldPrime,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
 }
 
 class _RecordingDot extends StatefulWidget {
+  const _RecordingDot({required this.active});
+
+  final bool active;
+
   @override
   State<_RecordingDot> createState() => _RecordingDotState();
 }
@@ -173,12 +175,14 @@ class _RecordingDotState extends State<_RecordingDot>
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 1.0, end: 0.3).animate(_ctrl),
+      opacity: widget.active
+          ? Tween<double>(begin: 1.0, end: 0.35).animate(_ctrl)
+          : AlwaysStoppedAnimation(1.0),
       child: Container(
         width: 6,
         height: 6,
-        decoration: const BoxDecoration(
-          color: AppColors.danger,
+        decoration: BoxDecoration(
+          color: widget.active ? AppColors.danger : AppColors.orange,
           shape: BoxShape.circle,
         ),
       ),

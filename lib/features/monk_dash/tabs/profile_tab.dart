@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
+import 'package:sacred_app/core/config/feature_flags.dart';
+import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -13,8 +15,6 @@ import 'package:sacred_app/shared/widgets/ios_grouped_section.dart';
 import 'package:sacred_app/shared/widgets/profile_image_picker.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
-
-const _categoryOptions = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
@@ -115,7 +115,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authStateProvider).valueOrNull;
     final tier = ref.watch(userTierProvider);
+    final showPremium = FeatureFlags.premiumSubscriptionsEnabled;
     final profileAsync = ref.watch(monkProfileEditProvider);
+    final categoriesAsync = ref.watch(monkCategoriesProvider);
+    final categoryOptions = categoriesAsync.valueOrNull ??
+        const ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
     return profileAsync.when(
       loading: () => const Center(
@@ -144,10 +148,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     _nameCtrl.text.isNotEmpty ? _nameCtrl.text : (auth?.userName ?? ''),
                     style: AppText.h2.copyWith(color: AppColors.onDark),
                   ),
-                  Text(
-                    'Лам · ${tierLabel(tier)}',
-                    style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
-                  ),
+                  if (showPremium)
+                    Text(
+                      'Лам · ${tierLabel(tier)}',
+                      style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
+                    ),
                   if (profile.email.isNotEmpty)
                     Text(
                       profile.email,
@@ -207,7 +212,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _categoryOptions.map((cat) {
+                    children: categoryOptions.map((cat) {
                       final selected = _selectedCategories.contains(cat);
                       return FilterChip(
                         label: Text(cat),
@@ -313,12 +318,16 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                               ),
                               const SizedBox(height: 8),
                               DropdownButtonFormField<String>(
-                                value: s.category.isEmpty ? _categoryOptions.first : s.category,
+                                value: s.category.isEmpty
+                                    ? (categoryOptions.isNotEmpty
+                                        ? categoryOptions.first
+                                        : s.category)
+                                    : s.category,
                                 decoration: const InputDecoration(
                                   labelText: 'Ангилал',
                                   border: OutlineInputBorder(),
                                 ),
-                                items: _categoryOptions
+                                items: categoryOptions
                                     .map(
                                       (c) => DropdownMenuItem(
                                         value: c,
@@ -351,24 +360,26 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            IosGroupedSection(
-              title: 'Тохиргоо',
-              children: [
-                ListTile(
-                  leading: const Icon(
-                    Icons.star_outline_rounded,
-                    color: AppColors.goldPrime,
+            if (showPremium) ...[
+              const SizedBox(height: 16),
+              IosGroupedSection(
+                title: 'Тохиргоо',
+                children: [
+                  ListTile(
+                    leading: const Icon(
+                      Icons.star_outline_rounded,
+                      color: AppColors.goldPrime,
+                    ),
+                    title: const Text('Premium багц'),
+                    trailing: const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSec,
+                    ),
+                    onTap: () => context.push('/subscription'),
                   ),
-                  title: const Text('Premium багц'),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: AppColors.textSec,
-                  ),
-                  onTap: () => context.push('/subscription'),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
             const SizedBox(height: 16),
             IosGroupedSection(
               children: [

@@ -47,6 +47,14 @@
 	<string>Видео дуудлагад микрофон ашиглана</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Профайл зураг сонгоход ашиглана</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Захиалга, дуудлага, мессежийн мэдэгдэл илгээнэ</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

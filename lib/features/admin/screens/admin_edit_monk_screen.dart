@@ -4,13 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/admin/models/admin_monk_detail.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/shared/widgets/profile_image_picker.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
 
-const _categoryOptions = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
+const _fallbackCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 class AdminEditMonkScreen extends ConsumerStatefulWidget {
   const AdminEditMonkScreen({super.key, required this.monkId});
@@ -174,31 +176,34 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(adminMonkDetailProvider(widget.monkId));
+    final categoryOptions =
+        ref.watch(monkCategoriesProvider).valueOrNull ?? _fallbackCategories;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Лам засах'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-            onPressed: _deleting ? null : _delete,
-          ),
-        ],
-      ),
+    return AdminPageScaffold(
+      title: 'Лам засах',
+      onBack: () => context.pop(),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+          onPressed: _deleting ? null : _delete,
+        ),
+      ],
       body: detailAsync.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.goldPrime),
+          child: CircularProgressIndicator(color: AppColors.orange),
         ),
         error: (e, _) => Center(child: Text(formatUserError(e))),
         data: (detail) {
           _load(detail);
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              Center(
-                child: ProfileImagePicker(
-                  imageUrl: _imageUrl,
-                  onImageChanged: (url) => setState(() => _imageUrl = url),
+              AdminSurfaceCard(
+                child: Center(
+                  child: ProfileImagePicker(
+                    imageUrl: _imageUrl,
+                    onImageChanged: (url) => setState(() => _imageUrl = url),
+                  ),
                 ),
               ),
               if (detail.email.isNotEmpty) ...[
@@ -259,7 +264,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _categoryOptions.map((cat) {
+                children: categoryOptions.map((cat) {
                   final selected = _selectedCategories.contains(cat);
                   return FilterChip(
                     label: Text(cat),
@@ -388,13 +393,13 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           value: s.category.isEmpty
-                              ? _categoryOptions.first
+                              ? categoryOptions.first
                               : s.category,
                           decoration: const InputDecoration(
                             labelText: 'Ангилал',
                             border: OutlineInputBorder(),
                           ),
-                          items: _categoryOptions
+                          items: categoryOptions
                               .map(
                                 (c) => DropdownMenuItem(
                                   value: c,

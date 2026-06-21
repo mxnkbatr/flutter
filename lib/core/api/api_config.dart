@@ -1,9 +1,15 @@
 class ApiConfig {
-  /// Local backend — Android emulator: http://10.0.2.2:3000/api
-  static const String baseUrl = 'http://localhost:3000/api';
+  /// Override in CI/release: --dart-define=API_BASE_URL=https://api.gevabal.mn/api
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:3000/api',
+  );
 
-  /// Backend холбогдохгүй үед debug-д локал dev нэвтрэлт рүү fallback.
-  static const bool preferDevAuth = true;
+  /// Debug local fallback only. Release builds must pass PREFER_DEV_AUTH=false.
+  static const bool preferDevAuth = bool.fromEnvironment(
+    'PREFER_DEV_AUTH',
+    defaultValue: true,
+  );
 
   /// `npm run seed` — local backend туршилтын хэрэглэгч
   static const String seedClientEmail = 'client@test.com';

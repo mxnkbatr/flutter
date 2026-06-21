@@ -11,12 +11,13 @@ import 'package:sacred_app/features/home/widgets/explore_monk_card.dart';
 import 'package:sacred_app/features/home/widgets/explore_search_bar.dart';
 import 'package:sacred_app/features/home/widgets/featured_discovery_card.dart';
 import 'package:sacred_app/features/home/widgets/home_error_view.dart';
+import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/notifications/providers/notifications_provider.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
 import 'package:sacred_app/shared/widgets/native_app_header.dart';
 
-const _categories = ['Бүгд', 'Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
+const _defaultCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 final favoriteMonksProvider = StateProvider<Set<String>>((ref) => {});
 
@@ -52,164 +53,248 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final selectedCategory = ref.watch(monkCategoryFilterProvider);
     final favorites = ref.watch(favoriteMonksProvider);
     final unread = ref.watch(unreadNotificationsCountProvider);
+    final categoryList = ref.watch(monkCategoriesProvider).valueOrNull ?? _defaultCategories;
+    final categories = ['Бүгд', ...categoryList];
     final top = MediaQuery.of(context).padding.top;
-    final bottomPad = MediaQuery.of(context).padding.bottom + 88;
+    final bottomPad = MediaQuery.of(context).padding.bottom + 100;
     final initial = (auth?.userName?.isNotEmpty ?? false)
         ? auth!.userName![0].toUpperCase()
         : '?';
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
-      body: RefreshIndicator(
-        color: AppColors.orange,
-        onRefresh: () async {
-          ref.invalidate(monksNotifierProvider);
-          ref.invalidate(recommendedMonksProvider);
-          await ref.read(monksNotifierProvider.future);
-        },
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, top + 12, 20, 0),
-                child: NativeLargeTitleHeader(
-                  eyebrow: 'Сайн байна уу,',
-                  title: auth?.userName ?? 'Зочин',
-                  serifTitle: false,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      NativeHeaderIconButton(
-                        icon: Icons.notifications_outlined,
-                        badgeCount: unread,
-                        onTap: () => context.push('/notifications'),
-                      ),
-                      const SizedBox(width: 8),
-                      NativeAvatarButton(
-                        initial: initial,
-                        onTap: () => context.go('/profile'),
-                      ),
-                    ],
-                  ),
-                ),
+      body: Stack(
+        children: [
+          const _AmbientBackground(),
+          RefreshIndicator(
+            color: AppColors.orange,
+            onRefresh: () async {
+              ref.invalidate(monksNotifierProvider);
+              ref.invalidate(recommendedMonksProvider);
+              await ref.read(monksNotifierProvider.future);
+            },
+            child: CustomScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: ExploreSearchBar(
-                  hint: 'Лам хайх...',
-                  minimal: true,
-                  onTap: () => context.push('/search'),
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 52,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  itemCount: _categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (_, i) => CategoryChip(
-                    label: _categories[i],
-                    isSelected: selectedCategory == _categories[i],
-                    onTap: () {
-                      ref.read(monkCategoryFilterProvider.notifier).state =
-                          _categories[i];
-                    },
-                  ),
-                ),
-              ),
-            ),
-            monksAsync.when(
-              loading: () => SliverPadding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPad),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    const MonkCardShimmer(),
-                    const SizedBox(height: 16),
-                    const MonkCardShimmer(),
-                  ]),
-                ),
-              ),
-              error: (_, __) => SliverToBoxAdapter(
-                child: HomeErrorView(
-                  onRetry: () => ref.invalidate(monksNotifierProvider),
-                ),
-              ),
-              data: (monks) {
-                if (monks.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Center(
-                        child: Text('Лам олдсонгүй', style: AppText.bodySmall),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, top + 8, 20, 0),
+                    child: NativeLargeTitleHeader(
+                      eyebrow: 'Сайн байна уу,',
+                      title: auth?.userName ?? 'Зочин',
+                      serifTitle: true,
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          NativeHeaderIconButton(
+                            icon: Icons.notifications_outlined,
+                            badgeCount: unread,
+                            onTap: () => context.push('/notifications'),
+                          ),
+                          const SizedBox(width: 10),
+                          NativeAvatarButton(
+                            initial: initial,
+                            onTap: () => context.go('/profile'),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
-
-                final specialMonks = monks.where((m) => m.isSpecial).toList();
-                final featured =
-                    specialMonks.isNotEmpty ? specialMonks.first : monks.first;
-                final rest = monks.where((m) => m.id != featured.id).toList();
-
-                return SliverPadding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPad),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      FeaturedDiscoveryCard(
-                        monk: featured,
-                        isFavorite: favorites.contains(featured.id),
-                        onFavorite: () => _toggleFavorite(featured.id),
-                        onTap: () => _openMonk(context, featured),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                    child: ExploreSearchBar(
+                      hint: 'Лам хайх...',
+                      minimal: true,
+                      onTap: () => context.push('/search'),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 56,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (_, i) => CategoryChip(
+                        label: categories[i],
+                        isSelected: selectedCategory == categories[i],
+                        onTap: () {
+                          ref.read(monkCategoryFilterProvider.notifier).state =
+                              categories[i];
+                        },
                       ),
-                      if (rest.isNotEmpty) ...[
-                        const SizedBox(height: 28),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Бусад ламнар',
-                              style: AppText.h3.copyWith(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 18,
-                              ),
-                            ),
-                            Text(
-                              '${monks.length} лам олдлоо',
-                              style: AppText.caption.copyWith(
-                                color: AppColors.textSec,
+                    ),
+                  ),
+                ),
+                monksAsync.when(
+                  loading: () => SliverPadding(
+                    padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        const MonkCardShimmer(),
+                        const SizedBox(height: 16),
+                        const MonkCardShimmer(),
+                      ]),
+                    ),
+                  ),
+                  error: (_, __) => SliverToBoxAdapter(
+                    child: HomeErrorView(
+                      onRetry: () => ref.invalidate(monksNotifierProvider),
+                    ),
+                  ),
+                  data: (monks) {
+                    if (monks.isEmpty) {
+                      return SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Center(
+                            child: Text('Лам олдсонгүй', style: AppText.bodySmall),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final specialMonks = monks.where((m) => m.isSpecial).toList();
+                    final featured =
+                        specialMonks.isNotEmpty ? specialMonks.first : monks.first;
+                    final rest = monks.where((m) => m.id != featured.id).toList();
+
+                    return SliverPadding(
+                      padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
+                      sliver: SliverList(
+                        delegate: SliverChildListDelegate([
+                          FeaturedDiscoveryCard(
+                            monk: featured,
+                            isFavorite: favorites.contains(featured.id),
+                            onFavorite: () => _toggleFavorite(featured.id),
+                            onTap: () => _openMonk(context, featured),
+                          ),
+                          if (rest.isNotEmpty) ...[
+                            const SizedBox(height: 32),
+                            _SectionHeader(count: monks.length),
+                            const SizedBox(height: 16),
+                            ...rest.map(
+                              (monk) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: ExploreMonkCard(
+                                  monk: monk,
+                                  isFavorite: favorites.contains(monk.id),
+                                  onFavorite: () => _toggleFavorite(monk.id),
+                                  onTap: () => _openMonk(context, monk),
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 14),
-                        ...rest.map(
-                          (monk) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: ExploreMonkCard(
-                              monk: monk,
-                              isFavorite: favorites.contains(monk.id),
-                              onFavorite: () => _toggleFavorite(monk.id),
-                              onTap: () => _openMonk(context, monk),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ]),
-                  ),
-                );
-              },
+                        ]),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _AmbientBackground extends StatelessWidget {
+  const _AmbientBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned(
+            top: -60,
+            right: -40,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.orange.withOpacity(0.14),
+                    AppColors.orange.withOpacity(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 180,
+            left: -80,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppColors.orangePeach.withOpacity(0.5),
+                    AppColors.orangePeach.withOpacity(0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 22,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [AppColors.orange, AppColors.orangeDeep],
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          'Бусад ламнар',
+          style: AppText.displaySerif(size: 20),
+        ),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: AppColors.orangeSoft,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            '$count лам',
+            style: AppText.caption.copyWith(
+              color: AppColors.orangeDeep,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

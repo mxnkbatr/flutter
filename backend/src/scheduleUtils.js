@@ -1,4 +1,11 @@
 import { Booking } from './db.js';
+import {
+  SLOT_INTERVAL_MINUTES,
+  addDaysToDateStr,
+  getPastSlotsForDate,
+  todayDateStr,
+  weekdayIndexUlaanbaatar,
+} from './timezoneUtils.js';
 
 export const DAY_NAMES = [
   'Ням',
@@ -10,7 +17,11 @@ export const DAY_NAMES = [
   'Бямба',
 ];
 
-export function generateSlotsFromRange(start, end, intervalMinutes = 60) {
+export function generateSlotsFromRange(
+  start,
+  end,
+  intervalMinutes = SLOT_INTERVAL_MINUTES,
+) {
   const slots = [];
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
@@ -37,8 +48,7 @@ export function normalizeSchedule(schedule) {
 
 export function getWeeklyDayConfig(schedule, dateStr) {
   const days = normalizeSchedule(schedule);
-  const d = new Date(`${dateStr.slice(0, 10)}T12:00:00`);
-  const dayName = DAY_NAMES[d.getDay()];
+  const dayName = DAY_NAMES[weekdayIndexUlaanbaatar(dateStr)];
 
   if (days.length && (days[0]?.name || days[0]?.day)) {
     return days.find((x) => (x.name || x.day) === dayName);
@@ -68,21 +78,25 @@ export async function getSlotsForDate(monkId, schedule, dateStr) {
     status: { $nin: ['cancelled'] },
   });
   const bookedSlots = bookings.map((b) => b.slot).filter(Boolean);
+  const pastSlots = getPastSlotsForDate(normalizedDate, slots);
 
-  return { date: normalizedDate, slots, bookedSlots };
+  return { date: normalizedDate, slots, bookedSlots, pastSlots };
 }
 
 export async function getScheduleOverview(monkId, schedule, dayCount = 14) {
   const result = [];
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
+  const today = todayDateStr();
 
   for (let i = 0; i < dayCount; i++) {
-    const d = new Date(today);
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const { slots, bookedSlots } = await getSlotsForDate(monkId, schedule, dateStr);
-    const availableSlots = slots.filter((s) => !bookedSlots.includes(s));
+    const dateStr = addDaysToDateStr(today, i);
+    const { slots, bookedSlots, pastSlots } = await getSlotsForDate(
+      monkId,
+      schedule,
+      dateStr,
+    );
+    const availableSlots = slots.filter(
+      (s) => !bookedSlots.includes(s) && !pastSlots.includes(s),
+    );
     result.push({
       date: dateStr,
       isAvailable: availableSlots.length > 0,
@@ -116,7 +130,7 @@ export const DEFAULT_SERVICES = [
   {
     name: 'Чулуут цаг',
     description: 'Чулуут цагийн үйлчилгээ',
-    durationMinutes: 60,
+    durationMinutes: 30,
     price: 80000,
     category: 'Тахилга',
   },

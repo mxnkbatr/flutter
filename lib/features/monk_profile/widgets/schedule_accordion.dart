@@ -232,12 +232,13 @@ class _DayAccordionTile extends ConsumerWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: schedule.slots.map((slot) {
-                          final isBooked = schedule.bookedSlots.contains(slot);
+                          final unavailable =
+                              schedule.isUnavailable(slot, dateStr);
                           return TimeSlotChip(
                             time: slot,
                             isSelected: false,
-                            isBooked: isBooked,
-                            onTap: isBooked ? null : () => onBook(slot),
+                            isBooked: unavailable,
+                            onTap: unavailable ? null : () => onBook(slot),
                           );
                         }).toList(),
                       ),

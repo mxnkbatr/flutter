@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/home/home_screen.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/features/home/providers/monks_provider.dart';
@@ -16,7 +17,7 @@ import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/native_app_header.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 
-const _categories = ['Бүгд', 'Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
+const _defaultSearchCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -121,6 +122,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final query = ref.watch(debouncedSearchProvider);
     final resultsAsync = ref.watch(searchResultsProvider);
+    final categoryList = ref.watch(monkCategoriesProvider).valueOrNull ?? _defaultSearchCategories;
+    final categories = ['Бүгд', ...categoryList];
     final monksAsync = ref.watch(monksNotifierProvider);
     final selectedCategory = ref.watch(monkCategoryFilterProvider);
     final favorites = ref.watch(favoriteMonksProvider);
@@ -138,10 +141,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         height: 44,
         child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          itemCount: _categories.length,
+          itemCount: categories.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (_, i) {
-            final cat = _categories[i];
+            final cat = categories[i];
             return CategoryChip(
               label: cat,
               isSelected: cat == selectedCategory,

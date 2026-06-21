@@ -6,8 +6,8 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_monk.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
-import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class AdminMonkCard extends ConsumerWidget {
   const AdminMonkCard({
@@ -64,7 +64,7 @@ class AdminMonkCard extends ConsumerWidget {
   void _showActionMenu(BuildContext context, WidgetRef ref) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.surfaceEl,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -183,10 +183,8 @@ class AdminMonkCard extends ConsumerWidget {
   Widget _cardBody() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: SacredCard(
-        onTap: showReorderHandle
-            ? null
-            : null, // tap handled by outer GestureDetector / Dismissible parent
+      child: AdminSurfaceCard(
+        padding: const EdgeInsets.all(14),
         child: Row(
           children: [
             if (showReorderHandle)

@@ -30,6 +30,10 @@ String formatUserError(
     if (data is Map) {
       final text = data['error'] ?? data['message'];
       if (text is String && text.isNotEmpty && !_isTechnical(text)) {
+        if (text.contains('Нэхэмжлэлийн мөр') ||
+            text.contains('INVOICE_LINE')) {
+          return 'QPay тохиргоо дутуу байна.\nАдминтай холбогдоно уу.';
+        }
         return text;
       }
     }
@@ -38,6 +42,11 @@ String formatUserError(
   }
 
   final raw = error.toString();
+  if (raw.contains('invalid API key') ||
+      raw.contains('ConnectException') ||
+      raw.contains('LiveKit')) {
+    return 'Видео холболт амжилтгүй.\nLiveKit серверийн тохиргоог шалгана уу.';
+  }
   if (_isTechnical(raw)) return fallback;
   return raw.replaceFirst('Exception: ', '');
 }

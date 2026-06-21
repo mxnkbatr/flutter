@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
+import 'package:sacred_app/core/config/feature_flags.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/features/subscription/widgets/upgrade_prompt_sheet.dart';
 import 'package:sacred_app/shared/widgets/app_modal_sheet.dart';
@@ -9,11 +10,14 @@ import 'package:sacred_app/shared/widgets/app_modal_sheet.dart';
 class TierGating {
   TierGating._();
 
+  static bool get _enabled => FeatureFlags.premiumSubscriptionsEnabled;
+
   static void showUpgrade(
     BuildContext context, {
     required String reason,
     VoidCallback? onUpgrade,
   }) {
+    if (!_enabled) return;
     showAppModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -26,6 +30,7 @@ class TierGating {
   }
 
   static bool canAccessMonk(String tier, Monk monk) {
+    if (!_enabled) return true;
     if (!monk.isSpecial) return true;
     return tier == 'premium' || tier == 'vip';
   }
@@ -35,6 +40,7 @@ class TierGating {
     WidgetRef ref,
     Monk monk,
   ) async {
+    if (!_enabled) return true;
     final tier = ref.read(userTierProvider);
     if (canAccessMonk(tier, monk)) return true;
     showUpgrade(
@@ -48,6 +54,7 @@ class TierGating {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    if (!_enabled) return true;
     final tier = ref.read(userTierProvider);
     if (tier != 'free') return true;
 
@@ -62,13 +69,5 @@ class TierGating {
     return true;
   }
 
-  static bool checkVideoCall(BuildContext context, WidgetRef ref) {
-    final tier = ref.read(userTierProvider);
-    if (tier != 'free') return true;
-    showUpgrade(
-      context,
-      reason: 'Видео дуудлага Premium гишүүдэд нээлттэй',
-    );
-    return false;
-  }
+  static bool checkVideoCall(BuildContext context, WidgetRef ref) => true;
 }

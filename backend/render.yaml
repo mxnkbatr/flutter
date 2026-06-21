@@ -1,0 +1,44 @@
+# Render.com — backend deploy (үнэгүй tier)
+# https://dashboard.render.com → New → Blueprint → энэ repo холбож deploy
+#
+# Deploy хийсний дараа URL: https://geva-api.onrender.com
+# Flutter/Codemagic: API_BASE_URL=https://geva-api.onrender.com/api
+
+services:
+  - type: web
+    name: geva-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/categories
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_DB
+        value: Buddha
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: APP_BASE_URL
+        value: https://geva-api.onrender.com
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: LIVEKIT_URL
+        sync: false
+      - key: QPAY_USERNAME
+        sync: false
+      - key: QPAY_PASSWORD
+        sync: false
+      - key: QPAY_INVOICE_CODE
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: gevabal-da4f2
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false

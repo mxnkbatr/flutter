@@ -6,7 +6,7 @@ import 'package:sacred_app/core/auth/auth_provider.dart';
 
 import 'package:sacred_app/core/api/api_config.dart';
 
-const baseUrl = ApiConfig.baseUrl;
+String get baseUrl => ApiConfig.baseUrl;
 
 bool get isApiConfigured {
   final url = baseUrl.toLowerCase();

@@ -8,9 +8,10 @@
 
 definitions:
   env_versions: &env_versions
-    flutter: 3.22.0
-    xcode: 15.4
+    flutter: 3.27.4
+    xcode: 16.2
     cocoapods: default
+    java: 17
 
   flutter_setup: &flutter_setup
     name: Flutter setup
@@ -34,7 +35,7 @@ definitions:
     script: |
       cd ios && pod install && cd ..
       flutter build ipa --release \
-        --dart-define=API_BASE_URL="${API_BASE_URL:-https://api.gevabal.mn/api}" \
+        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false \
         --export-options-plist=ios/export_options.plist
 
@@ -49,7 +50,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: mn.gevabal.app
       vars:
-        API_BASE_URL: https://api.gevabal.mn/api
+        API_BASE_URL: https://geva-api.onrender.com/api
     triggering:
       events:
         - push
@@ -69,13 +70,13 @@ workflows:
         submit_to_testflight: true
 
   android-release:
-    name: Android Release APK
+    name: Android Release AAB
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       <<: *env_versions
       vars:
-        API_BASE_URL: https://api.gevabal.mn/api
+        API_BASE_URL: https://geva-api.onrender.com/api
     triggering:
       events:
         - push
@@ -85,10 +86,11 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
-      - name: Build Android APK
+      - name: Build Android App Bundle
         script: |
-          flutter build apk --release \
-            --dart-define=API_BASE_URL="${API_BASE_URL:-https://api.gevabal.mn/api}" \
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
             --dart-define=PREFER_DEV_AUTH=false
     artifacts:
+      - build/app/outputs/bundle/release/app-release.aab
       - build/app/outputs/flutter-apk/app-release.apk

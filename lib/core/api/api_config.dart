@@ -1,9 +1,42 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
-  /// Override in CI/release: --dart-define=API_BASE_URL=https://api.gevabal.mn/api
-  static const String baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3000/api',
+  /// Production/staging backend (Render deploy хийсний дараа).
+  /// Codemagic: --dart-define=API_BASE_URL=https://geva-api.onrender.com/api
+  static const String productionBaseUrl =
+      'https://geva-api.onrender.com/api';
+
+  /// Физик утас → PC backend: --dart-define=LOCAL_API_HOST=192.168.x.x
+  static const String localApiHost = String.fromEnvironment(
+    'LOCAL_API_HOST',
+    defaultValue: '',
   );
+
+  static String get baseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+
+    if (kDebugMode) {
+      return 'http://${_debugHost()}:3000/api';
+    }
+
+    return productionBaseUrl;
+  }
+
+  static String _debugHost() {
+    if (localApiHost.isNotEmpty) return localApiHost;
+    if (kIsWeb) return 'localhost';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        // Android emulator → host PC. Физик утас дээр LOCAL_API_HOST заана.
+        return '10.0.2.2';
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        return 'localhost';
+      default:
+        return 'localhost';
+    }
+  }
 
   /// Debug local fallback only. Release builds must pass PREFER_DEV_AUTH=false.
   static const bool preferDevAuth = bool.fromEnvironment(

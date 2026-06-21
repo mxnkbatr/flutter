@@ -27,7 +27,7 @@ dependencies:
 
   # Video call (custom UI — flutter_livekit_components not on pub.dev)
   livekit_client: ^2.1.0
-  flutter_webrtc: ^0.12.0
+  flutter_webrtc: 0.12.12+hotfix.1
 
   # Push notifications
   firebase_core: ^3.8.0

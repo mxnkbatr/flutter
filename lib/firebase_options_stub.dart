@@ -42,6 +42,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '000000000000',
     projectId: 'gevabal-not-configured',
     storageBucket: 'gevabal-not-configured.appspot.com',
-    iosBundleId: 'mn.gevabal.sacredApp',
+    iosBundleId: 'mn.gevabal.app',
   );
 }

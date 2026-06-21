@@ -5,13 +5,18 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/features/home/home_screen.dart';
+import 'package:sacred_app/features/home/models/monk.dart';
+import 'package:sacred_app/features/home/providers/monks_provider.dart';
 import 'package:sacred_app/features/home/providers/search_provider.dart';
+import 'package:sacred_app/features/home/widgets/category_chip.dart';
 import 'package:sacred_app/features/home/widgets/explore_monk_card.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
+import 'package:sacred_app/shared/widgets/native_app_header.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
+
+const _categories = ['Бүгд', 'Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -65,245 +70,238 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     context.push('/monks/${monk.id}');
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final query = ref.watch(debouncedSearchProvider);
-    final resultsAsync = ref.watch(searchResultsProvider);
-    final favorites = ref.watch(favoriteMonksProvider);
-
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: SafeArea(
+  void _showSortSheet() {
+    HapticFeedback.lightImpact();
+    final sorts = ['Үнэлгээ', 'Үнэ (доош)', 'Үнэ (дээш)', 'Шинэ'];
+    final current = ref.read(monkSortFilterProvider);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceEl,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 18,
-                      color: AppColors.textPri,
-                    ),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      context.pop();
-                    },
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Хайх',
-                      style: AppText.h2.copyWith(fontWeight: FontWeight.w700),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: 48),
-                ],
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-              child: Container(
-                height: 56,
-                padding: const EdgeInsets.only(left: 20, right: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceEl,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchCtrl,
-                        focusNode: _focusNode,
-                        autofocus: true,
-                        style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-                        decoration: InputDecoration(
-                          hintText: 'Лам, хийд, үйлчилгээ...',
-                          hintStyle: AppText.body.copyWith(
-                            color: AppColors.textSec,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        onChanged: _onQueryChanged,
-                        onSubmitted: (q) async {
-                          if (q.trim().isNotEmpty) {
-                            await ref
-                                .read(recentSearchesProvider.notifier)
-                                .add(q);
-                          }
-                        },
-                      ),
-                    ),
-                    if (_searchCtrl.text.isNotEmpty)
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                        color: AppColors.textSec,
-                        onPressed: _clear,
-                      ),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        final q = _searchCtrl.text.trim();
-                        if (q.isNotEmpty) {
-                          ref.read(recentSearchesProvider.notifier).add(q);
-                        }
-                        _focusNode.unfocus();
-                      },
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          gradient: AppGradients.sun,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.search_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              padding: const EdgeInsets.all(20),
+              child: Text('Эрэмбэлэх', style: AppText.h3),
+            ),
+            ...sorts.map(
+              (s) => ListTile(
+                title: Text(s),
+                trailing: s == current
+                    ? const Icon(Icons.check_rounded, color: AppColors.orange)
+                    : null,
+                onTap: () {
+                  ref.read(monkSortFilterProvider.notifier).state = s;
+                  ref.invalidate(monksNotifierProvider);
+                  Navigator.pop(ctx);
+                },
               ),
             ),
-            Expanded(
-              child: query.isEmpty
-                  ? _RecentSearches(
-                      onSelect: (q) {
-                        _searchCtrl.text = q;
-                        _onQueryChanged(q);
-                      },
-                    )
-                  : _SearchResults(
-                      query: query,
-                      resultsAsync: resultsAsync,
-                      favorites: favorites,
-                      onMonkTap: (monk) => _openMonk(monk, query),
-                      onFavorite: (id) {
-                        final current = {...ref.read(favoriteMonksProvider)};
-                        if (current.contains(id)) {
-                          current.remove(id);
-                        } else {
-                          current.add(id);
-                        }
-                        ref.read(favoriteMonksProvider.notifier).state =
-                            current;
-                      },
-                    ),
-            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
     );
   }
-}
-
-class _RecentSearches extends ConsumerWidget {
-  const _RecentSearches({required this.onSelect});
-
-  final ValueChanged<String> onSelect;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recent = ref.watch(recentSearchesProvider);
+  Widget build(BuildContext context) {
+    final query = ref.watch(debouncedSearchProvider);
+    final resultsAsync = ref.watch(searchResultsProvider);
+    final monksAsync = ref.watch(monksNotifierProvider);
+    final selectedCategory = ref.watch(monkCategoryFilterProvider);
+    final favorites = ref.watch(favoriteMonksProvider);
+    final hasQuery = query.trim().isNotEmpty;
 
-    if (recent.isEmpty) {
-      return Center(
+    return PremiumLayeredScaffold(
+      title: 'Лам нар',
+      showBackButton: true,
+      useNativeNavBar: true,
+      trailing: NativeHeaderIconButton(
+        icon: Icons.tune_rounded,
+        onTap: _showSortSheet,
+      ),
+      sheetTopContent: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _categories.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) {
+            final cat = _categories[i];
+            return CategoryChip(
+              label: cat,
+              isSelected: cat == selectedCategory,
+              onTap: () {
+                ref.read(monkCategoryFilterProvider.notifier).state = cat;
+                ref.invalidate(monksNotifierProvider);
+              },
+            );
+          },
+        ),
+      ),
+      headerBottom: Container(
+        height: 52,
+        padding: const EdgeInsets.only(left: 16, right: 6),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceEl,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.borderSub, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(Icons.search_rounded, color: AppColors.textSec, size: 22),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                focusNode: _focusNode,
+                autofocus: true,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+                decoration: InputDecoration(
+                  hintText: 'Лам, хийд хайх...',
+                  hintStyle: AppText.body.copyWith(
+                    color: AppColors.textSec,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                onChanged: _onQueryChanged,
+                onSubmitted: (q) async {
+                  if (q.trim().isNotEmpty) {
+                    await ref.read(recentSearchesProvider.notifier).add(q);
+                  }
+                },
+              ),
+            ),
+            if (_searchCtrl.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 20),
+                color: AppColors.textSec,
+                onPressed: _clear,
+              ),
+          ],
+        ),
+      ),
+      expandBody: true,
+      body: hasQuery
+          ? _SearchResults(
+              query: query,
+              resultsAsync: resultsAsync,
+              favorites: favorites,
+              onMonkTap: (monk) => _openMonk(monk, query),
+              onFavorite: (id) => _toggleFavorite(id),
+            )
+          : _MonkBrowseList(
+              monksAsync: monksAsync,
+              favorites: favorites,
+              onMonkTap: (monk) => _openMonk(monk, ''),
+              onFavorite: (id) => _toggleFavorite(id),
+              onRetry: () => ref.invalidate(monksNotifierProvider),
+            ),
+    );
+  }
+
+  void _toggleFavorite(String id) {
+    final current = {...ref.read(favoriteMonksProvider)};
+    if (current.contains(id)) {
+      current.remove(id);
+    } else {
+      current.add(id);
+    }
+    ref.read(favoriteMonksProvider.notifier).state = current;
+  }
+}
+
+class _MonkBrowseList extends StatelessWidget {
+  const _MonkBrowseList({
+    required this.monksAsync,
+    required this.favorites,
+    required this.onMonkTap,
+    required this.onFavorite,
+    required this.onRetry,
+  });
+
+  final AsyncValue<List<Monk>> monksAsync;
+  final Set<String> favorites;
+  final ValueChanged<Monk> onMonkTap;
+  final ValueChanged<String> onFavorite;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return monksAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppColors.orange),
+      ),
+      error: (_, __) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                gradient: AppGradients.sunSoft,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.search_rounded,
-                size: 32,
-                color: AppColors.sunGold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('Лам хайх', style: AppText.h3),
-            const SizedBox(height: 4),
-            Text(
-              'Нэр, хийд эсвэл үйлчилгээгээр хайна',
-              style: AppText.bodySmall,
-            ),
+            Text('Алдаа гарлаа', style: AppText.bodySmall),
+            TextButton(onPressed: onRetry, child: const Text('Дахин оролдох')),
           ],
         ),
-      );
-    }
+      ),
+      data: (monks) {
+        if (monks.isEmpty) {
+          return Center(
+            child: Text('Лам олдсонгүй', style: AppText.bodySmall),
+          );
+        }
 
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Сүүлийн хайлт', style: AppText.h3),
-            TextButton(
-              onPressed: () {
-                HapticFeedback.lightImpact();
-                ref.read(recentSearchesProvider.notifier).clear();
-              },
-              child: Text(
-                'Цэвэрлэх',
-                style: AppText.bodySmall.copyWith(color: AppColors.sunGold),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...recent.map(
-          (q) => Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceEl,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border.withOpacity(0.5)),
-            ),
-            child: ListTile(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              leading: const Icon(
-                Icons.history_rounded,
-                color: AppColors.sunGold,
-                size: 22,
-              ),
-              title: Text(q, style: AppText.body),
-              trailing: IconButton(
-                icon: const Icon(Icons.close, size: 18, color: AppColors.textSec),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  ref.read(recentSearchesProvider.notifier).remove(q);
-                },
-              ),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onSelect(q);
-              },
-            ),
-          ),
-        ),
-      ],
+        return ListView.separated(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          itemCount: monks.length + 1,
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text(
+                  '${monks.length} лам олдлоо',
+                  style: AppText.caption.copyWith(
+                    color: AppColors.textSec,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }
+            final monk = monks[index - 1];
+            return ExploreMonkCard(
+              monk: monk,
+              isFavorite: favorites.contains(monk.id),
+              onFavorite: () => onFavorite(monk.id),
+              onTap: () => onMonkTap(monk),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -327,7 +325,7 @@ class _SearchResults extends StatelessWidget {
   Widget build(BuildContext context) {
     return resultsAsync.when(
       loading: () => const Center(
-        child: CircularProgressIndicator(color: AppColors.sunGold),
+        child: CircularProgressIndicator(color: AppColors.orange),
       ),
       error: (e, _) => Center(
         child: Text('Алдаа гарлаа', style: AppText.bodySmall),
@@ -338,10 +336,10 @@ class _SearchResults extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.search_off_rounded,
                   size: 48,
-                  color: AppColors.sunGold,
+                  color: AppColors.orange.withOpacity(0.5),
                 ),
                 const SizedBox(height: 12),
                 Text('Олдсонгүй', style: AppText.h3),
@@ -358,16 +356,19 @@ class _SearchResults extends StatelessWidget {
 
         return ListView.separated(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           itemCount: monks.length + 1,
-          separatorBuilder: (_, __) => const SizedBox(height: 16),
+          separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             if (index == 0) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   '${monks.length} лам олдлоо',
-                  style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                  style: AppText.caption.copyWith(
+                    color: AppColors.textSec,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               );
             }

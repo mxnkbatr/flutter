@@ -7,6 +7,8 @@ class AdminMonk {
     required this.status,
     this.rating = 0,
     this.createdAt,
+    this.isSpecial = false,
+    this.sortOrder = 0,
   });
 
   final String id;
@@ -16,6 +18,8 @@ class AdminMonk {
   final String status;
   final double rating;
   final String? createdAt;
+  final bool isSpecial;
+  final int sortOrder;
 
   String get displayName => name['mn'] ?? name['en'] ?? name.values.first;
 
@@ -36,6 +40,8 @@ class AdminMonk {
       status: json['status'] as String? ?? 'pending',
       rating: (json['rating'] as num?)?.toDouble() ?? 0,
       createdAt: json['createdAt'] as String?,
+      isSpecial: json['isSpecial'] as bool? ?? false,
+      sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
     );
   }
 }

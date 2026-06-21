@@ -4,56 +4,86 @@ import 'app_colors.dart';
 class AppGradients {
   AppGradients._();
 
-  /// Button / active icon — 135° sunrise → amber
+  /// Vibrant orange chip / button gradient (mockup).
   static const LinearGradient primary = LinearGradient(
-    colors: [Color(0xFFF4B234), Color(0xFFD97E1E)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFB347),
+      Color(0xFFFF8C2A),
+      Color(0xFFE8740F),
+    ],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    stops: [0.0, 0.5, 1.0],
   );
 
   static const LinearGradient sun = primary;
 
-  /// Card background — dawn light 180°
-  static const LinearGradient cardSunrise = LinearGradient(
-    colors: [Color(0xFFFFFDF2), Color(0xFFFFF2CC)],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  /// Header hero — saffron mandala feel
-  static const LinearGradient heroHeader = LinearGradient(
-    colors: [Color(0xFFF4B234), Color(0xFFEAA135), Color(0xFFD97E1E)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-    stops: [0.0, 0.5, 1.0],
-  );
-
-  static const LinearGradient heroInk = heroHeader;
-
-  static const LinearGradient profileHero = LinearGradient(
-    colors: [Color(0xFFF4B234), Color(0xFFE59834), Color(0xFFC97A1A)],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
+  static const RadialGradient orangeGlow = RadialGradient(
+    colors: [
+      Color(0xFFFFC56E),
+      Color(0xFFFF8C2A),
+      Color(0xFFE8740F),
+    ],
     stops: [0.0, 0.55, 1.0],
+    center: Alignment.center,
+    radius: 1.0,
   );
+
+  static const LinearGradient cardSunrise = LinearGradient(
+    colors: [Color(0xFFFFFBF5), Color(0xFFFFF0E5)],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+  );
+
+  static const LinearGradient premiumHeader = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      Color(0xFFFFF6EE),
+      Color(0xFFFFFBF5),
+      Color(0xFFFFFFFF),
+    ],
+    stops: [0.0, 0.6, 1.0],
+  );
+
+  static List<BoxShadow> get luxuryShadow => [
+        BoxShadow(
+          color: AppColors.orange.withOpacity(0.06),
+          blurRadius: 20,
+          spreadRadius: 0,
+          offset: const Offset(0, 6),
+        ),
+      ];
+
+  static List<BoxShadow> get luxuryShadowUp => [
+        BoxShadow(
+          color: AppColors.orange.withOpacity(0.08),
+          blurRadius: 24,
+          spreadRadius: 0,
+          offset: const Offset(0, -4),
+        ),
+      ];
+
+  static const LinearGradient heroHeader = primary;
+  static const LinearGradient heroInk = primary;
+
+  static const LinearGradient profileHero = primary;
 
   static const LinearGradient inkFromBottom = LinearGradient(
     begin: Alignment.bottomCenter,
     end: Alignment.topCenter,
-    colors: [Color(0x992B1E10), Color(0x002B1E10)],
+    colors: [Color(0x993E1F14), Color(0x003E1F14)],
   );
 
   static const LinearGradient inkOverlay = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0x332B1E10), Color(0xCC2B1E10)],
+    colors: [Color(0x333E1F14), Color(0xCC3E1F14)],
     stops: [0.35, 1.0],
   );
 
   static const LinearGradient sunAvatar = primary;
-
   static const LinearGradient monkCardBg = cardSunrise;
-
   static const LinearGradient sunSoft = cardSunrise;
 
   static BoxDecoration get pillButton => BoxDecoration(
@@ -61,23 +91,17 @@ class AppGradients {
         borderRadius: BorderRadius.circular(999),
         boxShadow: [
           BoxShadow(
-            color: AppColors.sunOrange.withOpacity(0.22),
+            color: AppColors.orangeDeep.withOpacity(0.25),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
       );
 
-  static BoxDecoration cardShadow({double radius = 24}) => BoxDecoration(
-        gradient: cardSunrise,
+  static BoxDecoration cardShadow({double radius = 16}) => BoxDecoration(
+        color: AppColors.surfaceEl,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: AppColors.border.withOpacity(0.8)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.sunOrange.withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppColors.borderSub, width: 1),
+        boxShadow: luxuryShadow,
       );
 }

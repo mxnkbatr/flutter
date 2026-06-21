@@ -116,7 +116,20 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SacredButton(
+                label: 'Оруулах',
+                icon: Icons.videocam_rounded,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.go('/call/${args.bookingId}');
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SacredButton(
                 label: 'Захиалга харах',
+                outline: true,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   context.go('/bookings');

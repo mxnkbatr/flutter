@@ -9,8 +9,11 @@ import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/shop/models/product.dart';
 import 'package:sacred_app/features/home/widgets/category_chip.dart';
+import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 const _categories = ['Бүгд', 'Ном', 'Эрдэнэ', 'Тос', 'Бусад'];
 
@@ -22,227 +25,222 @@ class ShopScreen extends ConsumerWidget {
     final productsAsync = ref.watch(productsProvider);
     final category = ref.watch(shopCategoryProvider);
     final cartCount = ref.watch(cartCountProvider);
+    final bottomPad = MediaQuery.of(context).padding.bottom + 100;
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: AnnotatedRegion<SystemUiOverlayStyle>(
-              value: SystemUiOverlayStyle.light,
-              child: Container(
-                decoration: const BoxDecoration(
-                  gradient: AppGradients.heroInk,
-                ),
-                child: SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Дэлгүүр',
-                                style: AppText.h2.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  height: 1.15,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Буддийн бараа, бэлэг',
-                                style: AppText.caption.copyWith(
-                                  color: Colors.white.withOpacity(0.82),
-                                  fontSize: 12,
-                                  height: 1.2,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _ShopHeaderIcon(
-                          icon: Icons.receipt_long_outlined,
-                          onTap: () => context.push('/shop/orders'),
-                        ),
-                        const SizedBox(width: 8),
-                        _ShopHeaderIcon(
-                          icon: Icons.shopping_bag_outlined,
-                          badgeCount: cartCount,
-                          onTap: () => context.push('/shop/cart'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+    return PremiumLayeredScaffold(
+      subtitle: 'Буддийн бараа, бэлэг',
+      title: 'Дэлгүүр',
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _MinimalHeaderIcon(
+            icon: Icons.receipt_long_outlined,
+            onTap: () => context.push('/shop/orders'),
           ),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 52,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
-                itemCount: _categories.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) {
-                  final cat = _categories[i];
-                  return CategoryChip(
-                    label: cat,
-                    isSelected: cat == category,
-                    onTap: () =>
-                        ref.read(shopCategoryProvider.notifier).state = cat,
-                  );
-                },
-              ),
-            ),
-          ),
-          productsAsync.when(
-            loading: () => SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: SliverGrid.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.72,
-                children: List.generate(6, (_) => const MonkCardShimmer()),
-              ),
-            ),
-            error: (e, _) => SliverToBoxAdapter(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 40,
-                        color: AppColors.danger,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(formatUserError(e), style: AppText.bodySmall),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => ref.invalidate(productsProvider),
-                        child: const Text('Дахин оролдох'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            data: (products) => products.isEmpty
-                ? SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(48),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.storefront_outlined,
-                            size: 48,
-                            color: AppColors.textHint,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Бараа байхгүй',
-                            style: AppText.h3.copyWith(color: AppColors.textSec),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                      16,
-                      8,
-                      16,
-                      MediaQuery.of(context).padding.bottom + 100,
-                    ),
-                    sliver: SliverGrid.builder(
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 0.72,
-                      ),
-                      itemCount: products.length,
-                      itemBuilder: (_, i) => _ProductCard(product: products[i]),
-                    ),
-                  ),
+          const SizedBox(width: 8),
+          _CartHeaderIcon(
+            count: cartCount,
+            onTap: () => context.push('/shop/cart'),
           ),
         ],
+      ),
+      sheetTopContent: SizedBox(
+        height: 44,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _categories.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (_, i) {
+            final cat = _categories[i];
+            return CategoryChip(
+              label: cat,
+              isSelected: cat == category,
+              onTap: () =>
+                  ref.read(shopCategoryProvider.notifier).state = cat,
+            );
+          },
+        ),
+      ),
+      onRefresh: () async {
+        ref.invalidate(productsProvider);
+        await ref.read(productsProvider.future);
+      },
+      body: productsAsync.when(
+        loading: () => Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            crossAxisSpacing: 14,
+            mainAxisSpacing: 14,
+            childAspectRatio: 0.68,
+            children: List.generate(6, (_) => const MonkCardShimmer()),
+          ),
+        ),
+        error: (e, _) => Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.danger.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline,
+                  size: 32,
+                  color: AppColors.danger,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(formatUserError(e), style: AppText.bodySmall),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => ref.invalidate(productsProvider),
+                child: const Text('Дахин оролдох'),
+              ),
+            ],
+          ),
+        ),
+        data: (products) {
+          if (products.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.all(48),
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.orangeLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.storefront_outlined,
+                      size: 36,
+                      color: AppColors.orange.withOpacity(0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Бараа байхгүй',
+                    style: AppText.h3.copyWith(color: AppColors.textSec),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Өөр ангилал сонгоно уу',
+                    style: AppText.bodySmall.copyWith(color: AppColors.textHint),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, bottomPad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    '${products.length} бараа',
+                    style: AppText.caption.copyWith(
+                      color: AppColors.textSec,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    childAspectRatio: 0.68,
+                  ),
+                  itemCount: products.length,
+                  itemBuilder: (_, i) => _ProductCard(product: products[i]),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class _ShopHeaderIcon extends StatelessWidget {
-  const _ShopHeaderIcon({
-    required this.icon,
-    required this.onTap,
-    this.badgeCount = 0,
-  });
+class _MinimalHeaderIcon extends StatelessWidget {
+  const _MinimalHeaderIcon({required this.icon, required this.onTap});
 
   final IconData icon;
   final VoidCallback onTap;
-  final int badgeCount;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.16),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.28),
-                width: 0.5,
+    return ScaleTap(
+      pressedScale: 0.92,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceEl,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.borderSub, width: 1.5),
+        ),
+        child: Icon(icon, color: AppColors.orange, size: 20),
+      ),
+    );
+  }
+}
+
+class _CartHeaderIcon extends StatelessWidget {
+  const _CartHeaderIcon({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _MinimalHeaderIcon(
+          icon: Icons.shopping_bag_outlined,
+          onTap: onTap,
+        ),
+        if (count > 0)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                gradient: AppGradients.primary,
+                shape: BoxShape.circle,
               ),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white,
-              size: 22,
+              alignment: Alignment.center,
+              child: Text(
+                count > 9 ? '9+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
-          if (badgeCount > 0)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: const BoxDecoration(
-                  gradient: AppGradients.sun,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  badgeCount > 9 ? '9+' : '$badgeCount',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -257,134 +255,168 @@ class _ProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
+    return ScaleTap(
+      pressedScale: 0.97,
       onTap: () => context.push('/shop/product/${product.id}'),
       child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border, width: 0.5),
-        ),
-        clipBehavior: Clip.hardEdge,
+        decoration: MinimalStyle.card(radius: MinimalStyle.cardRadiusLg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-              flex: 5,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  product.image.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: product.image,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => Container(
-                            decoration: const BoxDecoration(
-                              gradient: AppGradients.monkCardBg,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      product.image.isNotEmpty
+                          ? CachedNetworkImage(
+                              imageUrl: product.image,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => Container(
+                                color: AppColors.orangeLight,
+                              ),
+                              errorWidget: (_, __, ___) => Container(
+                                color: AppColors.orangeLight,
+                                child: Icon(
+                                  Icons.storefront_outlined,
+                                  color: AppColors.orange.withOpacity(0.35),
+                                  size: 32,
+                                ),
+                              ),
+                            )
+                          : Container(
+                              color: AppColors.orangeLight,
+                              child: Icon(
+                                Icons.storefront_outlined,
+                                color: AppColors.orange.withOpacity(0.35),
+                                size: 32,
+                              ),
                             ),
-                          ),
-                          errorWidget: (_, __, ___) => Container(
-                            color: AppColors.goldLight,
-                            child: const Icon(
-                              Icons.storefront_outlined,
-                              color: AppColors.goldMuted,
-                              size: 32,
+                      if (product.category.isNotEmpty)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
                             ),
-                          ),
-                        )
-                      : Container(
-                          decoration: const BoxDecoration(
-                            gradient: AppGradients.monkCardBg,
-                          ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.storefront_outlined,
-                              color: AppColors.goldMuted,
-                              size: 32,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.92),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              product.category,
+                              style: AppText.caption.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.orangeDeep,
+                              ),
                             ),
                           ),
                         ),
-                  if (product.stock <= 0)
-                    Container(
-                      color: Colors.black54,
-                      child: Center(
+                      if (product.stock <= 0)
+                        Container(
+                          color: Colors.black45,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Дууссан',
+                            style: AppText.bodySmall.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: AppText.bodySmall.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          'Дууссан',
-                          style: AppText.bodySmall.copyWith(
-                            color: Colors.white,
+                          '₮${_fmt(product.price)}',
+                          style: AppText.price.copyWith(
+                            fontSize: 14,
+                            color: AppColors.orange,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      product.name,
-                      style: AppText.bodySmall.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '₮${_fmt(product.price)}',
-                          style: AppText.price.copyWith(
-                            fontSize: 13,
-                            color: AppColors.saffronDeep,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: product.stock > 0
-                              ? () {
-                                  HapticFeedback.lightImpact();
-                                  ref
-                                      .read(cartProvider.notifier)
-                                      .addItem(product);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${product.name} нэмэгдлээ'),
-                                      duration: const Duration(seconds: 1),
-                                      backgroundColor: AppColors.success,
+                      ScaleTap(
+                        pressedScale: 0.88,
+                        onTap: product.stock > 0
+                            ? () {
+                                HapticFeedback.lightImpact();
+                                ref
+                                    .read(cartProvider.notifier)
+                                    .addItem(product);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content:
+                                        Text('${product.name} нэмэгдлээ'),
+                                    duration: const Duration(seconds: 1),
+                                    backgroundColor: AppColors.success,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
-                                  );
-                                }
-                              : null,
-                          child: Container(
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              gradient:
-                                  product.stock > 0 ? AppGradients.sun : null,
-                              color: product.stock <= 0
-                                  ? AppColors.border
-                                  : null,
-                              borderRadius: BorderRadius.circular(9),
-                            ),
-                            child: const Icon(
-                              Icons.add_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
+                                  ),
+                                );
+                              }
+                            : null,
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            gradient: product.stock > 0
+                                ? AppGradients.primary
+                                : null,
+                            color: product.stock <= 0
+                                ? AppColors.border
+                                : null,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: product.stock > 0
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.orangeDeep
+                                          .withOpacity(0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: const Icon(
+                            Icons.add_rounded,
+                            color: Colors.white,
+                            size: 18,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

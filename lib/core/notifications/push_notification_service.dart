@@ -36,28 +36,49 @@ class PushNotificationService {
       });
 
       FirebaseMessaging.onMessage.listen((message) {
-        final data = message.data;
-        if (data['type'] == 'incoming_call') {
-          _showIncomingCallOverlay(data, ref);
-        }
+        _handleMessage(message.data, ref);
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        final bookingId = message.data['bookingId'];
-        if (bookingId != null) {
-          ref.read(appRouterProvider).go('/call/$bookingId');
-        }
+        _handleMessage(message.data, ref);
       });
 
       final initial = await messaging.getInitialMessage();
       if (initial != null) {
-        final bookingId = initial.data['bookingId'];
-        if (bookingId != null) {
-          ref.read(appRouterProvider).go('/call/$bookingId');
-        }
+        _handleMessage(initial.data, ref);
       }
     } catch (e) {
       if (kDebugMode) debugPrint('PushNotificationService init skipped: $e');
+    }
+  }
+
+  static void _handleMessage(Map<String, dynamic> data, WidgetRef ref) {
+    final type = data['type'] as String?;
+    final bookingId = data['bookingId'] as String?;
+
+    if (type == 'incoming_call' && bookingId != null) {
+      _showIncomingCallOverlay(data, ref);
+      return;
+    }
+
+    if (type == 'booking_status' && bookingId != null) {
+      final status = data['status'] as String?;
+      final router = ref.read(appRouterProvider);
+      if (status == 'approved') {
+        router.go('/payment/$bookingId');
+      } else if (status == 'confirmed') {
+        router.go('/payment/$bookingId');
+      } else {
+        router.go('/bookings');
+      }
+      return;
+    }
+
+    if (type == 'new_message') {
+      final conversationId = data['conversationId'] as String?;
+      if (conversationId != null) {
+        ref.read(appRouterProvider).go('/messenger/$conversationId');
+      }
     }
   }
 

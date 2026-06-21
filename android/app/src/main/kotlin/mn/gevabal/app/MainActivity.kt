@@ -1,4 +1,4 @@
-package mn.gevabal.sacred_app
+package mn.gevabal.app
 
 import io.flutter.embedding.android.FlutterActivity
 

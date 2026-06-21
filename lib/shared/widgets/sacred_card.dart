@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/minimal_style.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class SacredCard extends StatelessWidget {
   const SacredCard({
@@ -9,6 +11,7 @@ class SacredCard extends StatelessWidget {
     this.onTap,
     this.inkDeep = false,
     this.margin,
+    this.radius,
   });
 
   final Widget child;
@@ -16,24 +19,28 @@ class SacredCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool inkDeep;
   final EdgeInsets? margin;
+  final double? radius;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final card = Container(
+      margin: margin,
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: inkDeep
+          ? BoxDecoration(
+              color: AppColors.inkMid,
+              borderRadius: BorderRadius.circular(radius ?? MinimalStyle.cardRadius),
+            )
+          : MinimalStyle.card(radius: radius ?? MinimalStyle.cardRadius),
+      child: child,
+    );
+
+    if (onTap == null) return card;
+
+    return ScaleTap(
+      pressedScale: 0.985,
       onTap: onTap,
-      child: Container(
-        margin: margin,
-        padding: padding ?? const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: inkDeep ? AppColors.inkMid : AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: inkDeep ? AppColors.inkLight : AppColors.border,
-            width: 0.5,
-          ),
-        ),
-        child: child,
-      ),
+      child: card,
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class ClientShell extends StatelessWidget {
   const ClientShell({super.key, required this.child});
@@ -9,7 +10,7 @@ class ClientShell extends StatelessWidget {
   final Widget child;
 
   static const _tabs = [
-    _Tab('/home', Icons.explore_outlined, Icons.explore_rounded, 'Нүүр'),
+    _Tab('/home', Icons.home_outlined, Icons.home_rounded, 'Нүүр'),
     _Tab('/bookings', Icons.calendar_today_outlined, Icons.calendar_today_rounded, 'Захиалга'),
     _Tab('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Дэлгүүр'),
     _Tab('/messenger', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Чат'),
@@ -33,28 +34,19 @@ class ClientShell extends StatelessWidget {
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: AppColors.creamBg,
       body: child,
-      extendBody: true,
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: AppColors.surfaceEl,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: const Border(
-            top: BorderSide(color: Color(0xFFE5E5EA), width: 0.5),
+          border: Border(
+            top: BorderSide(color: AppColors.borderSub, width: 1),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.sunOrange.withOpacity(0.08),
-              blurRadius: 24,
-              offset: const Offset(0, -6),
-            ),
-          ],
         ),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(8, 10, 8, bottom > 0 ? 4 : 10),
+            padding: EdgeInsets.fromLTRB(8, 8, 8, bottom > 0 ? 4 : 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_tabs.length, (i) {
@@ -65,7 +57,7 @@ class ClientShell extends StatelessWidget {
                   label: tab.label,
                   selected: selected,
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    HapticFeedback.selectionClick();
                     context.go(tab.path);
                   },
                 );
@@ -93,26 +85,41 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ScaleTap(
+      pressedScale: 0.92,
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 58,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: selected ? AppColors.saffron : AppColors.textHint,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              width: 44,
+              height: 44,
+              decoration: selected
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.orange,
+                        width: 2,
+                      ),
+                    )
+                  : null,
+              child: Icon(
+                icon,
+                size: 22,
+                color: selected ? AppColors.orange : AppColors.textHint,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
-                color: selected ? AppColors.saffron : AppColors.textHint,
+                color: selected ? AppColors.orange : AppColors.textHint,
                 fontSize: 10,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
             ),
           ],

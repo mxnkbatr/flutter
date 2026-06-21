@@ -188,7 +188,9 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                           },
                   ),
                 ],
-                if (booking.status == 'approved' && !booking.paid) ...[
+                if (booking.status == 'approved' &&
+                    !booking.paid &&
+                    booking.bankTransferPending) ...[
                   const SizedBox(height: 20),
                   SacredButton(
                     label: 'Банкны төлбөр батлах',
@@ -200,6 +202,13 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                             await confirmBookingPayment(ref, booking.id);
                             if (mounted) Navigator.pop(context);
                           },
+                  ),
+                ] else if (booking.status == 'approved' && !booking.paid) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Хэрэглэгч QPay эсвэл банкаар төлбөр төлнө',
+                    style: AppText.caption.copyWith(color: AppColors.textSec),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ],

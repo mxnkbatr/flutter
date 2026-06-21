@@ -23,15 +23,26 @@ import {
   getScheduleOverview,
   getSlotsForDate,
 } from './scheduleUtils.js';
-import { ensureUploadsDir, uploadsRoot, saveBase64Image } from './uploadUtils.js';
+import {
+  sendIncomingCallPush,
+  sendBookingStatusPush,
+  sendMessagePush,
+} from './push.js';
+import {
+  isQPayConfigured,
+  createInvoice as createQPayInvoice,
+  checkInvoicePayment,
+  cancelInvoice as cancelQPayInvoice,
+  mapQPayUrls,
+} from './qpay.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const TIER_DISCOUNTS = {
   free: 0,
-  premium: 10,
-  vip: 20,
+  premium: 20,
+  vip: 20, // legacy — VIP tier removed, existing users keep discount
 };
 
 const PLATFORM_FEE_RATE = 0.1;
@@ -65,6 +76,7 @@ function monkJson(m) {
     isAvailable: o.isAvailable,
     isSpecial: o.isSpecial,
     isVip: o.isVip,
+    sortOrder: o.sortOrder ?? 0,
     isOnline: o.isOnline,
     startingPrice: o.startingPrice,
     status: o.status,
@@ -231,7 +243,15 @@ app.get('/api/monks', async (req, res) => {
     if (sort === 'price_desc') monks.sort((a, b) => (b.startingPrice || 0) - (a.startingPrice || 0));
     else if (sort === 'price_asc') monks.sort((a, b) => (a.startingPrice || 0) - (b.startingPrice || 0));
     else if (sort === 'newest') monks.reverse();
-    else monks.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    else if (sort === 'rating') monks.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    else {
+      monks.sort((a, b) => {
+        const ao = a.sortOrder ?? 999999;
+        const bo = b.sortOrder ?? 999999;
+        if (ao !== bo) return ao - bo;
+        return (b.rating || 0) - (a.rating || 0);
+      });
+    }
 
     res.json(monks);
   } catch (e) {
@@ -445,7 +465,8 @@ app.post('/api/bookings', authRequired, async (req, res) => {
     if (!service) return res.status(400).json({ error: 'Service not found' });
 
     const basePrice = service.price || 0;
-    const discountPercent = TIER_DISCOUNTS[req.user.tier] || 0;
+    const tier = effectiveTier(req.user);
+    const discountPercent = TIER_DISCOUNTS[tier] || 0;
     const discounted = Math.round(basePrice * (1 - discountPercent / 100));
     const platformFee = Math.round(discounted * PLATFORM_FEE_RATE);
     const finalAmount = discounted + platformFee;
@@ -485,9 +506,18 @@ app.put('/api/bookings/:id/confirm', authRequired, async (req, res) => {
       return res.status(400).json({ error: 'Зөвхөн хүлээгдэж буй захиалгыг батална' });
     }
 
-    booking.status = 'approved';
+    booking.status = booking.paid ? 'confirmed' : 'approved';
     booking.approvedAt = new Date();
     await booking.save();
+
+    const client = await User.findById(booking.clientId);
+    if (client?.fcmToken) {
+      await sendBookingStatusPush(client.fcmToken, {
+        status: 'approved',
+        monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+        bookingId: booking._id.toString(),
+      });
+    }
 
     res.json({ ok: true, status: 'approved' });
   } catch (e) {
@@ -533,11 +563,115 @@ async function assertMonkNotBlocked(user, res) {
 }
 
 const PLATFORM_BANK = {
-  bankName: process.env.PLATFORM_BANK_NAME || 'Хаан банк',
-  accountNumber: process.env.PLATFORM_BANK_ACCOUNT || '5000123456',
+  bankName: process.env.PLATFORM_BANK_NAME || 'Төрийн банк',
+  accountNumber: process.env.PLATFORM_BANK_ACCOUNT || '888889896666',
   accountHolder: process.env.PLATFORM_BANK_HOLDER || 'Gevabal.mn ХХК',
-  iban: process.env.PLATFORM_BANK_IBAN || '',
+  iban: process.env.PLATFORM_BANK_IBAN || '400034',
 };
+
+function qpayCallbackUrl() {
+  const base = (process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+  return `${base}/api/payment/qpay/callback`;
+}
+
+function paymentQPayPayload(payment) {
+  return {
+    invoiceId: payment.invoiceId,
+    amount: payment.amount,
+    qrImage: payment.qrImage || fakeQrBase64(payment.amount),
+    urls: payment.qpayUrls?.length
+      ? payment.qpayUrls
+      : mapQPayUrls([]),
+  };
+}
+
+async function completePaymentRecord(payment) {
+  if (!payment || payment.paid) return;
+  payment.paid = true;
+  payment.paidAt = new Date();
+  await payment.save();
+
+  if (payment.bookingId) {
+    const booking = await Booking.findById(payment.bookingId);
+    if (booking) {
+      booking.paid = true;
+      booking.bankTransferPending = false;
+      if (booking.status === 'approved') {
+        booking.status = 'confirmed';
+      }
+      await booking.save();
+      const client = await User.findById(booking.clientId);
+      const monk = await Monk.findById(booking.monkId).lean();
+      if (client?.fcmToken) {
+        await sendBookingStatusPush(client.fcmToken, {
+          status: 'confirmed',
+          monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+          bookingId: booking._id.toString(),
+        });
+      }
+    }
+  }
+  if (payment.type === 'shop_order' && payment.orderId) {
+    await markShopOrderPaid(payment.orderId);
+  }
+  if (payment.type === 'subscription' && payment.tier) {
+    const expires = new Date();
+    expires.setMonth(expires.getMonth() + (payment.months || 1));
+    await User.findByIdAndUpdate(payment.userId, {
+      tier: payment.tier,
+      tierExpiresAt: expires,
+    });
+  }
+}
+
+async function syncQPayPaymentStatus(payment) {
+  if (!payment || payment.paid) return true;
+
+  if (!isQPayConfigured()) {
+    const age = Date.now() - payment.createdAt.getTime();
+    if (age > 15000) {
+      await completePaymentRecord(payment);
+      return true;
+    }
+    return false;
+  }
+
+  if (!payment.qpayInvoiceId) return false;
+
+  const result = await checkInvoicePayment(payment.qpayInvoiceId);
+  if ((result.count || 0) > 0) {
+    await completePaymentRecord(payment);
+    return true;
+  }
+  return false;
+}
+
+async function issueQPayForPayment(payment, description) {
+  if (!isQPayConfigured()) {
+    const qrImage = fakeQrBase64(payment.amount);
+    payment.qrImage = qrImage;
+    payment.qpayUrls = mapQPayUrls([
+      { name: 'Khan Bank', link: 'https://qpay.mn' },
+      { name: 'Golomt', link: 'https://qpay.mn' },
+    ]);
+    await payment.save();
+    return paymentQPayPayload(payment);
+  }
+
+  const invoice = await createQPayInvoice({
+    senderInvoiceNo: payment.invoiceId,
+    description,
+    amount: payment.amount,
+    callbackUrl: qpayCallbackUrl(),
+  });
+
+  payment.qpayInvoiceId = invoice.invoice_id;
+  payment.qrImage = invoice.qr_image || fakeQrBase64(payment.amount);
+  payment.qpayUrls = mapQPayUrls(invoice.urls);
+  await payment.save();
+
+  return paymentQPayPayload(payment);
+}
 
 app.put('/api/bookings/:id/cancel', authRequired, async (req, res) => {
   try {
@@ -563,7 +697,20 @@ app.put('/api/bookings/:id/cancel', authRequired, async (req, res) => {
 
     booking.status = 'cancelled';
     await booking.save();
-    res.json({ ok: true });
+
+    const notifyUserId = isMonkOwner ? booking.clientId : monk?.userId;
+    if (notifyUserId) {
+      const recipient = await User.findById(notifyUserId);
+      if (recipient?.fcmToken) {
+        await sendBookingStatusPush(recipient.fcmToken, {
+          status: 'cancelled',
+          monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+          bookingId: booking._id.toString(),
+        });
+      }
+    }
+
+  res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -592,7 +739,17 @@ app.put('/api/bookings/:id/complete', authRequired, async (req, res) => {
 
     booking.status = 'completed';
     await booking.save();
-    res.json({ ok: true });
+
+    const client = await User.findById(booking.clientId);
+    if (client?.fcmToken) {
+      await sendBookingStatusPush(client.fcmToken, {
+        status: 'completed',
+        monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+        bookingId: booking._id.toString(),
+      });
+    }
+
+  res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -609,18 +766,27 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
     const { bookingId, regenerate } = req.body;
     const access = await bookingAccess(bookingId, req.user);
     if (access.error) return res.status(access.status).json({ error: access.error });
-    const { booking, isClient } = access;
+    const { booking, isClient, monk } = access;
     if (!isClient && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Only client can initiate payment' });
     }
-    if (booking.status !== 'approved') {
-      return res.status(400).json({ error: 'Booking not approved for payment' });
+    if (!['pending', 'approved'].includes(booking.status)) {
+      return res.status(400).json({ error: 'Booking not available for payment' });
     }
     if (booking.paid) {
       return res.status(400).json({ error: 'Already paid' });
     }
 
     if (regenerate) {
+      const oldPayments = await Payment.find({
+        bookingId,
+        type: 'booking',
+        paid: false,
+        method: 'qpay',
+      });
+      for (const p of oldPayments) {
+        if (p.qpayInvoiceId) await cancelQPayInvoice(p.qpayInvoiceId);
+      }
       await Payment.deleteMany({
         bookingId,
         type: 'booking',
@@ -629,44 +795,35 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
       });
     }
 
-    const existing = await Payment.findOne({
+    let payment = await Payment.findOne({
       bookingId,
       type: 'booking',
       paid: false,
       method: 'qpay',
     });
-    if (existing) {
-      return res.json({
-        invoiceId: existing.invoiceId,
-        amount: existing.amount,
-        qrImage: fakeQrBase64(existing.amount),
-        urls: [
-          { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-          { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-        ],
-      });
-    }
 
-    const payAmount = booking.amount;
+    if (!payment) {
     const invoiceId = `INV-${uuidv4().slice(0, 8)}`;
-    await Payment.create({
+      payment = await Payment.create({
       invoiceId,
       type: 'booking',
       bookingId,
       userId: req.user._id,
-      amount: payAmount,
-      method: 'qpay',
+        amount: booking.amount,
+        method: 'qpay',
       paid: false,
     });
-    res.json({
-      invoiceId,
-      amount: payAmount,
-      qrImage: fakeQrBase64(payAmount),
-      urls: [
-        { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-        { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-      ],
-    });
+    }
+
+    const monkName = monk?.name?.mn ?? monk?.name?.en ?? 'Лам';
+    const description = `Gevabal захиалга — ${monkName} (${booking.serviceName || 'үйлчилгээ'})`;
+
+    if (!payment.qpayInvoiceId || !payment.qrImage) {
+      const payload = await issueQPayForPayment(payment, description);
+      return res.json(payload);
+    }
+
+    res.json(paymentQPayPayload(payment));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -696,18 +853,12 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
       },
       bank: PLATFORM_BANK,
       reference: booking._id.toString().slice(-8).toUpperCase(),
-      canPay: isClient && booking.status === 'approved' && !booking.paid,
+      canPay: isClient &&
+          ['pending', 'approved'].includes(booking.status) &&
+          !booking.paid,
       paymentPending: booking.bankTransferPending === true,
       qpay: showQpay && payment?.method === 'qpay'
-          ? {
-              invoiceId: payment.invoiceId,
-              amount: payment.amount,
-              qrImage: fakeQrBase64(payment.amount),
-              urls: [
-                { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-                { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-              ],
-            }
+          ? paymentQPayPayload(payment)
           : null,
     });
   } catch (e) {
@@ -735,17 +886,7 @@ app.get('/api/payment/order/:orderId', authRequired, async (req, res) => {
     res.json({
       order: orderJson(order),
       canPay: isOwner && !order.paid,
-      qpay: payment
-        ? {
-            invoiceId: payment.invoiceId,
-            amount: payment.amount,
-            qrImage: fakeQrBase64(payment.amount),
-            urls: [
-              { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-              { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-            ],
-          }
-        : null,
+      qpay: payment ? paymentQPayPayload(payment) : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -793,35 +934,34 @@ app.post('/api/payment/bank-transfer/:bookingId', authRequired, async (req, res)
 });
 
 app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => {
+  try {
   const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
-  const access = await paymentAccess(payment, req.user);
-  if (access.error) return res.status(access.status).json({ error: access.error });
+    const access = await paymentAccess(payment, req.user);
+    if (access.error) return res.status(access.status).json({ error: access.error });
 
-  // Auto-simulate paid after 15s in dev (no QPay credentials)
-  if (!payment.paid && !process.env.QPAY_USERNAME) {
-    const age = Date.now() - payment.createdAt.getTime();
-    if (age > 15000) {
-      payment.paid = true;
-      payment.paidAt = new Date();
-      await payment.save();
-      if (payment.bookingId) {
-        await Booking.findByIdAndUpdate(payment.bookingId, { paid: true, status: 'confirmed' });
-      }
-      if (payment.type === 'shop_order' && payment.orderId) {
-        await markShopOrderPaid(payment.orderId);
-      }
-      if (payment.type === 'subscription' && payment.tier) {
-        const expires = new Date();
-        expires.setMonth(expires.getMonth() + (payment.months || 1));
-        await User.findByIdAndUpdate(payment.userId, {
-          tier: payment.tier,
-          tierExpiresAt: expires,
-        });
-      }
-    }
+    await syncQPayPaymentStatus(payment);
+    const fresh = await Payment.findOne({ invoiceId: req.params.invoiceId });
+    res.json({ paid: fresh?.paid === true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
+});
 
-  res.json({ paid: payment.paid });
+app.post('/api/payment/qpay/callback', async (req, res) => {
+  try {
+    const qpayInvoiceId = req.body?.invoice_id || req.body?.invoiceId;
+    if (!qpayInvoiceId) {
+      return res.status(400).json({ error: 'invoice_id required' });
+    }
+
+    const payment = await Payment.findOne({ qpayInvoiceId });
+    if (payment) {
+      await syncQPayPaymentStatus(payment);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Dev: manually mark paid (owner or admin only)
@@ -832,15 +972,7 @@ app.post('/api/payment/qpay/simulate/:invoiceId', authRequired, async (req, res)
   const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
   const access = await paymentAccess(payment, req.user);
   if (access.error) return res.status(access.status).json({ error: access.error });
-  payment.paid = true;
-  payment.paidAt = new Date();
-  await payment.save();
-  if (payment.bookingId) {
-    await Booking.findByIdAndUpdate(payment.bookingId, { paid: true, status: 'confirmed' });
-  }
-  if (payment.type === 'shop_order' && payment.orderId) {
-    await markShopOrderPaid(payment.orderId);
-  }
+  await completePaymentRecord(payment);
   res.json({ paid: true });
 });
 
@@ -891,6 +1023,30 @@ app.get('/api/livekit', authRequired, async (req, res) => {
     });
     at.addGrant({ roomJoin: true, room, canPublish: true, canSubscribe: true });
 
+    if (match) {
+      const bookingId = match[1];
+      const booking = await Booking.findById(bookingId).lean();
+      if (booking) {
+        const isCallerMonk = req.user.role === 'monk';
+        let recipientUser;
+
+        if (isCallerMonk) {
+          recipientUser = await User.findById(booking.clientId);
+        } else {
+          const monkDoc = await Monk.findById(booking.monkId);
+          recipientUser = monkDoc?.userId ? await User.findById(monkDoc.userId) : null;
+        }
+
+        if (recipientUser?.fcmToken) {
+          await sendIncomingCallPush(recipientUser.fcmToken, {
+            callerName: req.user.name,
+            callerImage: '',
+            bookingId,
+          });
+        }
+      }
+    }
+
     res.json({ token: await at.toJwt(), wsUrl, url: wsUrl });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -898,7 +1054,7 @@ app.get('/api/livekit', authRequired, async (req, res) => {
 });
 
 // ─── Subscription ───
-const TIER_PRICES = { premium: 9900, vip: 29900 };
+const TIER_PRICES = { premium: 300000 };
 
 app.get('/api/subscription/status', authRequired, (req, res) => {
   const expires = req.user.tierExpiresAt;
@@ -1233,6 +1389,23 @@ app.post('/api/messenger/conversations/:id/messages', authRequired, async (req, 
     lastMessage: text.trim(),
     lastMessageAt: new Date(),
   });
+
+  const convo = access.convo;
+  const recipientId =
+    convo.clientId?.toString() === req.user._id.toString()
+      ? convo.monkUserId
+      : convo.clientId;
+  if (recipientId) {
+    const recipient = await User.findById(recipientId);
+    if (recipient?.fcmToken) {
+      await sendMessagePush(recipient.fcmToken, {
+        senderName: req.user.name,
+        text: text.trim(),
+        conversationId: req.params.id,
+      });
+    }
+  }
+
   res.json({
     id: msg._id.toString(),
     senderId: msg.senderId.toString(),
@@ -1295,8 +1468,23 @@ app.get('/api/admin/monks', authRequired, async (req, res) => {
   const status = req.query.status || 'all';
   let q = {};
   if (status !== 'all') q.status = status;
-  const monks = await Monk.find(q);
+  const monks = await Monk.find(q).sort({ sortOrder: 1, createdAt: 1 });
   res.json(monks.map(monkJson));
+});
+
+app.put('/api/admin/monks/reorder', authRequired, adminRequired, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array required' });
+    }
+    await Promise.all(
+      ids.map((id, index) => Monk.findByIdAndUpdate(id, { sortOrder: index })),
+    );
+  res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/admin/monks', authRequired, async (req, res) => {
@@ -1337,6 +1525,9 @@ app.post('/api/admin/monks', authRequired, async (req, res) => {
       ? Math.min(...monkServices.map((s) => s.price || 0))
       : 0;
 
+    const maxOrderMonk = await Monk.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean();
+    const nextSortOrder = (maxOrderMonk?.sortOrder ?? -1) + 1;
+
     const monk = await Monk.create({
       name: { mn: name, en: name },
       title: title ? { mn: title, en: title } : { mn: 'Лам', en: 'Monk' },
@@ -1349,6 +1540,7 @@ app.post('/api/admin/monks', authRequired, async (req, res) => {
       startingPrice,
       status: status || 'active',
       isAvailable: true,
+      sortOrder: nextSortOrder,
     });
 
     const user = await User.create({
@@ -1375,7 +1567,7 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const { name, temple, bio, categories, services, schedule, status, title, image } =
+    const { name, temple, bio, categories, services, schedule, status, title, image, isSpecial } =
       req.body;
     const updates = {};
 
@@ -1391,6 +1583,7 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
     if (schedule != null) updates.schedule = schedule;
     if (status != null) updates.status = status;
     if (image != null) updates.image = image;
+    if (typeof isSpecial === 'boolean') updates.isSpecial = isSpecial;
 
     if (services != null) {
       updates.services = services.map((s) => ({
@@ -1480,7 +1673,7 @@ app.delete('/api/admin/monks/:id', authRequired, adminRequired, async (req, res)
     if (user) await User.deleteOne({ _id: user._id });
     await Monk.deleteOne({ _id: monkId });
 
-    res.json({ ok: true });
+  res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1537,8 +1730,8 @@ app.get('/api/admin/users', authRequired, adminRequired, async (req, res) => {
 app.get('/api/admin/bookings', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    let q = {};
-    if (req.query.status && req.query.status !== 'all') q.status = req.query.status;
+  let q = {};
+  if (req.query.status && req.query.status !== 'all') q.status = req.query.status;
 
     const bookings = await Booking.find(q).sort({ createdAt: -1 }).limit(100).lean();
 
@@ -1577,7 +1770,7 @@ app.put('/api/admin/bookings/:id/approve', authRequired, async (req, res) => {
     if (booking.status !== 'pending') {
       return res.status(400).json({ error: 'Only pending bookings can be approved' });
     }
-    booking.status = 'approved';
+    booking.status = booking.paid ? 'confirmed' : 'approved';
     booking.approvedAt = new Date();
     booking.approvedBy = req.user._id;
     await booking.save();
@@ -1605,9 +1798,16 @@ app.put('/api/admin/bookings/:id/reject', authRequired, async (req, res) => {
 
 app.put('/api/admin/bookings/:id/confirm-payment', authRequired, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const booking = await Booking.findById(req.params.id);
     if (!booking) return res.status(404).json({ error: 'Not found' });
+
+    const monk = await Monk.findById(booking.monkId);
+    const userId = req.user._id.toString();
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin) {
+      return res.status(403).json({ error: 'Зөвхөн админ банкны төлбөр батална' });
+    }
     if (booking.status !== 'approved' || booking.paid) {
       return res.status(400).json({ error: 'Invalid booking state' });
     }
@@ -1622,6 +1822,16 @@ app.put('/api/admin/bookings/:id/confirm-payment', authRequired, async (req, res
       { bookingId: booking._id, type: 'booking', paid: false },
       { paid: true, paidAt: new Date() },
     );
+
+    const client = await User.findById(booking.clientId);
+    if (client?.fcmToken) {
+      await sendBookingStatusPush(client.fcmToken, {
+        status: 'confirmed',
+        monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+        bookingId: booking._id.toString(),
+      });
+    }
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1657,16 +1867,16 @@ app.get('/api/admin/finance', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const month = req.query.month || new Date().toISOString().slice(0, 7);
+  const month = req.query.month || new Date().toISOString().slice(0, 7);
     const bookings = await Booking.find({
       paid: true,
       status: { $in: ['completed', 'confirmed'] },
       date: { $regex: `^${month}` },
     }).lean();
 
-    const totalRevenue = bookings.reduce((s, b) => s + (b.amount || 0), 0);
-    const platformFees = Math.round(totalRevenue * 0.2);
-    const qpayFees = Math.round(totalRevenue * 0.015);
+  const totalRevenue = bookings.reduce((s, b) => s + (b.amount || 0), 0);
+  const platformFees = Math.round(totalRevenue * 0.2);
+  const qpayFees = Math.round(totalRevenue * 0.015);
 
     const byMonk = {};
     for (const b of bookings) {
@@ -1706,12 +1916,12 @@ app.get('/api/admin/finance', authRequired, async (req, res) => {
       };
     });
 
-    res.json({
-      month,
-      totalRevenue,
-      platformFees,
-      qpayFees,
-      netProfit: totalRevenue - platformFees - qpayFees,
+  res.json({
+    month,
+    totalRevenue,
+    platformFees,
+    qpayFees,
+    netProfit: totalRevenue - platformFees - qpayFees,
       monkSalaries,
     });
   } catch (e) {
@@ -1872,18 +2082,21 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
       type: 'shop_order',
       orderId: order._id,
       paid: false,
+      method: 'qpay',
     });
+
+    const payment = await Payment.findOne({
+      orderId: order._id,
+      type: 'shop_order',
+      paid: false,
+    }).sort({ createdAt: -1 });
+
+    const description = `Gevabal дэлгүүр — ${orderItems.length} бараа`;
+    const qpayPayload = await issueQPayForPayment(payment, description);
 
     res.status(201).json({
       order: orderJson(order),
-      invoiceId,
-      amount: totalAmount,
-      qrText: invoiceId,
-      qrImage: fakeQrBase64(totalAmount),
-      urls: [
-        { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-        { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-      ],
+      ...qpayPayload,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1900,6 +2113,14 @@ app.post('/api/shop/orders/:id/qpay', authRequired, async (req, res) => {
     if (order.paid) return res.status(400).json({ error: 'Already paid' });
 
     if (req.body?.regenerate) {
+      const oldPayments = await Payment.find({
+        orderId: order._id,
+        type: 'shop_order',
+        paid: false,
+      });
+      for (const p of oldPayments) {
+        if (p.qpayInvoiceId) await cancelQPayInvoice(p.qpayInvoiceId);
+      }
       await Payment.deleteMany({
         orderId: order._id,
         type: 'shop_order',
@@ -1928,15 +2149,13 @@ app.post('/api/shop/orders/:id/qpay', authRequired, async (req, res) => {
       });
     }
 
-    res.json({
-      invoiceId: payment.invoiceId,
-      amount: payment.amount,
-      qrImage: fakeQrBase64(payment.amount),
-      urls: [
-        { name: 'Khan Bank', link: 'https://qpay.mn', logo: null },
-        { name: 'Golomt', link: 'https://qpay.mn', logo: null },
-      ],
-    });
+    const description = `Gevabal дэлгүүр — ${order.items?.length || 0} бараа`;
+    if (!payment.qpayInvoiceId || !payment.qrImage) {
+      const payload = await issueQPayForPayment(payment, description);
+      return res.json(payload);
+    }
+
+    res.json(paymentQPayPayload(payment));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1955,20 +2174,20 @@ app.get('/api/shop/orders/:id/check', authRequired, async (req, res) => {
 
     if (order.paid) return res.json({ paid: true, status: order.status });
 
-    const age = Date.now() - new Date(order.createdAt).getTime();
-    if (age > 10000 && !process.env.QPAY_USERNAME) {
-      order.paid = true;
-      order.status = 'paid';
-      await order.save();
-      await markShopOrderPaid(order._id);
-      const payment = await Payment.findOne({ orderId: order._id });
-      if (payment && !payment.paid) {
-        payment.paid = true;
-        payment.paidAt = new Date();
-        await payment.save();
+    const payment = await Payment.findOne({
+      orderId: order._id,
+      type: 'shop_order',
+      paid: false,
+    }).sort({ createdAt: -1 });
+
+    if (payment) {
+      await syncQPayPaymentStatus(payment);
+      const freshOrder = await Order.findById(order._id);
+      if (freshOrder?.paid) {
+        return res.json({ paid: true, status: freshOrder.status });
       }
-      return res.json({ paid: true, status: 'paid' });
     }
+
     res.json({ paid: false, status: order.status });
   } catch (e) {
     res.status(500).json({ error: e.message });

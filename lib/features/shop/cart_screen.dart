@@ -9,6 +9,7 @@ import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/shop/models/cart_item.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
@@ -105,21 +106,19 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final cart = ref.watch(cartProvider);
     final total = ref.watch(cartTotalProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Сагс'),
-        actions: [
-          if (cart.isNotEmpty)
-            TextButton(
+    return PremiumLayeredScaffold(
+      title: 'Сагс',
+      showBackButton: true,
+      expandBody: true,
+      trailing: cart.isNotEmpty
+          ? TextButton(
               onPressed: () => ref.read(cartProvider.notifier).clear(),
               child: Text(
                 'Цэвэрлэх',
                 style: AppText.bodySmall.copyWith(color: AppColors.danger),
               ),
-            ),
-        ],
-      ),
+            )
+          : null,
       body: cart.isEmpty
           ? Center(
               child: Column(

@@ -8,6 +8,7 @@ class MonkBookingItem {
     this.date,
     this.amount,
     this.paid = false,
+    this.bankTransferPending = false,
   });
 
   final String id;
@@ -18,6 +19,7 @@ class MonkBookingItem {
   final String? date;
   final int? amount;
   final bool paid;
+  final bool bankTransferPending;
 
   factory MonkBookingItem.fromJson(Map<String, dynamic> json) {
     return MonkBookingItem(
@@ -33,6 +35,7 @@ class MonkBookingItem {
       date: json['date'] as String?,
       amount: (json['amount'] as num?)?.toInt(),
       paid: json['paid'] as bool? ?? false,
+      bankTransferPending: json['bankTransferPending'] as bool? ?? false,
     );
   }
 }

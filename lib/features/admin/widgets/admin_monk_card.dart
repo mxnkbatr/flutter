@@ -10,9 +10,16 @@ import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class AdminMonkCard extends ConsumerWidget {
-  const AdminMonkCard({super.key, required this.monk});
+  const AdminMonkCard({
+    super.key,
+    required this.monk,
+    this.showReorderHandle = false,
+    this.reorderIndex = 0,
+  });
 
   final AdminMonk monk;
+  final bool showReorderHandle;
+  final int reorderIndex;
 
   Future<bool> _confirmApprove(BuildContext context) async {
     return await showDialog<bool>(
@@ -173,9 +180,95 @@ class AdminMonkCard extends ConsumerWidget {
     );
   }
 
+  Widget _cardBody() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SacredCard(
+        onTap: showReorderHandle
+            ? null
+            : null, // tap handled by outer GestureDetector / Dismissible parent
+        child: Row(
+          children: [
+            if (showReorderHandle)
+              ReorderableDragStartListener(
+                index: reorderIndex,
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(Icons.drag_handle, color: AppColors.textSec),
+                ),
+              ),
+            CircleAvatar(
+              radius: 26,
+              backgroundColor: AppColors.borderSub,
+              backgroundImage: monk.image != null && monk.image!.isNotEmpty
+                  ? CachedNetworkImageProvider(monk.image!)
+                  : null,
+              child: monk.image == null || monk.image!.isEmpty
+                  ? const Icon(Icons.person)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    monk.displayName,
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  if (monk.temple != null)
+                    Text(monk.temple!, style: AppText.bodySmall),
+                  Row(
+                    children: [
+                      StatusBadge(status: monk.status),
+                      if (monk.isSpecial) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.goldPrime.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Онцгой',
+                            style: AppText.caption.copyWith(
+                              color: AppColors.goldPrime,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                      Text(
+                        '★ ${monk.rating.toStringAsFixed(1)}',
+                        style: AppText.caption,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (!showReorderHandle)
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textSec),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final card = _cardBody();
+
+    if (showReorderHandle) {
+      return card;
+    }
+
     return GestureDetector(
+      onTap: () => context.push('/admin/monks/edit/${monk.id}'),
       onLongPress: () => _showActionMenu(context, ref),
       child: Dismissible(
         key: Key(monk.id),
@@ -202,51 +295,7 @@ class AdminMonkCard extends ConsumerWidget {
             rejectMonk(ref, monk.id);
           }
         },
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: SacredCard(
-            onTap: () => context.push('/admin/monks/edit/${monk.id}'),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.borderSub,
-                  backgroundImage: monk.image != null && monk.image!.isNotEmpty
-                      ? CachedNetworkImageProvider(monk.image!)
-                      : null,
-                  child: monk.image == null || monk.image!.isEmpty
-                      ? const Icon(Icons.person)
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        monk.displayName,
-                        style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      if (monk.temple != null)
-                        Text(monk.temple!, style: AppText.bodySmall),
-                      Row(
-                        children: [
-                          StatusBadge(status: monk.status),
-                          const SizedBox(width: 8),
-                          Text(
-                            '★ ${monk.rating.toStringAsFixed(1)}',
-                            style: AppText.caption,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded, color: AppColors.textSec),
-              ],
-            ),
-          ),
-        ),
+        child: card,
       ),
     );
   }

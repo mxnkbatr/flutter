@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
 import 'package:sacred_app/features/booking/widgets/confirmation_step.dart';
 import 'package:sacred_app/features/booking/widgets/date_time_selection_step.dart';
@@ -10,6 +9,7 @@ import 'package:sacred_app/features/booking/widgets/service_selection_step.dart'
 import 'package:sacred_app/features/booking/widgets/step_indicator.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
 const _stepLabels = ['Үйлчилгээ', 'Цаг', 'Баталгаа'];
@@ -133,46 +133,25 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       _ => false,
     };
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        title: const Text('Захиалах'),
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 18,
-            color: AppColors.textPri,
-          ),
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            if (step > 0) {
-              _goToStep(step - 1);
-            } else {
-              context.pop();
-            }
-          },
-        ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(72),
-          child: StepIndicator(
-            current: step,
-            total: 3,
-            labels: _stepLabels,
-          ),
-        ),
+    return PremiumLayeredScaffold(
+      title: 'Захиалах',
+      showBackButton: true,
+      headerHeight: 196,
+      onBack: () {
+        HapticFeedback.lightImpact();
+        if (step > 0) {
+          _goToStep(step - 1);
+        } else {
+          context.pop();
+        }
+      },
+      headerBottom: StepIndicator(
+        current: step,
+        total: 3,
+        labels: _stepLabels,
       ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          ServiceSelectionStep(monkId: widget.monkId),
-          DateTimeSelectionStep(monkId: widget.monkId),
-          ConfirmationStep(monkId: widget.monkId),
-        ],
-      ),
-      bottomNavigationBar: isLastStep
+      expandBody: true,
+      bottomBar: isLastStep
           ? null
           : SafeArea(
               child: Padding(
@@ -188,6 +167,15 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                 ),
               ),
             ),
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          ServiceSelectionStep(monkId: widget.monkId),
+          DateTimeSelectionStep(monkId: widget.monkId),
+          ConfirmationStep(monkId: widget.monkId),
+        ],
+      ),
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 
 class ExploreSearchBar extends StatelessWidget {
@@ -11,14 +10,15 @@ class ExploreSearchBar extends StatelessWidget {
     required this.onTap,
     this.onFilterTap,
     this.value,
-    this.lightOnBlue = false,
+    this.minimal = false,
   });
 
   final String hint;
   final VoidCallback onTap;
   final VoidCallback? onFilterTap;
   final String? value;
-  final bool lightOnBlue;
+  /// Clean pill — white bg, thin border, no gradient filter button.
+  final bool minimal;
 
   @override
   Widget build(BuildContext context) {
@@ -28,23 +28,20 @@ class ExploreSearchBar extends StatelessWidget {
         onTap();
       },
       child: Container(
-        height: 54,
-        padding: const EdgeInsets.only(left: 18, right: 6),
+        height: 52,
+        padding: EdgeInsets.only(
+          left: 18,
+          right: minimal ? 18 : 6,
+        ),
         decoration: BoxDecoration(
-          color: lightOnBlue
-              ? Colors.white.withOpacity(0.95)
-              : AppColors.surfaceEl,
+          color: AppColors.surfaceEl,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: lightOnBlue
-                ? Colors.white.withOpacity(0.5)
-                : AppColors.border.withOpacity(0.6),
-          ),
+          border: Border.all(color: AppColors.borderSub, width: 1.5),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(lightOnBlue ? 0.12 : 0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -52,7 +49,7 @@ class ExploreSearchBar extends StatelessWidget {
           children: [
             Icon(
               Icons.search_rounded,
-              color: lightOnBlue ? AppColors.saffron : AppColors.textSec,
+              color: AppColors.textSec.withOpacity(0.7),
               size: 22,
             ),
             const SizedBox(width: 10),
@@ -63,34 +60,32 @@ class ExploreSearchBar extends StatelessWidget {
                   color: value?.isNotEmpty == true
                       ? AppColors.textPri
                       : AppColors.textSec,
+                  fontWeight: FontWeight.w400,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            GestureDetector(
-              onTap: onFilterTap == null
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      onFilterTap!();
-                    },
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  gradient: AppGradients.primary,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Icon(
-                  onFilterTap != null
-                      ? Icons.tune_rounded
-                      : Icons.search_rounded,
-                  color: Colors.white,
-                  size: 20,
+            if (!minimal && onFilterTap != null)
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onFilterTap!();
+                },
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.earthBrownLight,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Icon(
+                    Icons.tune_rounded,
+                    color: AppColors.earthBrown,
+                    size: 20,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),

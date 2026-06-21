@@ -34,6 +34,7 @@ class AdminMonkDetail {
     required this.status,
     this.image,
     this.email = '',
+    this.isSpecial = false,
   });
 
   final String id;
@@ -46,6 +47,7 @@ class AdminMonkDetail {
   final List<AdminMonkServiceItem> services;
   final String status;
   final String email;
+  final bool isSpecial;
 
   factory AdminMonkDetail.fromJson(Map<String, dynamic> json) {
     final nameVal = json['name'];
@@ -96,6 +98,7 @@ class AdminMonkDetail {
       }).toList(),
       status: json['status'] as String? ?? 'active',
       email: json['email'] as String? ?? '',
+      isSpecial: json['isSpecial'] as bool? ?? false,
     );
   }
 }

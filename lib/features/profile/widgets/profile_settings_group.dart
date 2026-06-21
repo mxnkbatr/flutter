@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
-
-const _chevronColor = Color(0xFFC7C7CC);
-const _dividerColor = Color(0xFFE5E5EA);
+import 'package:sacred_app/core/theme/minimal_style.dart';
 
 class ProfileSettingsGroup extends StatelessWidget {
   const ProfileSettingsGroup({
@@ -30,17 +28,13 @@ class ProfileSettingsGroup extends StatelessWidget {
                 color: AppColors.textSec,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.6,
-                fontSize: 12,
+                fontSize: 11,
               ),
             ),
           ),
         Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceEl,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _dividerColor, width: 0.5),
-          ),
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: MinimalStyle.card(),
           clipBehavior: Clip.antiAlias,
           child: Column(children: _withDividers(children)),
         ),
@@ -55,12 +49,11 @@ class ProfileSettingsGroup extends StatelessWidget {
       out.add(items[i]);
       if (i < items.length - 1) {
         out.add(
-          const Divider(
+          Divider(
             height: 0.5,
             thickness: 0.5,
-            color: _dividerColor,
+            color: AppColors.borderSub,
             indent: 56,
-            endIndent: 0,
           ),
         );
       }
@@ -103,15 +96,15 @@ class ProfileSettingsTile extends StatelessWidget {
                 onTap!();
               },
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: iconBackground,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 18, color: iconColor),
               ),
@@ -121,15 +114,16 @@ class ProfileSettingsTile extends StatelessWidget {
                   title,
                   style: AppText.body.copyWith(
                     color: titleColor ?? AppColors.textPri,
-                    fontWeight: titleWeight ?? FontWeight.w400,
+                    fontWeight: titleWeight ?? FontWeight.w500,
+                    fontSize: 15,
                   ),
                 ),
               ),
               if (showChevron)
-                const Icon(
+                Icon(
                   Icons.chevron_right_rounded,
                   size: 20,
-                  color: _chevronColor,
+                  color: AppColors.textHint,
                 ),
             ],
           ),

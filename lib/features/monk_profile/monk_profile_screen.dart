@@ -1,5 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
-
 import 'package:flutter/material.dart';
 
 import 'package:flutter/services.dart';
@@ -30,6 +28,8 @@ import 'package:sacred_app/features/monk_profile/widgets/horizontal_service_card
 
 import 'package:sacred_app/features/monk_profile/widgets/profile_back_button.dart';
 
+import 'package:sacred_app/features/monk_profile/widgets/profile_hero_card.dart';
+
 import 'package:sacred_app/features/monk_profile/widgets/profile_icon_button.dart';
 
 import 'package:sacred_app/features/monk_profile/widgets/profile_stat_item.dart';
@@ -45,8 +45,6 @@ import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
-
-import 'package:shimmer/shimmer.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 
@@ -170,7 +168,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
         body: Center(
 
-          child: CircularProgressIndicator(color: AppColors.sunGold),
+          child: CircularProgressIndicator(color: AppColors.earthBrown),
 
         ),
 
@@ -204,7 +202,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
         return Scaffold(
 
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.creamBg,
 
           body: Stack(
 
@@ -214,51 +212,29 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                 physics: const BouncingScrollPhysics(),
 
-                slivers: [
+            slivers: [
 
                   SliverToBoxAdapter(
 
-                    child: SizedBox(
+                    child: Padding(
 
-                      height: 300,
+                      padding: EdgeInsets.fromLTRB(
 
-                      child: Stack(
+                        20,
 
-                        fit: StackFit.expand,
+                        MediaQuery.of(context).padding.top + 56,
 
-                        children: [
+                        20,
 
-                          _HeroImage(monk: monk, monkId: widget.monkId),
+                        0,
 
-                          const DecoratedBox(
+                      ),
 
-                            decoration: BoxDecoration(
+                      child: ProfileHeroCard(
 
-                              gradient: LinearGradient(
+                        monk: monk,
 
-                                begin: Alignment.topCenter,
-
-                                end: Alignment.bottomCenter,
-
-                                colors: [
-
-                                  Color(0x33000000),
-
-                                  Colors.transparent,
-
-                                  Color(0x66000000),
-
-                                ],
-
-                                stops: [0, 0.4, 1],
-
-                              ),
-
-                            ),
-
-                          ),
-
-                        ],
+                        monkId: widget.monkId,
 
                       ),
 
@@ -268,49 +244,35 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                   SliverToBoxAdapter(
 
-                    child: Transform.translate(
+                    child: Padding(
 
-                      offset: const Offset(0, -32),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
 
-                      child: Container(
+                      child: Column(
 
-                        decoration: const BoxDecoration(
+                        crossAxisAlignment: CrossAxisAlignment.start,
 
-                          color: AppColors.surfaceEl,
-
-                          borderRadius: BorderRadius.vertical(
-
-                            top: Radius.circular(32),
-
-                          ),
-
-                        ),
-
-                        child: Column(
-
-                          crossAxisAlignment: CrossAxisAlignment.start,
-
-                          children: [
+                        children: [
 
                             Padding(
 
-                              padding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
+                              padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
 
                               child: Column(
 
                                 crossAxisAlignment: CrossAxisAlignment.start,
 
-                                children: [
+                              children: [
 
                                   if (monk.isAvailable)
 
-                                    Container(
+                                  Container(
 
-                                      padding: const EdgeInsets.symmetric(
+                                    padding: const EdgeInsets.symmetric(
 
                                         horizontal: 10,
 
-                                        vertical: 4,
+                                      vertical: 4,
 
                                       ),
 
@@ -372,7 +334,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                                     monk.displayName,
 
-                                    style: AppText.h1.copyWith(fontSize: 26),
+                                    style: AppText.largeTitle.copyWith(fontSize: 26),
 
                                     maxLines: 2,
 
@@ -432,7 +394,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                                           color: i < monk.rating.floor()
 
-                                              ? AppColors.sunGold
+                                              ? AppColors.orange
 
                                               : AppColors.border,
 
@@ -468,9 +430,9 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                             Padding(
 
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.symmetric(horizontal: 0),
 
-                              child: Row(
+                              child: ProfileStatsCard(
 
                                 children: [
 
@@ -550,7 +512,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                                     child: CircularProgressIndicator(
 
-                                      color: AppColors.sunGold,
+                                      color: AppColors.orange,
 
                                     ),
 
@@ -768,8 +730,6 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                       ),
 
-                    ),
-
                   ),
 
                 ],
@@ -778,7 +738,11 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
               SafeArea(
 
-                child: Row(
+                child: Padding(
+
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+
+                  child: Row(
 
                   children: [
 
@@ -816,6 +780,8 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                 ),
 
+                ),
+
               ),
 
               Positioned(
@@ -834,11 +800,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                     color: AppColors.surfaceEl.withOpacity(0.97),
 
-                    borderRadius: const BorderRadius.vertical(
-
-                      top: Radius.circular(24),
-
-                    ),
+                    borderRadius: BorderRadius.circular(16),
 
                     boxShadow: [
 
@@ -874,11 +836,14 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
                           icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
                           label: const Text('Чат'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.saffronDeep,
-                            side: const BorderSide(color: AppColors.saffronDeep, width: 0.5),
+                            foregroundColor: AppColors.orange,
+                            side: BorderSide(
+                              color: AppColors.orange.withOpacity(0.45),
+                              width: 1.2,
+                            ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                         ),
@@ -897,88 +862,6 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
         );
 
       },
-
-    );
-
-  }
-
-}
-
-
-
-class _HeroImage extends StatelessWidget {
-
-  const _HeroImage({required this.monk, required this.monkId});
-
-
-
-  final Monk monk;
-
-  final String monkId;
-
-
-
-  @override
-
-  Widget build(BuildContext context) {
-
-    if (monk.image != null) {
-
-      return Hero(
-
-        tag: Monk.heroTag(monkId),
-
-        child: CachedNetworkImage(
-
-          imageUrl: monk.image!,
-
-          fit: BoxFit.cover,
-
-          placeholder: (_, __) => Shimmer.fromColors(
-
-            baseColor: AppColors.border,
-
-            highlightColor: AppColors.sunLight,
-
-            child: const ColoredBox(color: AppColors.borderSub),
-
-          ),
-
-          errorWidget: (_, __, ___) => const DecoratedBox(
-
-            decoration: BoxDecoration(gradient: AppGradients.monkCardBg),
-
-            child: Icon(
-
-              Icons.temple_buddhist_outlined,
-
-              size: 64,
-
-              color: AppColors.sunMuted,
-
-            ),
-
-          ),
-
-        ),
-
-      );
-
-    }
-
-    return const DecoratedBox(
-
-      decoration: BoxDecoration(gradient: AppGradients.monkCardBg),
-
-      child: Icon(
-
-        Icons.temple_buddhist_outlined,
-
-        size: 64,
-
-        color: AppColors.sunMuted,
-
-      ),
 
     );
 
@@ -1022,7 +905,7 @@ class _SectionTabs extends StatelessWidget {
 
       decoration: BoxDecoration(
 
-        color: AppColors.surface,
+        color: AppColors.creamBg,
 
         borderRadius: BorderRadius.circular(999),
 
@@ -1050,7 +933,7 @@ class _SectionTabs extends StatelessWidget {
 
                 decoration: BoxDecoration(
 
-                  gradient: active ? AppGradients.sun : null,
+                  gradient: active ? AppGradients.primary : null, color: active ? null : AppColors.transparent,
 
                   borderRadius: BorderRadius.circular(999),
 

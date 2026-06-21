@@ -1,130 +1,214 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/native_app_header.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
-/// Blue header + white rounded sheet — premium layered layout.
+/// Flat cream layout with native iOS-style headers.
 class PremiumLayeredScaffold extends StatelessWidget {
   const PremiumLayeredScaffold({
     super.key,
-    required this.title,
+    this.title = '',
     this.subtitle,
     this.trailing,
+    this.leading,
     this.headerBottom,
+    this.headerContent,
+    this.sheetTopContent,
     required this.body,
     this.onRefresh,
     this.headerHeight = 168,
     this.fab,
+    this.showBackButton = false,
+    this.centerTitle = false,
+    this.backIcon = Icons.arrow_back_ios_new_rounded,
+    this.onBack,
+    this.expandBody = false,
+    this.bottomBar,
+    this.useNativeNavBar = false,
   });
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final Widget? leading;
   final Widget? headerBottom;
+  final Widget? headerContent;
+  final Widget? sheetTopContent;
   final Widget body;
   final Future<void> Function()? onRefresh;
   final double headerHeight;
   final Widget? fab;
+  final bool showBackButton;
+  final bool centerTitle;
+  final IconData backIcon;
+  final VoidCallback? onBack;
+  final bool expandBody;
+  final Widget? bottomBar;
+  /// Push screens: compact centered nav bar (Лам нар, Хайх…).
+  final bool useNativeNavBar;
+
+  VoidCallback _backAction(BuildContext context) {
+    return () {
+      HapticFeedback.lightImpact();
+      if (onBack != null) {
+        onBack!();
+      } else {
+        context.pop();
+      }
+    };
+  }
+
+  Widget? _buildBackButton(BuildContext context) {
+    if (leading != null) return leading;
+    if (!showBackButton) return null;
+    return ScaleTap(
+      pressedScale: 0.92,
+      onTap: _backAction(context),
+      child: SizedBox(
+        width: 40,
+        height: 40,
+        child: Icon(
+          backIcon,
+          size: backIcon == Icons.close_rounded ? 22 : 18,
+          color: AppColors.inkDeep,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultHeader(BuildContext context) {
+    final back = _buildBackButton(context);
+
+    if (useNativeNavBar || (centerTitle && showBackButton)) {
+      return NativeNavBar(
+        title: title,
+        onBack: showBackButton ? _backAction(context) : null,
+        leading: back,
+        trailing: trailing,
+        showBorder: false,
+      );
+    }
+
+    return NativeLargeTitleHeader(
+      eyebrow: subtitle,
+      title: title,
+      leading: back,
+      trailing: trailing,
+    );
+  }
+
+  Widget _headerSection(BuildContext context, double top) {
+    final content = headerContent ?? _buildDefaultHeader(context);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, top + 8, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (headerContent != null && showBackButton && leading == null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ScaleTap(
+                pressedScale: 0.92,
+                onTap: _backAction(context),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 18,
+                    color: AppColors.inkDeep,
+                  ),
+                ),
+              ),
+            ),
+          content,
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.of(context).padding.top;
-    final sheetTop = top + headerHeight;
+
+    if (expandBody) {
+      return Scaffold(
+        backgroundColor: AppColors.creamBg,
+        floatingActionButton: fab,
+        bottomNavigationBar: bottomBar,
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _headerSection(context, top),
+            if (headerBottom != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: headerBottom,
+              ),
+            if (sheetTopContent != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: sheetTopContent,
+              ),
+            Expanded(
+              child: onRefresh == null
+                  ? body
+                  : RefreshIndicator(
+                      color: AppColors.orange,
+                      onRefresh: onRefresh!,
+                      child: body,
+                    ),
+            ),
+          ],
+        ),
+      );
+    }
 
     final scrollView = CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(
         parent: BouncingScrollPhysics(),
       ),
       slivers: [
-        SliverToBoxAdapter(child: SizedBox(height: sheetTop - 28)),
-        SliverToBoxAdapter(
-          child: Container(
-            decoration: const BoxDecoration(
-              color: AppColors.surfaceEl,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  blurRadius: 24,
-                  offset: Offset(0, -4),
-                ),
-              ],
+        SliverToBoxAdapter(child: _headerSection(context, top)),
+        if (headerBottom != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: headerBottom,
             ),
-            child: body,
           ),
-        ),
+        if (sheetTopContent != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: sheetTopContent,
+            ),
+          ),
+        SliverToBoxAdapter(child: body),
       ],
     );
 
     return Scaffold(
-      backgroundColor: AppColors.saffron,
+      backgroundColor: AppColors.creamBg,
       floatingActionButton: fab,
-      body: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: sheetTop + 32,
-            child: const DecoratedBox(
-              decoration: BoxDecoration(gradient: AppGradients.heroHeader),
+      bottomNavigationBar: bottomBar,
+      body: onRefresh == null
+          ? scrollView
+          : RefreshIndicator(
+              color: AppColors.orange,
+              onRefresh: onRefresh!,
+              child: scrollView,
             ),
-          ),
-          Positioned(
-            top: top + 12,
-            left: 20,
-            right: 20,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (subtitle != null)
-                        Text(
-                          subtitle!,
-                          style: AppText.bodySmall.copyWith(
-                            color: AppColors.onDarkMuted,
-                          ),
-                        ),
-                      Text(
-                        title,
-                        style: AppText.h1.copyWith(
-                          color: AppColors.onDark,
-                          fontSize: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (trailing != null) trailing!,
-              ],
-            ),
-          ),
-          if (headerBottom != null)
-            Positioned(
-              left: 20,
-              right: 20,
-              top: top + 88,
-              child: headerBottom!,
-            ),
-          Positioned.fill(
-            child: onRefresh == null
-                ? scrollView
-                : RefreshIndicator(
-                    color: AppColors.saffron,
-                    onRefresh: onRefresh!,
-                    child: scrollView,
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }
 
+/// Orange capsule tabs — matches [CategoryChip] on home.
 class PremiumSegmentTabs extends StatelessWidget {
   const PremiumSegmentTabs({
     super.key,
@@ -139,51 +223,50 @@ class PremiumSegmentTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       height: 44,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.18),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        children: List.generate(labels.length, (i) {
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: labels.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
           final active = i == selected;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onChanged(i);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: active ? AppGradients.primary : null,
-                  color: active ? null : Colors.transparent,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: active
-                      ? [
-                          BoxShadow(
-                            color: AppColors.sunOrange.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
+          return GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onChanged(i);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: active ? AppGradients.primary : null,
+                color: active ? null : AppColors.surfaceEl,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: active
+                      ? AppColors.orangeDeep
+                      : AppColors.orange,
+                  width: 1.2,
                 ),
-                child: Text(
-                  labels[i],
-                  style: AppText.caption.copyWith(
-                    color: active ? AppColors.inkDeep : AppColors.onDarkMuted,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
+                boxShadow: active
+                    ? [
+                        BoxShadow(
+                          color: AppColors.orange.withOpacity(0.22),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Text(
+                labels[i],
+                style: active ? AppText.chipActive : AppText.chipInactive,
               ),
             ),
           );
-        }),
+        },
       ),
     );
   }

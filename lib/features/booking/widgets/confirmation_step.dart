@@ -46,16 +46,11 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
 
     ref.read(bookingSubmittingProvider.notifier).state = true;
     try {
-      await ref.read(bookingDraftProvider.notifier).createBooking();
+      final bookingId =
+          await ref.read(bookingDraftProvider.notifier).createBooking();
 
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Захиалга илгээгдлээ. Лам баталгаажуулах хүлээнэ үү.'),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      context.go('/bookings');
+      context.go('/payment/$bookingId');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -187,8 +182,8 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
               ),
               const SizedBox(height: 20),
               SacredButton(
-                label: 'Захиалга илгээх',
-                icon: Icons.send_rounded,
+                label: 'QPay-ээр төлөх',
+                icon: Icons.qr_code_rounded,
                 onTap: draft.isComplete && !isLoading
                     ? () {
                         HapticFeedback.lightImpact();

@@ -6,6 +6,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/shop/models/shop_order.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class ShopOrdersScreen extends ConsumerWidget {
@@ -18,34 +19,36 @@ class ShopOrdersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(myOrdersProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(title: const Text('Миний захиалга')),
+    return PremiumLayeredScaffold(
+      title: 'Миний захиалга',
+      showBackButton: true,
+      expandBody: true,
+      onRefresh: () => ref.refresh(myOrdersProvider.future),
       body: ordersAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
         ),
         error: (e, _) => Center(child: Text(formatUserError(e))),
-        data: (orders) => RefreshIndicator(
-          color: AppColors.goldPrime,
-          onRefresh: () => ref.refresh(myOrdersProvider.future),
-          child: orders.isEmpty
-              ? ListView(
-                  children: const [
-                    SizedBox(height: 80),
-                    Center(child: Text('Захиалга байхгүй', style: AppText.bodySmall)),
-                  ],
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: orders.length,
-                  itemBuilder: (_, i) => _OrderCard(
-                    order: orders[i],
-                    fmt: _fmt,
-                    onPay: () => context.go('/shop/payment/${orders[i].id}'),
+        data: (orders) => orders.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 80),
+                  Center(
+                    child: Text('Захиалга байхгүй', style: AppText.bodySmall),
                   ),
+                ],
+              )
+            : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                itemCount: orders.length,
+                itemBuilder: (_, i) => _OrderCard(
+                  order: orders[i],
+                  fmt: _fmt,
+                  onPay: () => context.go('/shop/payment/${orders[i].id}'),
                 ),
-        ),
+              ),
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class ProfileIconButton extends StatelessWidget {
   const ProfileIconButton({
@@ -16,30 +18,34 @@ class ProfileIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8),
-      child: Material(
-        color: filled
-            ? AppColors.sunOrange.withOpacity(0.15)
-            : Colors.white.withOpacity(0.95),
-        shape: const CircleBorder(),
-        elevation: 2,
-        shadowColor: Colors.black26,
-        child: InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onPressed();
-          },
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: Icon(
-              icon,
-              size: 20,
-              color: filled ? AppColors.sunOrange : AppColors.inkDeep,
-            ),
+    return ScaleTap(
+      pressedScale: 0.92,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onPressed();
+      },
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          gradient: filled ? AppGradients.primary : null,
+          color: filled ? null : AppColors.surfaceEl.withOpacity(0.96),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: filled ? AppColors.orangeDeep : AppColors.borderSub,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: filled ? Colors.white : AppColors.inkDeep,
         ),
       ),
     );

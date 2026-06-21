@@ -17,6 +17,7 @@ import 'package:sacred_app/features/shop/models/shop_order.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -163,15 +164,13 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
   Widget build(BuildContext context) {
     final paymentAsync = ref.watch(shopOrderPaymentProvider(widget.orderId));
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        title: const Text('Дэлгүүрийн төлбөр'),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
-        ),
-      ),
+    return PremiumLayeredScaffold(
+      title: 'Дэлгүүрийн төлбөр',
+      showBackButton: true,
+      backIcon: Icons.close_rounded,
+      expandBody: true,
+      onRefresh: () =>
+          ref.refresh(shopOrderPaymentProvider(widget.orderId).future),
       body: paymentAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),
@@ -196,12 +195,10 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
             });
           }
 
-          return RefreshIndicator(
-            color: AppColors.goldPrime,
-            onRefresh: () => ref.refresh(shopOrderPaymentProvider(widget.orderId).future),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            children: [
                 SacredCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,8 +300,7 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                     child: Center(child: Text('Төлбөрийн мэдээлэл ачаалж байна...')),
                   ),
               ],
-            ),
-          );
+            );
         },
       ),
     );

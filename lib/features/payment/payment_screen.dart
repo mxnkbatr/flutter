@@ -23,6 +23,7 @@ import 'package:sacred_app/features/payment/widgets/bank_button.dart';
 import 'package:sacred_app/features/payment/widgets/countdown_timer.dart';
 import 'package:sacred_app/features/payment/widgets/pulsing_dot.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
@@ -33,7 +34,7 @@ class PaymentScreen extends ConsumerStatefulWidget {
     super.key,
     required this.bookingId,
     this.qpayData,
-    this.initialMethodTab = 0,
+    this.initialMethodTab = 1,
   });
 
   final String bookingId;
@@ -121,6 +122,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       context.go(
         '/payment/${widget.bookingId}/success',
         extra: PaymentSuccessArgs(
+          bookingId: widget.bookingId,
           monkName: data?.monkName ?? payment?.monkName ?? 'Лам',
           dateStr: data?.dateStr ?? payment?.date ?? '',
           timeSlot: data?.timeSlot ?? payment?.slot ?? '',
@@ -207,11 +209,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Шилжүүлэг бүртгэгдлээ. Админ баталгаажуулах хүлээнэ.'),
+          content: Text(
+            'Шилжүүлэг бүртгэгдлээ. Админ баталгаажуулах хүлээнэ.',
+          ),
           backgroundColor: AppColors.success,
         ),
       );
       ref.invalidate(bookingPaymentProvider(widget.bookingId));
+      if (mounted) context.go('/bookings');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -336,6 +341,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               Text('Банкны данс', style: AppText.h3),
               const SizedBox(height: 16),
               _bankRow('Банк', bank.bankName, canPay),
+              if (bank.iban.isNotEmpty)
+                _bankRow('IBAN', bank.iban, canPay),
               _bankRow('Данс', bank.accountNumber, canPay),
               _bankRow('Эзэмшигч', bank.accountHolder, canPay),
               _bankRow('Гүйлгээний утга', payment.reference, canPay),
@@ -522,17 +529,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     final role = ref.watch(authStateProvider).valueOrNull?.role ?? 'client';
     final paymentAsync = ref.watch(bookingPaymentProvider(widget.bookingId));
 
-    return Scaffold(
-      backgroundColor: AppColors.surface,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        title: const Text('Төлбөр'),
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded, color: AppColors.textPri),
-          onPressed: () => context.pop(),
-        ),
-      ),
+    return PremiumLayeredScaffold(
+      title: 'Төлбөр',
+      showBackButton: true,
+      backIcon: Icons.close_rounded,
+      expandBody: true,
       body: paymentAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
@@ -554,12 +555,28 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                         size: 56, color: AppColors.success),
                     const SizedBox(height: 12),
                     Text('Төлбөр төлөгдсөн', style: AppText.h3),
+                    const SizedBox(height: 8),
+                    Text(
+                      payment.status == 'confirmed'
+                          ? 'Одоо үйлчилгээнд орох боломжтой'
+                          : 'Баталгаажуулалт хүлээгдэж байна',
+                      style: AppText.bodySmall,
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 20),
+                    if (payment.status == 'confirmed') ...[
+                      SacredButton(
+                        label: 'Оруулах',
+                        icon: Icons.videocam_rounded,
+                        onTap: () => context.go('/call/${widget.bookingId}'),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     SacredButton(
-                      label: 'Буцах',
+                      label: 'Захиалга харах',
                       outline: true,
                       small: true,
-                      onTap: () => context.pop(),
+                      onTap: () => context.go('/bookings'),
                     ),
                   ],
                 ),
@@ -583,7 +600,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           }
 
           final canPay = payment.canPay && role == 'client';
-          if (_methodTab == 1 && canPay && _qpayData == null && !_creatingQpay) {
+          if (canPay && _qpayData == null && !_creatingQpay) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _ensureQPay(payment);
             });
@@ -626,14 +643,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     children: [
                       Expanded(
                         child: _MethodTab(
-                          label: 'Банкаар',
-                          icon: Icons.account_balance_outlined,
-                          selected: _methodTab == 0,
-                          onTap: () => setState(() => _methodTab = 0),
-                        ),
-                      ),
-                      Expanded(
-                        child: _MethodTab(
                           label: 'QPay',
                           icon: Icons.qr_code_2_rounded,
                           selected: _methodTab == 1,
@@ -641,6 +650,14 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                             setState(() => _methodTab = 1);
                             if (canPay) _ensureQPay(payment);
                           },
+                        ),
+                      ),
+                      Expanded(
+                        child: _MethodTab(
+                          label: 'Банкаар',
+                          icon: Icons.account_balance_outlined,
+                          selected: _methodTab == 0,
+                          onTap: () => setState(() => _methodTab = 0),
                         ),
                       ),
                     ],

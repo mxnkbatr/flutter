@@ -9,6 +9,7 @@ class AdminBookingItem {
     this.date = '',
     this.slot = '',
     this.paid = false,
+    this.bankTransferPending = false,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class AdminBookingItem {
   final String date;
   final String slot;
   final bool paid;
+  final bool bankTransferPending;
 
   factory AdminBookingItem.fromJson(Map<String, dynamic> json) {
     return AdminBookingItem(
@@ -38,6 +40,7 @@ class AdminBookingItem {
       date: json['date'] as String? ?? '',
       slot: json['slot'] as String? ?? '',
       paid: json['paid'] as bool? ?? false,
+      bankTransferPending: json['bankTransferPending'] as bool? ?? false,
     );
   }
 }

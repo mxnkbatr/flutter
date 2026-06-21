@@ -16,18 +16,23 @@ class StepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(total * 2 - 1, (i) {
           if (i.isOdd) {
             return AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              width: 40,
+              width: 32,
               height: 2,
-              color: i ~/ 2 < current ? AppColors.goldPrime : AppColors.border,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                color: i ~/ 2 < current
+                    ? AppColors.earthBrown
+                    : AppColors.borderSub,
+                borderRadius: BorderRadius.circular(1),
+              ),
             );
           }
           final step = i ~/ 2;
@@ -41,17 +46,15 @@ class StepIndicator extends StatelessWidget {
                 width: 28,
                 height: 28,
                 decoration: BoxDecoration(
-                  color: done
-                      ? AppColors.goldPrime
-                      : active
-                          ? AppColors.inkDeep
-                          : AppColors.surfaceEl,
+                  color: done || active
+                      ? AppColors.earthBrown
+                      : AppColors.surfaceEl,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: done || active
-                        ? AppColors.goldPrime
-                        : AppColors.border,
-                    width: active ? 2 : 0.5,
+                        ? AppColors.earthBrown
+                        : AppColors.borderSub,
+                    width: active ? 2 : 1.2,
                   ),
                 ),
                 child: Center(
@@ -59,13 +62,13 @@ class StepIndicator extends StatelessWidget {
                       ? const Icon(
                           Icons.check_rounded,
                           size: 14,
-                          color: AppColors.inkDeep,
+                          color: Colors.white,
                         )
                       : Text(
                           '${step + 1}',
                           style: AppText.caption.copyWith(
                             color: active
-                                ? AppColors.goldPrime
+                                ? Colors.white
                                 : AppColors.textHint,
                             fontWeight: FontWeight.w700,
                           ),
@@ -76,8 +79,9 @@ class StepIndicator extends StatelessWidget {
               Text(
                 labels[step],
                 style: AppText.caption.copyWith(
-                  color: active ? AppColors.textPri : AppColors.textHint,
+                  color: active ? AppColors.earthBrown : AppColors.textHint,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 11,
                 ),
               ),
             ],

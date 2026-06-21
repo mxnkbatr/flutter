@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/router/ios_page_transitions.dart';
 import 'package:sacred_app/features/admin/admin_bookings_screen.dart';
 import 'package:sacred_app/features/admin/admin_dashboard_screen.dart';
 import 'package:sacred_app/features/admin/admin_finance_screen.dart';
@@ -27,6 +28,7 @@ import 'package:sacred_app/features/payment/payment_screen.dart';
 import 'package:sacred_app/features/payment/payment_success_screen.dart';
 import 'package:sacred_app/features/admin/screens/admin_products_screen.dart';
 import 'package:sacred_app/features/profile/presentation/profile_screen.dart';
+import 'package:sacred_app/features/notifications/notifications_screen.dart';
 import 'package:sacred_app/features/profile/notification_settings_screen.dart';
 import 'package:sacred_app/features/shop/cart_screen.dart';
 import 'package:sacred_app/features/shop/shop_orders_screen.dart';
@@ -96,32 +98,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/search',
-        builder: (context, state) => const SearchScreen(),
+        pageBuilder: (context, state) => iosCupertinoPage(
+          state: state,
+          child: const SearchScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/notifications',
+        pageBuilder: (context, state) => iosCupertinoPage(
+          state: state,
+          child: const NotificationsScreen(),
+        ),
       ),
       GoRoute(
         path: '/messenger/:id',
-        builder: (context, state) => ChatScreen(
-          conversationId: state.pathParameters['id']!,
-          title: Uri.decodeComponent(
-            state.uri.queryParameters['title'] ?? 'Чат',
+        pageBuilder: (context, state) => iosCupertinoPage(
+          state: state,
+          child: ChatScreen(
+            conversationId: state.pathParameters['id']!,
+            title: Uri.decodeComponent(
+              state.uri.queryParameters['title'] ?? 'Чат',
+            ),
           ),
         ),
       ),
       GoRoute(
         path: '/payment/:bookingId',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final extra = state.extra;
-          return PaymentScreen(
-            bookingId: state.pathParameters['bookingId']!,
-            qpayData: extra is QPayData ? extra : null,
-            initialMethodTab: extra is int ? extra : 0,
+          return iosCupertinoPage(
+            state: state,
+            child: PaymentScreen(
+              bookingId: state.pathParameters['bookingId']!,
+              qpayData: extra is QPayData ? extra : null,
+              initialMethodTab: extra is int ? extra : 0,
+            ),
           );
         },
         routes: [
           GoRoute(
             path: 'success',
-            builder: (context, state) => PaymentSuccessScreen(
-              args: state.extra as PaymentSuccessArgs,
+            pageBuilder: (context, state) => iosCupertinoPage(
+              state: state,
+              child: PaymentSuccessScreen(
+                args: state.extra as PaymentSuccessArgs,
+              ),
             ),
           ),
         ],
@@ -148,16 +169,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/monks/:id',
-            builder: (context, state) =>
-                MonkProfileScreen(monkId: state.pathParameters['id']!),
+            pageBuilder: (context, state) => iosCupertinoPage(
+              state: state,
+              child: MonkProfileScreen(monkId: state.pathParameters['id']!),
+            ),
           ),
           GoRoute(
             path: '/booking/:monkId',
-            builder: (context, state) => BookingFlowScreen(
-              monkId: state.pathParameters['monkId']!,
-              initialServiceId: state.uri.queryParameters['serviceId'],
-              initialDate: state.uri.queryParameters['date'],
-              initialSlot: state.uri.queryParameters['slot'],
+            pageBuilder: (context, state) => iosCupertinoPage(
+              state: state,
+              child: BookingFlowScreen(
+                monkId: state.pathParameters['monkId']!,
+                initialServiceId: state.uri.queryParameters['serviceId'],
+                initialDate: state.uri.queryParameters['date'],
+                initialSlot: state.uri.queryParameters['slot'],
+              ),
             ),
           ),
           GoRoute(
@@ -170,23 +196,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'cart',
-                builder: (context, state) => const CartScreen(),
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const CartScreen(),
+                ),
               ),
               GoRoute(
                 path: 'orders',
-                builder: (context, state) => const ShopOrdersScreen(),
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const ShopOrdersScreen(),
+                ),
               ),
               GoRoute(
                 path: 'payment/:orderId',
-                builder: (context, state) => ShopPaymentScreen(
-                  orderId: state.pathParameters['orderId']!,
-                  qpayData: state.extra is QPayData ? state.extra as QPayData : null,
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: ShopPaymentScreen(
+                    orderId: state.pathParameters['orderId']!,
+                    qpayData: state.extra is QPayData
+                        ? state.extra as QPayData
+                        : null,
+                  ),
                 ),
               ),
               GoRoute(
                 path: 'product/:id',
-                builder: (context, state) => ShopProductDetailScreen(
-                  productId: state.pathParameters['id']!,
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: ShopProductDetailScreen(
+                    productId: state.pathParameters['id']!,
+                  ),
                 ),
               ),
             ],
@@ -201,14 +241,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: 'notifications',
-                builder: (context, state) =>
-                    const NotificationSettingsScreen(),
+                pageBuilder: (context, state) => iosCupertinoPage(
+                  state: state,
+                  child: const NotificationSettingsScreen(),
+                ),
               ),
             ],
           ),
           GoRoute(
             path: '/subscription',
-            builder: (context, state) => const SubscriptionScreen(),
+            pageBuilder: (context, state) => iosCupertinoPage(
+              state: state,
+              child: const SubscriptionScreen(),
+            ),
           ),
         ],
       ),

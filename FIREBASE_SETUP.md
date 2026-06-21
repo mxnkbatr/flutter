@@ -32,12 +32,12 @@
 
 ### Android
 - **Add app** → Android
-- Package name: `mn.gevabal.sacred_app`
+- Package name: `mn.gevabal.app`
 - `google-services.json` татаж `android/app/` дотор хийнэ
 
 ### iOS
 - **Add app** → iOS
-- Bundle ID: Xcode дээрх bundle ID (жишээ `mn.gevabal.sacredApp`)
+- Bundle ID: `mn.gevabal.app`
 - `GoogleService-Info.plist` татаж `ios/Runner/` дотор хийнэ
 
 ---

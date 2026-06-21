@@ -32,6 +32,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   String? _imageUrl;
   String _status = 'active';
   String _email = '';
+  bool _isSpecial = false;
   bool _loaded = false;
   bool _saving = false;
   bool _deleting = false;
@@ -55,6 +56,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     _email = detail.email;
     _imageUrl = detail.image;
     _status = detail.status;
+    _isSpecial = detail.isSpecial;
     _selectedCategories
       ..clear()
       ..addAll(detail.categories);
@@ -95,6 +97,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
             .map((s) => s.toJson())
             .toList(),
         'status': _status,
+        'isSpecial': _isSpecial,
         if (_imageUrl != null) 'image': _imageUrl,
       });
       if (mounted) {
@@ -288,6 +291,17 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                   DropdownMenuItem(value: 'blocked', child: Text('Хаагдсан')),
                 ],
                 onChanged: (v) => setState(() => _status = v ?? _status),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Онцгой лам'),
+                subtitle: const Text(
+                  'Premium гишүүдэд нээлттэй, нүүр хуудсанд онцолж харагдана',
+                  style: TextStyle(fontSize: 12),
+                ),
+                value: _isSpecial,
+                activeColor: AppColors.goldPrime,
+                onChanged: (v) => setState(() => _isSpecial = v),
               ),
               const SizedBox(height: 24),
               Row(

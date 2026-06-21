@@ -49,7 +49,7 @@ extension TierExtension on String {
   bool get canBookUnlimited => true;
 
   int get discountPercent => switch (this) {
-        'premium' => 10,
+        'premium' => 20,
         'vip' => 20,
         _ => 0,
       };
@@ -57,6 +57,6 @@ extension TierExtension on String {
 
 String tierLabel(String tier) => switch (tier) {
       'premium' => 'Premium',
-      'vip' => 'VIP',
+      'vip' => 'Premium',
       _ => 'Үнэгүй',
     };

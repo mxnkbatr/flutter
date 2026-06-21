@@ -12,6 +12,7 @@ class SubscriptionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentTier = ref.watch(userTierProvider);
+    final isPremium = currentTier == 'premium' || currentTier == 'vip';
 
     return Scaffold(
       backgroundColor: AppColors.inkDeep,
@@ -43,7 +44,7 @@ class SubscriptionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Илүү олон ламтай\nхолбогд',
+                    'Premium эрх\nавч давуу тал эдэл',
                     style: AppText.h1.copyWith(
                       color: Colors.white,
                       fontSize: 26,
@@ -53,7 +54,7 @@ class SubscriptionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Premium эрхтэй илүү олон лам нартай\nхолбогдож, онцгой хөнгөлөлт эдэл',
+                    'Ламын үйлчилгээнд 20% хөнгөлөлт,\nонцгой лам нарт холбогдох боломж',
                     style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
                     textAlign: TextAlign.center,
                   ),
@@ -73,42 +74,27 @@ class SubscriptionScreen extends ConsumerWidget {
                       SubscriptionFeature('Текст мессэж', included: true),
                       SubscriptionFeature('Үндсэн лам нар', included: true),
                       SubscriptionFeature('Видео дуудлага', included: false),
-                      SubscriptionFeature('Онцлох лам нар', included: false),
-                      SubscriptionFeature('Хөнгөлөлт', included: false),
+                      SubscriptionFeature('Онцгой лам нар', included: false),
+                      SubscriptionFeature('20% хөнгөлөлт', included: false),
                     ],
-                    isCurrentTier: currentTier == 'free',
+                    isCurrentTier: !isPremium,
                   ),
                   const SizedBox(height: 12),
                   TierCard(
                     tier: 'premium',
                     title: 'Premium',
-                    price: 9900,
-                    badge: 'АЛДАРТАЙ',
+                    price: 300000,
+                    badge: 'САРЫН БАГЦ',
                     features: const [
                       SubscriptionFeature('Хязгааргүй захиалга', included: true),
                       SubscriptionFeature('Видео дуудлага', included: true),
-                      SubscriptionFeature('Онцлох лам нар', included: true),
-                      SubscriptionFeature('10% хөнгөлөлт', included: true),
-                      SubscriptionFeature('Group дуудлага', included: false),
-                      SubscriptionFeature('VIP лам нар', included: false),
-                    ],
-                    isCurrentTier: currentTier == 'premium',
-                    highlighted: true,
-                  ),
-                  const SizedBox(height: 12),
-                  TierCard(
-                    tier: 'vip',
-                    title: 'VIP',
-                    price: 29900,
-                    features: const [
-                      SubscriptionFeature('Хязгааргүй захиалга', included: true),
-                      SubscriptionFeature('Group видео дуудлага', included: true),
-                      SubscriptionFeature('VIP лам нар', included: true),
+                      SubscriptionFeature('Онцгой лам нар', included: true),
                       SubscriptionFeature('20% хөнгөлөлт', included: true),
                       SubscriptionFeature('Тэргүүлэх цаг захиалга', included: true),
-                      SubscriptionFeature('Хувийн менежер', included: true),
+                      SubscriptionFeature('Бусад premium давуу тал', included: true),
                     ],
-                    isCurrentTier: currentTier == 'vip',
+                    isCurrentTier: isPremium,
+                    highlighted: true,
                   ),
                 ],
               ),

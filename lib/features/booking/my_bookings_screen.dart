@@ -6,6 +6,8 @@ import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/booking/models/client_booking.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/booking/widgets/bookings_page_scaffold.dart';
 import 'package:sacred_app/features/booking/widgets/review_sheet.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
@@ -100,7 +102,7 @@ class MyBookingsScreen extends ConsumerWidget {
       },
       body: bookingsAsync.when(
         loading: () => const Center(
-          child: CircularProgressIndicator(color: AppColors.saffron),
+          child: CircularProgressIndicator(color: AppColors.earthBrown),
         ),
         error: (e, _) => ErrorState(
           error: e,
@@ -147,25 +149,32 @@ class _BookingCard extends ConsumerWidget {
   final String Function(int?) fmt;
 
   String? get _statusHint {
-    if (booking.status == 'pending') {
-      return 'Лам таны захиалгыг шалгаж байна';
+    if (booking.status == 'pending' && !booking.paid) {
+      return 'Төлбөр төлж захиалгаа илгээнэ үү';
+    }
+    if (booking.status == 'pending' && booking.paid) {
+      return 'Төлбөр төлсөн — лам баталгаажуулах хүлээнэ үү';
     }
     if (booking.status == 'approved' && !booking.paid) {
-      return 'Төлбөр төлсний дараа үйлчилгээ эхэлнэ';
+      if (booking.bankTransferPending) {
+        return 'Банкны шилжүүлэг баталгаажихыг хүлээж байна';
+      }
+      return 'Төлбөр төлж захиалгаа баталгаажуулна уу';
     }
     if (booking.canJoinCall) {
-      return 'Төлбөр төлөгдсөн — видео дуудлага эхлүүлж болно';
+      return 'Захиалга баталгаажсан — видео дуудлага эхлүүлж болно';
     }
     return null;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final needsPay = booking.status == 'approved' && !booking.paid;
+    final needsPay = !booking.paid &&
+        (booking.status == 'pending' || booking.status == 'approved');
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: AppGradients.cardShadow(radius: 20),
+      decoration: MinimalStyle.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -174,20 +183,16 @@ class _BookingCard extends ConsumerWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: const BoxDecoration(
-                  gradient: AppGradients.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    booking.monkName.isNotEmpty
-                        ? booking.monkName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: AppColors.inkDeep,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 18,
-                    ),
+                decoration: MinimalStyle.avatarBox(radius: 22),
+                alignment: Alignment.center,
+                child: Text(
+                  booking.monkName.isNotEmpty
+                      ? booking.monkName[0].toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                    color: AppColors.earthBrown.withOpacity(0.75),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
                   ),
                 ),
               ),
@@ -234,7 +239,7 @@ class _BookingCard extends ConsumerWidget {
               style: AppText.caption.copyWith(color: AppColors.textSec),
             ),
           ],
-          if (needsPay) ...[
+          if (needsPay && !booking.bankTransferPending) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -243,7 +248,7 @@ class _BookingCard extends ConsumerWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: AppGradients.sun,
+                    gradient: AppGradients.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -273,12 +278,12 @@ class _BookingCard extends ConsumerWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: onCall,
-                icon: const Icon(Icons.videocam_rounded, size: 18),
-                label: const Text('Видео дуудлага эхлүүлэх'),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: const Text('Оруулах'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.saffronDeep,
+                  foregroundColor: AppColors.earthBrown,
                   side: const BorderSide(
-                    color: AppColors.saffronDeep,
+                    color: AppColors.earthBrown,
                     width: 0.5,
                   ),
                   shape: RoundedRectangleBorder(
@@ -329,9 +334,9 @@ class _BookingCard extends ConsumerWidget {
                 icon: const Icon(Icons.star_outline_rounded, size: 18),
                 label: const Text('Сэтгэгдэл бичих'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.saffronDeep,
+                  foregroundColor: AppColors.earthBrown,
                   side: const BorderSide(
-                    color: AppColors.saffronDeep,
+                    color: AppColors.earthBrown,
                     width: 0.5,
                   ),
                   shape: RoundedRectangleBorder(

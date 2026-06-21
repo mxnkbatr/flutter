@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class SacredButton extends StatelessWidget {
   const SacredButton({
@@ -50,23 +51,19 @@ class SacredButton extends StatelessWidget {
                   onTap?.call();
                 },
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.saffron, width: 1.5),
+            side: const BorderSide(color: AppColors.orange, width: 1.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius),
             ),
           ),
-          child: _child(fontSize, AppColors.inkDeep, fontWeight),
+          child: _child(fontSize, AppColors.orange, fontWeight),
         ),
       );
     }
 
-    return GestureDetector(
-      onTap: isLoading || onTap == null
-          ? null
-          : () {
-              HapticFeedback.lightImpact();
-              onTap!();
-            },
+    return ScaleTap(
+      pressedScale: 0.97,
+      onTap: isLoading || onTap == null ? null : onTap,
       child: Container(
         width: double.infinity,
         height: height,
@@ -77,16 +74,20 @@ class SacredButton extends StatelessWidget {
           boxShadow: onTap != null && !isLoading
               ? [
                   BoxShadow(
-                    color: AppColors.sunOrange.withOpacity(
-                      sunShadow ? 0.25 : 0.28,
-                    ),
-                    blurRadius: sunShadow ? 10 : 16,
+                    color: AppColors.orangeDeep.withOpacity(0.28),
+                    blurRadius: sunShadow ? 12 : 16,
                     offset: Offset(0, sunShadow ? 4 : 6),
                   ),
                 ]
               : null,
         ),
-        child: Center(child: _child(fontSize, AppColors.inkDeep, fontWeight)),
+        child: Center(
+          child: _child(
+            fontSize,
+            onTap != null && !isLoading ? Colors.white : AppColors.inkDeep,
+            fontWeight,
+          ),
+        ),
       ),
     );
   }

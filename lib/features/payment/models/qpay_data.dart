@@ -96,12 +96,14 @@ class QPayData {
 
 class PaymentSuccessArgs {
   const PaymentSuccessArgs({
+    required this.bookingId,
     required this.monkName,
     required this.dateStr,
     required this.timeSlot,
     required this.amount,
   });
 
+  final String bookingId;
   final String monkName;
   final String dateStr;
   final String timeSlot;

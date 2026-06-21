@@ -62,6 +62,15 @@ Future<void> updateMonk(
   ref.invalidate(adminMonkDetailProvider(monkId));
 }
 
+Future<void> reorderMonks(WidgetRef ref, List<String> monkIds) async {
+  await ref.read(apiClientProvider).put(
+        '/admin/monks/reorder',
+        data: {'ids': monkIds},
+      );
+  ref.invalidate(adminMonksProvider);
+  ref.invalidate(adminDashboardProvider);
+}
+
 Future<void> deleteMonk(WidgetRef ref, String monkId) async {
   await ref.read(apiClientProvider).delete('/admin/monks/$monkId');
   ref.invalidate(adminDashboardProvider);

@@ -39,7 +39,7 @@ class TierGating {
     if (canAccessMonk(tier, monk)) return true;
     showUpgrade(
       context,
-      reason: 'Энэ лам зөвхөн Premium гишүүдэд нээлттэй',
+      reason: 'Энэ онцгой лам зөвхөн Premium гишүүдэд нээлттэй',
     );
     return false;
   }

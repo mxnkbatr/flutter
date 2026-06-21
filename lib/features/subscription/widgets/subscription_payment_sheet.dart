@@ -52,10 +52,7 @@ class _SubscriptionPaymentSheetState
         (_) => ',',
       );
 
-  String _tierTitle() => switch (widget.tier) {
-        'vip' => 'VIP',
-        _ => 'Premium',
-      };
+  String _tierTitle() => 'Premium';
 
   Future<void> _createInvoice() async {
     setState(() {

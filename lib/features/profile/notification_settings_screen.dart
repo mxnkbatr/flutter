@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/shared/widgets/ios_grouped_section.dart';
-import 'package:sacred_app/shared/widgets/ios_large_title_scaffold.dart';
+import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 
 const _kBookingNotif = 'notif_booking_updates';
 const _kMessageNotif = 'notif_messages';
@@ -59,10 +59,12 @@ class _NotificationSettingsScreenState
       );
     }
 
-    return IosLargeTitleScaffold(
-      title: 'Мэдэгдэл',
+    return PremiumLayeredScaffold(
+      title: 'Мэдэгдлийн тохиргоо',
+      showBackButton: true,
+      useNativeNavBar: true,
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+        padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
         child: Column(
           children: [
             IosGroupedSection(

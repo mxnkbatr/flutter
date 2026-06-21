@@ -203,7 +203,7 @@ class _SpecialBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        'Онцлох',
+        'Онцгой лам',
         style: AppText.caption.copyWith(
           color: AppColors.inkDeep,
           fontWeight: FontWeight.w700,

@@ -4,7 +4,8 @@
 #
 # Required setup:
 #   API_BASE_URL          — production backend (https://geva-api.onrender.com/api)
-#   App Store Connect     — Integrations → App Store Connect
+#   App Store Connect     — Team integrations → Developer Portal → API key name
+#                         → codemagic.yaml integrations.app_store_connect-д ижил нэр заана
 #   iOS code signing      — Code signing identities for mn.gevabal.app
 
 definitions:
@@ -30,6 +31,10 @@ definitions:
       if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
         echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
       fi
+
+  ios_signing_setup: &ios_signing_setup
+    name: Set up code signing settings on Xcode project
+    script: xcode-project use-profiles
 
   ios_build: &ios_build
     name: Build Flutter iOS IPA

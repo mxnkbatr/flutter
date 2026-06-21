@@ -49,6 +49,9 @@ workflows:
     name: iOS App Store
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      # Codemagic UI дээрх App Store Connect API key-ийн нэр (Developer Portal)
+      app_store_connect: Gevabal
     environment:
       <<: *env_versions
       ios_signing:
@@ -66,6 +69,7 @@ workflows:
       - *flutter_setup
       - *firebase_setup
       - *ios_build
+      - *ios_signing_setup
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

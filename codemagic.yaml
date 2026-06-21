@@ -1,10 +1,11 @@
-# Gevabal.mn — Codemagic CI/CD
+# Gevabal.mn — Codemagic CI/CD (YAML configuration)
+# Codemagic UI: Application settings → Switch to YAML configuration
 # Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
 #
-# Required Codemagic setup (Teams → Environment variables):
-#   API_BASE_URL          — production backend, e.g. https://api.gevabal.mn/api
-#   APP_STORE_CONNECT_*   — via Codemagic → Integrations → App Store Connect
-#   ios_signing           — via Codemagic → Code signing identities (Distribution cert + profile for mn.gevabal.app)
+# Required setup:
+#   API_BASE_URL          — production backend (https://geva-api.onrender.com/api)
+#   App Store Connect     — Integrations → App Store Connect
+#   iOS code signing      — Code signing identities for mn.gevabal.app
 
 definitions:
   env_versions: &env_versions
@@ -31,13 +32,12 @@ definitions:
       fi
 
   ios_build: &ios_build
-    name: Build iOS IPA
+    name: Build Flutter iOS IPA
     script: |
       cd ios && pod install && cd ..
-      flutter build ipa --release \
+      flutter build ipa --release --no-codesign \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
-        --dart-define=PREFER_DEV_AUTH=false \
-        --export-options-plist=ios/export_options.plist
+        --dart-define=PREFER_DEV_AUTH=false
 
 workflows:
   ios-app-store:

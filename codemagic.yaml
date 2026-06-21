@@ -8,8 +8,8 @@
 
 definitions:
   env_versions: &env_versions
-    flutter: 3.27.4
-    xcode: 16.2
+    flutter: stable
+    xcode: latest
     cocoapods: default
     java: 17
 

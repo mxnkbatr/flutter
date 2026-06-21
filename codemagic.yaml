@@ -2,12 +2,11 @@
 # Codemagic UI: Application settings → Switch to YAML configuration
 # Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
 #
-# Required setup:
-#   API_BASE_URL          — production backend (https://geva-api.onrender.com/api)
-#   App Store Connect     — Team integrations → Developer Portal → API key name
-#                         → codemagic.yaml integrations.app_store_connect-д ижил нэр заана
-#   iOS code signing      — Environment group "code-signing" with secret CERTIFICATE_PRIVATE_KEY
-#                         — (RSA private key; see docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods/)
+# Required Codemagic env group "code-signing" (Application or Team → Environment variables):
+#   CERTIFICATE_PRIVATE_KEY              — RSA private key (Secret)
+#   APP_STORE_CONNECT_PRIVATE_KEY        — .p8 API key file contents (Secret)
+#   APP_STORE_CONNECT_KEY_IDENTIFIER     — Key ID from App Store Connect
+#   APP_STORE_CONNECT_ISSUER_ID          — Issuer ID from App Store Connect
 
 definitions:
   env_versions: &env_versions
@@ -63,9 +62,6 @@ workflows:
     name: iOS App Store
     max_build_duration: 120
     instance_type: mac_mini_m2
-    integrations:
-      # Codemagic UI дээрх App Store Connect API key-ийн нэр (Developer Portal)
-      app_store_connect: Gevabal
     environment:
       <<: *env_versions
       groups:

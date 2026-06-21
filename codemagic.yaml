@@ -6,7 +6,8 @@
 #   API_BASE_URL          — production backend (https://geva-api.onrender.com/api)
 #   App Store Connect     — Team integrations → Developer Portal → API key name
 #                         → codemagic.yaml integrations.app_store_connect-д ижил нэр заана
-#   iOS code signing      — Code signing identities for mn.gevabal.app
+#   iOS code signing      — Environment group "code-signing" with secret CERTIFICATE_PRIVATE_KEY
+#                         — (RSA private key; see docs.codemagic.io/yaml-code-signing/alternative-code-signing-methods/)
 
 definitions:
   env_versions: &env_versions
@@ -32,6 +33,18 @@ definitions:
         echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
       fi
 
+  ios_keychain_init: &ios_keychain_init
+    name: Set up keychain for code signing
+    script: keychain initialize
+
+  ios_fetch_signing: &ios_fetch_signing
+    name: Fetch iOS signing files from Apple
+    script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+
+  ios_add_certificates: &ios_add_certificates
+    name: Add certificates to keychain
+    script: keychain add-certificates
+
   ios_signing_setup: &ios_signing_setup
     name: Set up code signing settings on Xcode project
     script: xcode-project use-profiles
@@ -40,7 +53,8 @@ definitions:
     name: Build Flutter iOS IPA
     script: |
       cd ios && pod install && cd ..
-      flutter build ipa --release --no-codesign \
+      flutter build ipa --release \
+        --export-options-plist=/Users/builder/export_options.plist \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
 
@@ -54,10 +68,10 @@ workflows:
       app_store_connect: Gevabal
     environment:
       <<: *env_versions
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: mn.gevabal.app
+      groups:
+        - code-signing
       vars:
+        BUNDLE_ID: mn.gevabal.app
         API_BASE_URL: https://geva-api.onrender.com/api
     triggering:
       events:
@@ -68,8 +82,11 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
-      - *ios_build
+      - *ios_keychain_init
+      - *ios_fetch_signing
+      - *ios_add_certificates
       - *ios_signing_setup
+      - *ios_build
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log

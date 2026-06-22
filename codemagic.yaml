@@ -78,6 +78,7 @@ definitions:
         --export-options-plist=/Users/builder/export_options.plist \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
+      echo "Build mode: $(grep FLUTTER_BUILD_MODE ios/Flutter/Generated.xcconfig || true)"
 
 workflows:
   ios-app-store:

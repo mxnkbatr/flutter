@@ -1,7 +1,7 @@
 name: sacred_app
 description: "Gevabal.mn — Buddhist monk booking platform"
 publish_to: 'none'
-version: 2.1.0+20
+version: 2.1.0+21
 
 environment:
   sdk: '>=3.7.0 <4.0.0'
@@ -55,6 +55,10 @@ dependencies:
   excel: ^4.0.2
   animations: ^2.0.11
   google_fonts: ^6.3.2
+
+# livekit_client → connectivity_plus 6.x crashes on iOS 26 at plugin registration.
+dependency_overrides:
+  connectivity_plus: ^7.1.1
 
 dev_dependencies:
   flutter_test:

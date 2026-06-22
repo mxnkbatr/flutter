@@ -7,24 +7,39 @@ import { v4 as uuidv4 } from 'uuid';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const uploadsRoot = path.join(__dirname, '..', 'uploads');
 
+function envValue(name) {
+  const value = process.env[name];
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : '';
+}
+
 export function isCloudinaryConfigured() {
-  if (process.env.CLOUDINARY_URL) return true;
+  const url = envValue('CLOUDINARY_URL');
+  if (url) return true;
+
   return Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET,
+    envValue('CLOUDINARY_CLOUD_NAME') &&
+      envValue('CLOUDINARY_API_KEY') &&
+      envValue('CLOUDINARY_API_SECRET'),
   );
 }
 
 function configureCloudinary() {
-  if (process.env.CLOUDINARY_URL) {
+  if (!isCloudinaryConfigured()) {
+    throw new Error('Cloudinary is not configured');
+  }
+
+  const url = envValue('CLOUDINARY_URL');
+  if (url) {
     cloudinary.config({ secure: true });
     return;
   }
+
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: envValue('CLOUDINARY_CLOUD_NAME'),
+    api_key: envValue('CLOUDINARY_API_KEY'),
+    api_secret: envValue('CLOUDINARY_API_SECRET'),
     secure: true,
   });
 }
@@ -71,8 +86,9 @@ async function uploadToCloudinary(dataUrl, subfolder = 'monks') {
     folder: `gevabal/${subfolder}`,
     resource_type: 'image',
   };
-  if (process.env.CLOUDINARY_UPLOAD_PRESET) {
-    uploadOptions.upload_preset = process.env.CLOUDINARY_UPLOAD_PRESET;
+  const preset = envValue('CLOUDINARY_UPLOAD_PRESET');
+  if (preset) {
+    uploadOptions.upload_preset = preset;
   }
 
   const result = await cloudinary.uploader.upload(dataUrl, uploadOptions);
@@ -82,10 +98,17 @@ async function uploadToCloudinary(dataUrl, subfolder = 'monks') {
 
 /**
  * Upload base64 image. Returns full HTTPS URL (Cloudinary) or relative /uploads/... path (local).
+ * Cloudinary env байхгүй эсвэл upload алдаатай бол local storage руу fallback хийнэ.
  */
 export async function uploadBase64Image(dataUrl, subfolder = 'monks') {
-  if (isCloudinaryConfigured()) {
-    return uploadToCloudinary(dataUrl, subfolder);
+  if (!isCloudinaryConfigured()) {
+    return saveBase64Image(dataUrl, subfolder);
   }
-  return saveBase64Image(dataUrl, subfolder);
+
+  try {
+    return await uploadToCloudinary(dataUrl, subfolder);
+  } catch (err) {
+    console.warn('Cloudinary upload failed, using local storage:', err?.message || err);
+    return saveBase64Image(dataUrl, subfolder);
+  }
 }

@@ -86,11 +86,21 @@ definitions:
       flutter build ios --config-only --release \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
-      if ! grep -q '^FLUTTER_BUILD_MODE=release' ios/Flutter/Generated.xcconfig; then
-        echo "ERROR: Xcode will not archive in release mode:"
+      if grep -q '^FLUTTER_BUILD_MODE=debug' ios/Flutter/Generated.xcconfig 2>/dev/null; then
+        echo "ERROR: Generated.xcconfig is debug mode:"
         cat ios/Flutter/Generated.xcconfig
         exit 1
       fi
+      if ! grep -q '^FLUTTER_BUILD_MODE=release' ios/Flutter/Release.xcconfig; then
+        echo "ERROR: Release.xcconfig must force FLUTTER_BUILD_MODE=release"
+        exit 1
+      fi
+      if grep -q '^TRACK_WIDGET_CREATION=true' ios/Flutter/Generated.xcconfig; then
+        echo "ERROR: TRACK_WIDGET_CREATION=true indicates non-release build"
+        exit 1
+      fi
+      echo "Release config OK (Flutter 3.44+ may omit FLUTTER_BUILD_MODE in Generated.xcconfig)"
+      grep -E 'FLUTTER_BUILD_MODE|TRACK_WIDGET_CREATION|TREE_SHAKE_ICONS' ios/Flutter/Generated.xcconfig ios/Flutter/Release.xcconfig || true
       flutter build ipa --release --export-options-plist=$HOME/export_options.plist \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false

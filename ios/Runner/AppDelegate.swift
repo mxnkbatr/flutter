@@ -3,7 +3,7 @@ import UIKit
 import UserNotifications
 import flutter_local_notifications
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,

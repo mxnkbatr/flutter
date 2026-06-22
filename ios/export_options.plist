@@ -9,7 +9,7 @@
 	<key>compileBitcode</key>
 	<false/>
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
 	<key>destination</key>
 	<string>export</string>
 </dict>

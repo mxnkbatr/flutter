@@ -101,10 +101,13 @@ definitions:
       fi
       echo "Release config OK (Flutter 3.44+ may omit FLUTTER_BUILD_MODE in Generated.xcconfig)"
       grep -E 'FLUTTER_BUILD_MODE|TRACK_WIDGET_CREATION|TREE_SHAKE_ICONS' ios/Flutter/Generated.xcconfig ios/Flutter/Release.xcconfig || true
-      flutter build ipa --release --export-options-plist=$HOME/export_options.plist \
+      flutter build ios --release --no-codesign \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
-      IPA_PATH="$(find build/ios/ipa -name '*.ipa' -print -quit)"
+      xcode-project build-ipa \
+        --workspace "${CM_BUILD_DIR:-$PWD}/ios/Runner.xcworkspace" \
+        --scheme "${XCODE_SCHEME:-Runner}"
+      IPA_PATH="$(find "${CM_BUILD_DIR:-$PWD}/build/ios/ipa" -name '*.ipa' -print -quit)"
       if [ -z "$IPA_PATH" ]; then
         echo "ERROR: IPA not found under build/ios/ipa"
         exit 1

@@ -1,16 +1,14 @@
-# Gevabal.mn — Codemagic CI/CD (YAML configuration)
-# Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
+# Gevabal.mn — Codemagic CI/CD
 #
-# === iOS code signing (Codemagic UI, нэг удаа) ===
-# Team settings → codemagic.yaml settings → Code signing identities:
-#   1. iOS certificates → Generate certificate (Apple Distribution) эсвэл .p12 upload
-#   2. iOS provisioning profiles → Fetch profiles → mn.gevabal.app (App Store)
+# Environment group "code-signing" — 4 variable (Application → Environment variables):
 #
-# === Environment group "code-signing" (TestFlight upload) ===
-#   APP_STORE_CONNECT_PRIVATE_KEY        — .p8 файлын бүтэн агуулга (Secret)
-#   APP_STORE_CONNECT_KEY_IDENTIFIER     — Key ID
-#   APP_STORE_CONNECT_ISSUER_ID          — Issuer ID
-# CERTIFICATE_PRIVATE_KEY шаардлагагүй.
+#   1) CERTIFICATE_PRIVATE_KEY (Secret)
+#      PowerShell: ssh-keygen -t rsa -b 2048 -m PEM -f "$env:USERPROFILE\Desktop\ios_key" -q -N '""'
+#      Notepad-оор $env:USERPROFILE\Desktop\ios_key файлыг нээгээд бүх текстийг paste хийнэ
+#
+#   2) APP_STORE_CONNECT_PRIVATE_KEY (Secret) — App Store Connect .p8 файлын бүтэн текст
+#   3) APP_STORE_CONNECT_KEY_IDENTIFIER — Key ID
+#   4) APP_STORE_CONNECT_ISSUER_ID — Issuer ID
 
 definitions:
   env_versions: &env_versions
@@ -35,9 +33,25 @@ definitions:
         echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
       fi
 
-  ios_signing_setup: &ios_signing_setup
-    name: Set up code signing settings on Xcode project
-    script: xcode-project use-profiles
+  ios_signing: &ios_signing
+    name: Fetch signing files and set up code signing
+    script: |
+      set -e
+      BUNDLE_ID="${BUNDLE_ID:-mn.gevabal.app}"
+      missing=""
+      [ -z "${CERTIFICATE_PRIVATE_KEY:-}" ] && missing="CERTIFICATE_PRIVATE_KEY"
+      [ -z "${APP_STORE_CONNECT_PRIVATE_KEY:-}" ] && missing="${missing:+$missing, }APP_STORE_CONNECT_PRIVATE_KEY"
+      [ -z "${APP_STORE_CONNECT_KEY_IDENTIFIER:-}" ] && missing="${missing:+$missing, }APP_STORE_CONNECT_KEY_IDENTIFIER"
+      [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ] && missing="${missing:+$missing, }APP_STORE_CONNECT_ISSUER_ID"
+      if [ -n "$missing" ]; then
+        echo "ERROR: code-signing group-д дараах variable-ууд дутуу байна: $missing"
+        echo "Codemagic → Application → Environment variables → group: code-signing"
+        exit 1
+      fi
+      keychain initialize
+      app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      keychain add-certificates
+      xcode-project use-profiles
 
   ios_build: &ios_build
     name: Build Flutter iOS IPA
@@ -55,12 +69,10 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       <<: *env_versions
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: mn.gevabal.app
       groups:
         - code-signing
       vars:
+        BUNDLE_ID: mn.gevabal.app
         API_BASE_URL: https://geva-backend.onrender.com/api
     triggering:
       events:
@@ -71,7 +83,7 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
-      - *ios_signing_setup
+      - *ios_signing
       - *ios_build
     artifacts:
       - build/ios/ipa/*.ipa

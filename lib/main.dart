@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +16,7 @@ import 'package:sacred_app/features/video_call/incoming_call_overlay.dart';
 import 'package:sacred_app/features/video_call/providers/incoming_call_provider.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/firebase/firebase_app_state.dart';
+import 'package:sacred_app/core/notifications/firebase_background_handler.dart';
 import 'package:sacred_app/firebase_options.dart';
 
 Future<void> _initFirebase() async {
@@ -32,19 +36,37 @@ Future<void> _initFirebase() async {
   }
 }
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await GoogleFonts.pendingFonts([
-      GoogleFonts.dmSans(),
-      GoogleFonts.playfairDisplay(),
-    ]);
-  } catch (_) {
-    // Offline эсвэл font cache алдаа — апп үргэлжлүүлнэ
-  }
-  await _initFirebase();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const ProviderScope(child: SacredApp()));
+void main() {
+  runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
+      FlutterError.onError = (details) {
+        FlutterError.presentError(details);
+        if (kDebugMode) {
+          debugPrint('FlutterError: ${details.exceptionAsString()}');
+        }
+      };
+      try {
+        await GoogleFonts.pendingFonts([
+          GoogleFonts.dmSans(),
+          GoogleFonts.playfairDisplay(),
+        ]);
+      } catch (_) {
+        // Offline эсвэл font cache алдаа — апп үргэлжлүүлнэ
+      }
+      await _initFirebase();
+      if (isFirebaseReady) {
+        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+      }
+      await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      runApp(const ProviderScope(child: SacredApp()));
+    },
+    (error, stack) {
+      if (kDebugMode) {
+        debugPrint('Uncaught error: $error\n$stack');
+      }
+    },
+  );
 }
 
 class SacredApp extends ConsumerStatefulWidget {

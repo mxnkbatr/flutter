@@ -8,7 +8,6 @@ import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/firebase/firebase_app_state.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
-import 'package:sacred_app/core/notifications/firebase_background_handler.dart';
 import 'package:sacred_app/core/notifications/local_notification_service.dart';
 import 'package:sacred_app/core/router/app_router.dart';
 import 'package:sacred_app/features/notifications/providers/notifications_provider.dart';
@@ -64,8 +63,6 @@ class PushNotificationService {
       };
 
       if (!isFirebaseReady) return;
-
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
 

@@ -1,13 +1,16 @@
 # Gevabal.mn — Codemagic CI/CD (YAML configuration)
-# Codemagic UI: Application settings → Switch to YAML configuration
 # Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
 #
-# Codemagic → Environment variables → group "code-signing" (Application эсвэл Team):
-#   CERTIFICATE_PRIVATE_KEY              — RSA private key (Secret)
+# === iOS code signing (Codemagic UI, нэг удаа) ===
+# Team settings → codemagic.yaml settings → Code signing identities:
+#   1. iOS certificates → Generate certificate (Apple Distribution) эсвэл .p12 upload
+#   2. iOS provisioning profiles → Fetch profiles → mn.gevabal.app (App Store)
+#
+# === Environment group "code-signing" (TestFlight upload) ===
 #   APP_STORE_CONNECT_PRIVATE_KEY        — .p8 файлын бүтэн агуулга (Secret)
 #   APP_STORE_CONNECT_KEY_IDENTIFIER     — Key ID
 #   APP_STORE_CONNECT_ISSUER_ID          — Issuer ID
-# Integration (Gevabal) шаардлагагүй — дээрх 4 variable хангалттай.
+# CERTIFICATE_PRIVATE_KEY шаардлагагүй.
 
 definitions:
   env_versions: &env_versions
@@ -25,39 +28,12 @@ definitions:
   firebase_setup: &firebase_setup
     name: Firebase config files
     script: |
-      # Client configs (also in repo under android/ and ios/Runner/)
       if [ -n "$GOOGLE_SERVICES_JSON" ]; then
         echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
       fi
       if [ -n "$GOOGLE_SERVICE_INFO_PLIST" ]; then
         echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
       fi
-
-  ios_keychain_init: &ios_keychain_init
-    name: Set up keychain for code signing
-    script: keychain initialize
-
-  ios_fetch_signing: &ios_fetch_signing
-    name: Fetch iOS signing files from Apple
-    script: |
-      set -e
-      if [ -z "${BUNDLE_ID:-}" ]; then
-        echo "ERROR: BUNDLE_ID is not set"
-        exit 1
-      fi
-      if [ -z "${CERTIFICATE_PRIVATE_KEY:-}" ]; then
-        echo "ERROR: Add CERTIFICATE_PRIVATE_KEY to the code-signing environment group"
-        exit 1
-      fi
-      if [ -z "${APP_STORE_CONNECT_PRIVATE_KEY:-}" ] || [ -z "${APP_STORE_CONNECT_KEY_IDENTIFIER:-}" ] || [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
-        echo "ERROR: Add APP_STORE_CONNECT_PRIVATE_KEY, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_ISSUER_ID to code-signing group"
-        exit 1
-      fi
-      app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-
-  ios_add_certificates: &ios_add_certificates
-    name: Add certificates to keychain
-    script: keychain add-certificates
 
   ios_signing_setup: &ios_signing_setup
     name: Set up code signing settings on Xcode project
@@ -79,10 +55,12 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       <<: *env_versions
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: mn.gevabal.app
       groups:
         - code-signing
       vars:
-        BUNDLE_ID: mn.gevabal.app
         API_BASE_URL: https://geva-backend.onrender.com/api
     triggering:
       events:
@@ -93,9 +71,6 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
-      - *ios_keychain_init
-      - *ios_fetch_signing
-      - *ios_add_certificates
       - *ios_signing_setup
       - *ios_build
     artifacts:

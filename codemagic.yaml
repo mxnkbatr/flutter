@@ -2,11 +2,12 @@
 # Codemagic UI: Application settings → Switch to YAML configuration
 # Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
 #
-# Required Codemagic env group "code-signing" (Application or Team → Environment variables):
-#   CERTIFICATE_PRIVATE_KEY              — RSA private key (Secret)
-#   APP_STORE_CONNECT_PRIVATE_KEY        — .p8 API key file contents (Secret)
-#   APP_STORE_CONNECT_KEY_IDENTIFIER     — Key ID from App Store Connect
-#   APP_STORE_CONNECT_ISSUER_ID          — Issuer ID from App Store Connect
+# Codemagic setup:
+#   1. Team → Integrations → Developer Portal → API key нэр: Gevabal
+#   2. Environment group "code-signing" → CERTIFICATE_PRIVATE_KEY (RSA private key, Secret)
+#
+# Required Codemagic env group "code-signing":
+#   CERTIFICATE_PRIVATE_KEY — RSA private key for Apple Distribution certificate (--create)
 
 definitions:
   env_versions: &env_versions
@@ -38,7 +39,17 @@ definitions:
 
   ios_fetch_signing: &ios_fetch_signing
     name: Fetch iOS signing files from Apple
-    script: app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+    script: |
+      set -e
+      if [ -z "${BUNDLE_ID:-}" ]; then
+        echo "ERROR: BUNDLE_ID is not set"
+        exit 1
+      fi
+      if [ -z "${CERTIFICATE_PRIVATE_KEY:-}" ]; then
+        echo "ERROR: Add CERTIFICATE_PRIVATE_KEY to the code-signing environment group"
+        exit 1
+      fi
+      app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
 
   ios_add_certificates: &ios_add_certificates
     name: Add certificates to keychain
@@ -62,6 +73,8 @@ workflows:
     name: iOS App Store
     max_build_duration: 120
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: Gevabal
     environment:
       <<: *env_versions
       groups:
@@ -88,9 +101,7 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        auth: integration
         submit_to_testflight: true
 
   android-release:

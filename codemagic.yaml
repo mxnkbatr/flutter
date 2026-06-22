@@ -54,7 +54,7 @@ definitions:
       cd ios && pod install && cd ..
       flutter build ipa --release \
         --export-options-plist=/Users/builder/export_options.plist \
-        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
+        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
 
 workflows:
@@ -68,7 +68,7 @@ workflows:
         - code-signing
       vars:
         BUNDLE_ID: mn.gevabal.app
-        API_BASE_URL: https://geva-api.onrender.com/api
+        API_BASE_URL: https://geva-backend.onrender.com/api
     triggering:
       events:
         - push
@@ -88,7 +88,9 @@ workflows:
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
 
   android-release:
@@ -98,7 +100,7 @@ workflows:
     environment:
       <<: *env_versions
       vars:
-        API_BASE_URL: https://geva-api.onrender.com/api
+        API_BASE_URL: https://geva-backend.onrender.com/api
     triggering:
       events:
         - push
@@ -111,7 +113,7 @@ workflows:
       - name: Build Android App Bundle
         script: |
           flutter build appbundle --release \
-            --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-api.onrender.com/api}" \
+            --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
             --dart-define=PREFER_DEV_AUTH=false
     artifacts:
       - build/app/outputs/bundle/release/app-release.aab

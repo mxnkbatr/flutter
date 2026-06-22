@@ -1,8 +1,8 @@
 # Render.com — backend deploy (үнэгүй tier)
 # https://dashboard.render.com → New → Blueprint → энэ repo холбож deploy
 #
-# Deploy хийсний дараа URL: https://geva-api.onrender.com
-# Flutter/Codemagic: API_BASE_URL=https://geva-api.onrender.com/api
+# Deploy хийсний дараа URL: https://geva-backend.onrender.com
+# Flutter/Codemagic: API_BASE_URL=https://geva-backend.onrender.com/api
 
 services:
   - type: web
@@ -23,7 +23,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: APP_BASE_URL
-        value: https://geva-api.onrender.com
+        value: https://geva-backend.onrender.com
       - key: LIVEKIT_API_KEY
         sync: false
       - key: LIVEKIT_API_SECRET

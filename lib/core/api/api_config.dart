@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 class ApiConfig {
   /// Production/staging backend (Render deploy хийсний дараа).
-  /// Codemagic: --dart-define=API_BASE_URL=https://geva-api.onrender.com/api
+  /// Codemagic: --dart-define=API_BASE_URL=https://geva-backend.onrender.com/api
   static const String productionBaseUrl =
-      'https://geva-api.onrender.com/api';
+      'https://geva-backend.onrender.com/api';
 
   /// Физик утас → PC backend: --dart-define=LOCAL_API_HOST=192.168.x.x
   static const String localApiHost = String.fromEnvironment(

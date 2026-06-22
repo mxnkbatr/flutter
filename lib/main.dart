@@ -11,6 +11,7 @@ import 'package:sacred_app/core/theme/app_theme.dart';
 import 'package:sacred_app/core/theme/ios_scroll_behavior.dart';
 import 'package:sacred_app/features/video_call/incoming_call_overlay.dart';
 import 'package:sacred_app/features/video_call/providers/incoming_call_provider.dart';
+import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/firebase/firebase_app_state.dart';
 import 'package:sacred_app/firebase_options.dart';
 
@@ -84,7 +85,7 @@ class _SacredAppState extends ConsumerState<SacredApp>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(authStateProvider, (previous, next) {
+    ref.listen(authStateProvider, (AsyncValue<AuthState>? previous, AsyncValue<AuthState> next) {
       final wasAuthed = previous?.valueOrNull?.isAuthenticated == true;
       final isAuthed = next.valueOrNull?.isAuthenticated == true;
       if (!wasAuthed && isAuthed) {

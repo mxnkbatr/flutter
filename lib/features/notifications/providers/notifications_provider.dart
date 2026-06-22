@@ -1,56 +1,64 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:sacred_app/core/config/feature_flags.dart';
+import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/features/notifications/models/app_notification.dart';
 
 final notificationsProvider =
-    StateNotifierProvider<NotificationsNotifier, List<AppNotification>>(
-  (ref) => NotificationsNotifier(),
+    AsyncNotifierProvider<NotificationsNotifier, List<AppNotification>>(
+  NotificationsNotifier.new,
 );
 
 final unreadNotificationsCountProvider = Provider<int>((ref) {
-  return ref
-      .watch(notificationsProvider)
-      .where((n) => !n.isRead)
-      .length;
+  final async = ref.watch(notificationsProvider);
+  return async.maybeWhen(
+    data: (list) => list.where((n) => !n.isRead).length,
+    orElse: () => 0,
+  );
 });
 
-class NotificationsNotifier extends StateNotifier<List<AppNotification>> {
-  NotificationsNotifier() : super(_initialNotifications);
+class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
+  @override
+  Future<List<AppNotification>> build() async {
+    final authed = ref.watch(authStateProvider).valueOrNull?.isAuthenticated == true;
+    if (!authed) return [];
 
-  static List<AppNotification> get _initialNotifications => [
-        AppNotification(
-          id: '1',
-          title: 'Захиалга баталгаажлаа',
-          body: 'Таны ерөөлийн цаг баталгаажсан',
-          type: AppNotificationType.booking,
-          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-        ),
-        AppNotification(
-          id: '2',
-          title: 'Шинэ мессеж',
-          body: 'Батбаяр лам танд бичсэн',
-          type: AppNotificationType.message,
-          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-          isRead: true,
-        ),
-        if (FeatureFlags.premiumSubscriptionsEnabled)
-          AppNotification(
-            id: '3',
-            title: 'Premium санал',
-            body: 'Шинэ багцын хямдрал эхэллээ',
-            type: AppNotificationType.promo,
-            createdAt: DateTime.now().subtract(const Duration(days: 1)),
-          ),
-      ];
+    ref.listen(authStateProvider, (prev, next) {
+      final wasAuthed = prev?.valueOrNull?.isAuthenticated == true;
+      final isAuthed = next.valueOrNull?.isAuthenticated == true;
+      if (wasAuthed != isAuthed) {
+        ref.invalidateSelf();
+      }
+    });
 
-  void markRead(String id) {
-    state = [
-      for (final n in state)
-        if (n.id == id) n.copyWith(isRead: true) else n,
-    ];
+    return _fetch();
   }
 
-  void markAllRead() {
-    state = [for (final n in state) n.copyWith(isRead: true)];
+  Future<List<AppNotification>> _fetch() async {
+    final res = await ref.read(apiClientProvider).get('/notifications');
+    final data = res.data;
+    if (data is! List) return [];
+    return data
+        .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = AsyncData(await _fetch());
+  }
+
+  Future<void> markRead(String id) async {
+    await ref.read(apiClientProvider).put('/notifications/$id/read');
+    state = AsyncData([
+      for (final n in state.valueOrNull ?? [])
+        if (n.id == id) n.copyWith(isRead: true) else n,
+    ]);
+  }
+
+  Future<void> markAllRead() async {
+    await ref.read(apiClientProvider).put('/notifications/read-all');
+    state = AsyncData([
+      for (final n in state.valueOrNull ?? []) n.copyWith(isRead: true),
+    ]);
   }
 }

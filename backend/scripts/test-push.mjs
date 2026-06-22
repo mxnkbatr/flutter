@@ -1,15 +1,14 @@
 /**
- * Test incoming call → client (local dev or production Render).
- *
- * Local:  node scripts/test-incoming-call.mjs feitanfeitan61@gmail.com
- * Prod:   node scripts/test-incoming-call.mjs feitanfeitan61@gmail.com --prod --admin-email=... --admin-password=...
+ * Send test notification (legal/terms, promo, etc.)
+ * Local:  node scripts/test-push.mjs feitanfeitan61@gmail.com
+ * Prod:    node scripts/test-push.mjs feitanfeitan61@gmail.com --prod --admin-email=... --admin-password=...
  */
 const args = process.argv.slice(2);
 const flags = args.filter((a) => a.startsWith('--'));
 const positional = args.filter((a) => !a.startsWith('--'));
 
-const clientEmail = positional[0] || 'feitanfeitan61@gmail.com';
-const monkName = positional[1] || 'Buyntsog';
+const email = positional[0] || 'feitanfeitan61@gmail.com';
+const type = positional[1] || 'legal';
 const isProd = flags.includes('--prod');
 
 const adminEmail = flags.find((f) => f.startsWith('--admin-email='))?.split('=')[1]
@@ -21,7 +20,15 @@ const base = isProd
   ? (process.env.API_BASE || 'https://geva-backend.onrender.com/api')
   : (process.env.API_BASE || 'http://localhost:3000/api');
 
-const path = isProd ? '/admin/test-incoming-call' : '/dev/test-incoming-call';
+const path = isProd ? '/admin/test-notification' : '/dev/test-push';
+
+const body = {
+  email,
+  type,
+  title: 'Үйлчилгээний нөхцөл шинэчлэгдлээ',
+  body: 'Gevabal.mn-ийн үйлчилгээний нөхцөл шинэчлэгдлээ. Та уншиж танилцана уу.',
+  actionPath: '/profile/terms',
+};
 
 let headers = { 'Content-Type': 'application/json' };
 
@@ -46,20 +53,18 @@ if (isProd) {
 const res = await fetch(`${base}${path}`, {
   method: 'POST',
   headers,
-  body: JSON.stringify({ clientEmail, monkName }),
+  body: JSON.stringify(body),
 });
 
-const body = await res.json();
-console.log(JSON.stringify(body, null, 2));
+const data = await res.json();
+console.log(JSON.stringify(data, null, 2));
 
-if (body.ok) {
-  if (body.pushed) {
-    console.log('\n✅ FCM push илгээгдлээ →', clientEmail);
-  } else if (body.polled) {
-    console.log('\n✅ Debug poll queue — 2 сек дотор харагдана');
+if (data.ok || data.saved) {
+  console.log('\n✅ Мэдэгдэл үүслээ');
+  if (data.pushed) {
+    console.log('📱 Push илгээгдлээ →', email);
   } else {
-    console.log('\n⚠️  Push илгээгдээгүй:', body.pushError || 'unknown');
-    console.log('   TestFlight: шинэ build + notification зөвшөөрөл + дахин нэвтрэх');
+    console.log('⚠️  Push илгээгдээгүй — FCM token:', data.hasFcmToken ? 'байгаа ч алдаа' : 'байхгүй');
+    console.log('   Апп нээгээд нэвтэрнэ үү (мэдэгдлийн төвөнд хадгалагдана)');
   }
-  console.log('Booking:', body.bookingId);
 }

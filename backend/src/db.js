@@ -67,6 +67,32 @@ const userSchema = new mongoose.Schema(
     monkProfileId: { type: mongoose.Schema.Types.ObjectId, ref: 'Monk' },
     phone: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    notificationPrefs: {
+      booking: { type: Boolean, default: true },
+      bookingReminder: { type: Boolean, default: true },
+      message: { type: Boolean, default: true },
+      promo: { type: Boolean, default: true },
+      call: { type: Boolean, default: true },
+      legal: { type: Boolean, default: true },
+    },
+  },
+  { timestamps: true },
+);
+
+const notificationSchema = new mongoose.Schema(
+  {
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    title: { type: String, required: true },
+    body: { type: String, default: '' },
+    type: {
+      type: String,
+      enum: ['booking', 'message', 'promo', 'legal', 'system', 'call'],
+      default: 'system',
+    },
+    category: { type: String, default: 'system' },
+    actionPath: { type: String, default: '' },
+    refId: { type: String, default: '' },
+    isRead: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -193,3 +219,4 @@ export const Product = mongoose.model('Product', productSchema);
 export const Order = mongoose.model('Order', orderSchema);
 export const Review = mongoose.model('Review', reviewSchema);
 export const MonkCategory = mongoose.model('MonkCategory', monkCategorySchema);
+export const Notification = mongoose.model('Notification', notificationSchema);

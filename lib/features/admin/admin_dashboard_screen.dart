@@ -52,6 +52,46 @@ class AdminDashboardScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             child: Column(
               children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: stats.qpayConfigured
+                        ? AppColors.success.withOpacity(0.1)
+                        : AppColors.warning.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: stats.qpayConfigured
+                          ? AppColors.success.withOpacity(0.35)
+                          : AppColors.warning.withOpacity(0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        stats.qpayConfigured
+                            ? Icons.payments_outlined
+                            : Icons.warning_amber_rounded,
+                        color: stats.qpayConfigured
+                            ? AppColors.success
+                            : AppColors.warning,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          stats.qpayConfigured
+                              ? 'QPay: идэвхтэй (бодит төлбөр)'
+                              : 'QPay: идэвхгүй — dev горим (15 сек дараа автоматаар төлөгдөнө)',
+                          style: AppText.bodySmall.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 GridView.count(
                   crossAxisCount: 2,
                   shrinkWrap: true,

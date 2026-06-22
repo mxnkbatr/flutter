@@ -26,6 +26,7 @@ class AdminEditMonkScreen extends ConsumerStatefulWidget {
 
 class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _titleCtrl = TextEditingController();
   final _templeCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
@@ -42,6 +43,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _titleCtrl.dispose();
     _templeCtrl.dispose();
     _bioCtrl.dispose();
@@ -52,6 +54,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     if (_loaded) return;
     _loaded = true;
     _nameCtrl.text = detail.name;
+    _emailCtrl.text = detail.email;
     _titleCtrl.text = detail.title;
     _templeCtrl.text = detail.temple;
     _bioCtrl.text = detail.bio;
@@ -86,10 +89,18 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
       return;
     }
 
+    if (_emailCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('И-мэйл заавал')),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       await updateMonk(ref, widget.monkId, {
         'name': _nameCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
         'title': _titleCtrl.text.trim(),
         'temple': _templeCtrl.text.trim(),
         'bio': _bioCtrl.text.trim(),
@@ -146,7 +157,30 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
 
     setState(() => _deleting = true);
     try {
-      await deleteMonk(ref, widget.monkId);
+      await deleteMonkWithForceIfNeeded(
+        ref,
+        widget.monkId,
+        confirmForce: (msg) => showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Идэвхтэй захиалга'),
+            content: Text('$msg\n\nЗахиалгуудыг цуцлаад устгах уу?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Болих'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text(
+                  'Цуцлаад устгах',
+                  style: TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Ламын бүртгэл устгагдлаа')),
@@ -206,37 +240,13 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                   ),
                 ),
               ),
-              if (detail.email.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceEl,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border, width: 0.5),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.email_outlined,
-                        size: 18,
-                        color: AppColors.textSec,
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('И-мэйл', style: AppText.caption),
-                          Text(
-                            detail.email,
-                            style: AppText.body.copyWith(fontWeight: FontWeight.w500),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              const SizedBox(height: 12),
+              SacredInput(
+                label: 'И-мэйл (Gmail)',
+                controller: _emailCtrl,
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+              ),
               const SizedBox(height: 12),
               SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
               const SizedBox(height: 12),

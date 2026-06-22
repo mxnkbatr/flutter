@@ -28,6 +28,8 @@ class MonkBookingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canJoinCall =
+        booking.status == 'confirmed' && booking.paid == true;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: SacredCard(
@@ -58,7 +60,7 @@ class MonkBookingCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 StatusBadge(status: booking.status),
-                if (booking.status == 'confirmed') ...[
+                if (canJoinCall) ...[
                   const SizedBox(height: 8),
                   SmallBtn(
                     label: 'Дуудлага эхлэх',

@@ -102,6 +102,84 @@ class _UserCard extends ConsumerWidget {
     }
   }
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    if (user.role == 'admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Админ бүртгэл устгах боломжгүй')),
+      );
+      return;
+    }
+    if (user.role == 'monk') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ламын бүртгэлийг "Лам" хэсгээс устгана уу')),
+      );
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Хэрэглэгч устгах уу?'),
+        content: Text('${user.name} (${user.email}) бүртгэл бүрмөсөн устгагдана.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Болих'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Устгах'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    try {
+      await deleteUserWithForceIfNeeded(
+        ref,
+        user.id,
+        confirmForce: (msg) => showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Идэвхтэй захиалга'),
+            content: Text('$msg\n\nЗахиалгуудыг цуцлаад устгах уу?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Болих'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                child: const Text('Цуцлаад устгах'),
+              ),
+            ],
+          ),
+        ),
+      );
+      ref.invalidate(adminUsersProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.name} устгагдлаа'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(formatUserError(e)),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
@@ -154,6 +232,12 @@ class _UserCard extends ConsumerWidget {
               ),
               onPressed: () => _toggleBlock(context, ref),
             ),
+            if (user.role == 'client')
+              IconButton(
+                tooltip: 'Устгах',
+                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                onPressed: () => _delete(context, ref),
+              ),
           ],
         ),
       ),

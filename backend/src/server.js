@@ -16,6 +16,7 @@ import {
   Product,
   Order,
   MonkCategory,
+  Notification,
 } from './db.js';
 import { authRequired, adminRequired, signToken } from './middleware/auth.js';
 import {
@@ -26,11 +27,17 @@ import {
 } from './scheduleUtils.js';
 import { isPastSlot, todayDateStr, currentTimeMinutes, slotToMinutes } from './timezoneUtils.js';
 import {
-  sendIncomingCallPush,
-  sendCallTimePush,
-  sendBookingStatusPush,
-  sendMessagePush,
-} from './push.js';
+  notifyBookingStatus,
+  notifyMessage,
+  notifyIncomingCall,
+  notifyCallTime,
+  notifyLegalUpdate,
+  notifyPromo,
+  notifyUser,
+  notificationJson,
+  prefsForUser,
+  DEFAULT_NOTIFICATION_PREFS,
+} from './notificationService.js';
 import {
   isQPayConfigured,
   createInvoice as createQPayInvoice,
@@ -38,7 +45,12 @@ import {
   cancelInvoice as cancelQPayInvoice,
   mapQPayUrls,
 } from './qpay.js';
-import { ensureUploadsDir, uploadsRoot, saveBase64Image } from './uploadUtils.js';
+import {
+  ensureUploadsDir,
+  uploadsRoot,
+  uploadBase64Image,
+  isCloudinaryConfigured,
+} from './uploadUtils.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -200,10 +212,12 @@ app.post('/api/upload/image', authRequired, async (req, res) => {
     const { image, folder } = req.body;
     if (!image) return res.status(400).json({ error: 'Image is required' });
 
-    const subfolder = folder === 'monks' ? 'monks' : 'monks';
-    const relativePath = saveBase64Image(image, subfolder);
+    const subfolder = folder === 'products' ? 'products' : 'monks';
+    const stored = await uploadBase64Image(image, subfolder);
     const base = `${req.protocol}://${req.get('host')}`;
-    res.json({ url: `${base}${relativePath}`, path: relativePath });
+    const url = stored.startsWith('http') ? stored : `${base}${stored}`;
+    const path = stored.startsWith('http') ? stored : stored;
+    res.json({ url, path, storage: isCloudinaryConfigured() ? 'cloudinary' : 'local' });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -596,8 +610,8 @@ app.put('/api/bookings/:id/confirm', authRequired, async (req, res) => {
     await booking.save();
 
     const client = await User.findById(booking.clientId);
-    if (client?.fcmToken) {
-      await sendBookingStatusPush(client.fcmToken, {
+    if (client) {
+      await notifyBookingStatus(client, {
         status: 'approved',
         monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
         bookingId: booking._id.toString(),
@@ -688,8 +702,8 @@ async function completePaymentRecord(payment) {
       await booking.save();
       const client = await User.findById(booking.clientId);
       const monk = await Monk.findById(booking.monkId).lean();
-      if (client?.fcmToken) {
-        await sendBookingStatusPush(client.fcmToken, {
+      if (client) {
+        await notifyBookingStatus(client, {
           status: 'confirmed',
           monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
           bookingId: booking._id.toString(),
@@ -787,8 +801,8 @@ app.put('/api/bookings/:id/cancel', authRequired, async (req, res) => {
     const notifyUserId = isMonkOwner ? booking.clientId : monk?.userId;
     if (notifyUserId) {
       const recipient = await User.findById(notifyUserId);
-      if (recipient?.fcmToken) {
-        await sendBookingStatusPush(recipient.fcmToken, {
+      if (recipient) {
+        await notifyBookingStatus(recipient, {
           status: 'cancelled',
           monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
           bookingId: booking._id.toString(),
@@ -827,8 +841,8 @@ app.put('/api/bookings/:id/complete', authRequired, async (req, res) => {
     await booking.save();
 
     const client = await User.findById(booking.clientId);
-    if (client?.fcmToken) {
-      await sendBookingStatusPush(client.fcmToken, {
+    if (client) {
+      await notifyBookingStatus(client, {
         status: 'completed',
         monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
         bookingId: booking._id.toString(),
@@ -1156,12 +1170,12 @@ app.get('/api/livekit', authRequired, async (req, res) => {
           recipientUser = monkDoc?.userId ? await User.findById(monkDoc.userId) : null;
         }
 
-        if (recipientUser?.fcmToken) {
+        if (recipientUser) {
           const recipientRole = isCallerMonk ? 'client' : 'monk';
           const callerImage = isCallerMonk
               ? (req.user.avatar || '')
               : (monkDoc?.image ?? '');
-          await sendIncomingCallPush(recipientUser.fcmToken, {
+          await notifyIncomingCall(recipientUser, {
             callerName: req.user.name,
             callerImage,
             bookingId,
@@ -1238,6 +1252,77 @@ app.put('/api/users/profile', authRequired, async (req, res) => {
   if (phone !== undefined) req.user.phone = phone;
   await req.user.save();
   res.json(userJson(req.user));
+});
+
+// ─── Notification settings ───
+app.get('/api/users/notification-settings', authRequired, (req, res) => {
+  res.json(prefsForUser(req.user));
+});
+
+app.put('/api/users/notification-settings', authRequired, async (req, res) => {
+  const body = req.body || {};
+  const prefs = req.user.notificationPrefs || {};
+  for (const key of Object.keys(DEFAULT_NOTIFICATION_PREFS)) {
+    if (typeof body[key] === 'boolean') {
+      prefs[key] = body[key];
+    }
+  }
+  req.user.notificationPrefs = prefs;
+  req.user.markModified('notificationPrefs');
+  await req.user.save();
+  res.json(prefsForUser(req.user));
+});
+
+// ─── In-app notifications ───
+app.get('/api/notifications', authRequired, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 100);
+    const items = await Notification.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    res.json(items.map((n) => notificationJson(n)));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/notifications/unread-count', authRequired, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({
+      userId: req.user._id,
+      isRead: false,
+    });
+    res.json({ count });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/notifications/read-all', authRequired, async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { userId: req.user._id, isRead: false },
+      { $set: { isRead: true } },
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/notifications/:id/read', authRequired, async (req, res) => {
+  try {
+    const n = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { $set: { isRead: true } },
+      { new: true },
+    );
+    if (!n) return res.status(404).json({ error: 'Not found' });
+    res.json(notificationJson(n));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Monk dashboard ───
@@ -1522,8 +1607,8 @@ app.post('/api/messenger/conversations/:id/messages', authRequired, async (req, 
       : convo.clientId;
   if (recipientId) {
     const recipient = await User.findById(recipientId);
-    if (recipient?.fcmToken) {
-      await sendMessagePush(recipient.fcmToken, {
+    if (recipient) {
+      await notifyMessage(recipient, {
         senderName: req.user.name,
         text: text.trim(),
         conversationId: req.params.id,
@@ -1573,6 +1658,8 @@ app.get('/api/admin/dashboard', authRequired, async (req, res) => {
     pendingMonks: pending.length,
     totalUsers: users.length,
     newUsersThisWeek: 5,
+    qpayConfigured: isQPayConfigured(),
+    appBaseUrl: process.env.APP_BASE_URL || '',
     monthlyRevenue: [
       { label: '1-р', amount: Math.round(totalRevenue * 0.1) },
       { label: '2-р', amount: Math.round(totalRevenue * 0.12) },
@@ -1692,7 +1779,7 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const { name, temple, bio, categories, services, schedule, status, title, image, isSpecial } =
+    const { name, temple, bio, categories, services, schedule, status, title, image, isSpecial, email } =
       req.body;
     const updates = {};
 
@@ -1730,6 +1817,25 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
       const linkedUser = await User.findOne({ monkProfileId: monk._id });
       if (linkedUser) {
         linkedUser.name = name;
+        await linkedUser.save();
+      }
+    }
+
+    if (email != null && typeof email === 'string') {
+      const normalized = email.trim().toLowerCase();
+      if (!normalized) {
+        return res.status(400).json({ error: 'И-мэйл хоосон байж болохгүй' });
+      }
+      const linkedUser = await User.findOne({ monkProfileId: monk._id });
+      if (!linkedUser) {
+        return res.status(400).json({ error: 'Ламын нэвтрэх бүртгэл олдсонгүй' });
+      }
+      if (normalized !== linkedUser.email) {
+        const taken = await User.findOne({ email: normalized, _id: { $ne: linkedUser._id } });
+        if (taken) {
+          return res.status(400).json({ error: 'Энэ и-мэйл аль хэдийн бүртгэлтэй байна' });
+        }
+        linkedUser.email = normalized;
         await linkedUser.save();
       }
     }
@@ -1774,14 +1880,24 @@ app.delete('/api/admin/monks/:id', authRequired, adminRequired, async (req, res)
     const monk = await Monk.findById(req.params.id);
     if (!monk) return res.status(404).json({ error: 'Monk not found' });
 
+    const force = req.query.force === '1' || req.query.force === 'true';
     const activeBookings = await Booking.countDocuments({
       monkId: monk._id,
       status: { $nin: ['completed', 'cancelled'] },
     });
-    if (activeBookings > 0) {
+    if (activeBookings > 0 && !force) {
       return res.status(400).json({
-        error: 'Идэвхтэй захиалга байна. Эхлээд захиалгуудыг дуусгана уу.',
+        error: 'Идэвхтэй захиалга байна. Устгахын өмнө захиалгуудыг цуцлах уу?',
+        code: 'ACTIVE_BOOKINGS',
+        activeBookings,
       });
+    }
+
+    if (activeBookings > 0 && force) {
+      await Booking.updateMany(
+        { monkId: monk._id, status: { $nin: ['completed', 'cancelled'] } },
+        { $set: { status: 'cancelled' } },
+      );
     }
 
     const user = await User.findOne({ monkProfileId: monk._id });
@@ -1833,6 +1949,64 @@ app.post('/api/admin/users/:id/block', authRequired, adminRequired, async (req, 
 app.post('/api/admin/users/:id/unblock', authRequired, adminRequired, async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.params.id, { isActive: true });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/admin/users/:id', authRequired, adminRequired, async (req, res) => {
+  try {
+    const target = await User.findById(req.params.id);
+    if (!target) return res.status(404).json({ error: 'Хэрэглэгч олдсонгүй' });
+    if (target.role === 'admin') {
+      return res.status(403).json({ error: 'Админ бүртгэл устгах боломжгүй' });
+    }
+    if (target.role === 'monk' && target.monkProfileId) {
+      return res.status(400).json({
+        error: 'Ламын бүртгэлийг "Лам" хэсгээс устгана уу',
+        code: 'USE_MONK_DELETE',
+      });
+    }
+
+    const force = req.query.force === '1' || req.query.force === 'true';
+    const userId = target._id;
+    const activeBookings = await Booking.countDocuments({
+      clientId: userId,
+      status: { $nin: ['completed', 'cancelled'] },
+    });
+    if (activeBookings > 0 && !force) {
+      return res.status(400).json({
+        error: 'Идэвхтэй захиалга байна. Устгахын өмнө захиалгуудыг цуцлах уу?',
+        code: 'ACTIVE_BOOKINGS',
+        activeBookings,
+      });
+    }
+
+    if (activeBookings > 0 && force) {
+      await Booking.updateMany(
+        { clientId: userId, status: { $nin: ['completed', 'cancelled'] } },
+        { $set: { status: 'cancelled' } },
+      );
+    }
+
+    const clientBookings = await Booking.find({ clientId: userId }).select('_id');
+    const bookingIds = clientBookings.map((b) => b._id);
+    if (bookingIds.length) {
+      await Payment.deleteMany({ bookingId: { $in: bookingIds } });
+      await Booking.deleteMany({ clientId: userId });
+    }
+    await Payment.deleteMany({ userId });
+    await Order.deleteMany({ userId });
+
+    const conversations = await Conversation.find({ clientId: userId });
+    const conversationIds = conversations.map((c) => c._id);
+    if (conversationIds.length) {
+      await Message.deleteMany({ conversationId: { $in: conversationIds } });
+    }
+    await Conversation.deleteMany({ clientId: userId });
+    await User.deleteOne({ _id: userId });
+
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -1902,8 +2076,8 @@ app.put('/api/admin/bookings/:id/approve', authRequired, async (req, res) => {
 
     const monk = await Monk.findById(booking.monkId);
     const client = await User.findById(booking.clientId);
-    if (client?.fcmToken) {
-      await sendBookingStatusPush(client.fcmToken, {
+    if (client) {
+      await notifyBookingStatus(client, {
         status: booking.status === 'confirmed' ? 'confirmed' : 'approved',
         monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
         bookingId: booking._id.toString(),
@@ -1960,8 +2134,8 @@ app.put('/api/admin/bookings/:id/confirm-payment', authRequired, async (req, res
     );
 
     const client = await User.findById(booking.clientId);
-    if (client?.fcmToken) {
-      await sendBookingStatusPush(client.fcmToken, {
+    if (client) {
+      await notifyBookingStatus(client, {
         status: 'confirmed',
         monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
         bookingId: booking._id.toString(),
@@ -2382,79 +2556,227 @@ app.put('/api/admin/orders/:id/status', authRequired, adminRequired, async (req,
 
 app.get('/api/health', (_, res) => res.json({ ok: true }));
 
+async function triggerTestIncomingCall(clientEmail, monkQuery = 'Buyntsog') {
+  const client = await User.findOne({ email: clientEmail.toLowerCase() });
+  if (!client) {
+    const err = new Error('Client not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const monk = await Monk.findOne({
+    $or: [
+      { 'name.mn': new RegExp(monkQuery, 'i') },
+      { 'name.en': new RegExp(monkQuery, 'i') },
+    ],
+  });
+  if (!monk) {
+    const err = new Error('Monk not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const monkName = monk.name?.mn ?? monk.name?.en ?? monkQuery;
+  let booking = await Booking.findOne({
+    clientId: client._id,
+    monkId: monk._id,
+    status: 'confirmed',
+    paid: true,
+  }).sort({ updatedAt: -1 });
+
+  const today = todayDateStr();
+  const nowMin = currentTimeMinutes();
+  const slot = `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${nowMin % 60 < 30 ? '00' : '30'}`;
+
+  if (!booking) {
+    booking = await Booking.create({
+      clientId: client._id,
+      monkId: monk._id,
+      serviceName: 'Тест дуудлага',
+      date: today,
+      slot,
+      amount: 50000,
+      status: 'confirmed',
+      paid: true,
+    });
+  } else {
+    await Booking.findByIdAndUpdate(booking._id, { date: today, slot });
+  }
+
+  const bookingId = booking._id.toString();
+  const payload = {
+    callerName: monkName,
+    callerImage: monk.image || '',
+    bookingId,
+    recipientRole: 'client',
+  };
+
+  if (process.env.NODE_ENV !== 'production') {
+    pendingTestCalls.set(client._id.toString(), payload);
+  }
+
+  let pushed = false;
+  let pushError = null;
+  const notifyResult = await notifyIncomingCall(client, payload);
+  pushed = notifyResult.pushed;
+  if (!pushed) {
+    pushError = client.fcmToken
+      ? 'FCM send failed'
+      : 'FCM token байхгүй — TestFlight дээр апп нээгээд notification зөвшөөрнө үү';
+  }
+
+  return {
+    ok: true,
+    bookingId,
+    clientEmail: client.email,
+    monkName,
+    pushed,
+    hasFcmToken: Boolean(client.fcmToken),
+    pushError,
+    polled: process.env.NODE_ENV !== 'production',
+  };
+}
+
+app.post('/api/admin/test-incoming-call', authRequired, adminRequired, async (req, res) => {
+  try {
+    const clientEmail = (req.body?.clientEmail || '').toLowerCase();
+    const monkName = req.body?.monkName || 'Buyntsog';
+    if (!clientEmail) {
+      return res.status(400).json({ error: 'clientEmail required' });
+    }
+    const result = await triggerTestIncomingCall(clientEmail, monkName);
+    res.json(result);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/test-notification', authRequired, adminRequired, async (req, res) => {
+  try {
+    const email = (req.body?.email || '').toLowerCase();
+    const type = req.body?.type || 'legal';
+    const title = req.body?.title || 'Gevabal мэдэгдэл';
+    const body = req.body?.body || 'Тест мэдэгдэл';
+    const actionPath = req.body?.actionPath || '/profile/terms';
+
+    if (!email) return res.status(400).json({ error: 'email required' });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    let result;
+    if (type === 'legal') {
+      result = await notifyLegalUpdate(user, { title, body, actionPath });
+    } else if (type === 'promo') {
+      result = await notifyPromo(user, { title, body, actionPath });
+    } else {
+      result = await notifyUser(user, {
+        category: type,
+        title,
+        body,
+        type: type === 'system' ? 'system' : type,
+        actionPath,
+        pushData: { type: 'app_notification', actionPath },
+      });
+    }
+
+    res.json({
+      ok: true,
+      email,
+      saved: result.saved,
+      pushed: result.pushed,
+      hasFcmToken: Boolean(user.fcmToken),
+      notification: result.notification,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/notifications/broadcast', authRequired, adminRequired, async (req, res) => {
+  try {
+    const {
+      title,
+      body,
+      type = 'legal',
+      actionPath = '/profile/terms',
+      role = 'client',
+    } = req.body || {};
+
+    if (!title || !body) {
+      return res.status(400).json({ error: 'title and body required' });
+    }
+
+    const q = { isActive: { $ne: false } };
+    if (role && role !== 'all') q.role = role;
+
+    const users = await User.find(q);
+    let saved = 0;
+    let pushed = 0;
+
+    for (const user of users) {
+      let result;
+      if (type === 'legal') {
+        result = await notifyLegalUpdate(user, { title, body, actionPath });
+      } else if (type === 'promo') {
+        result = await notifyPromo(user, { title, body, actionPath });
+      } else {
+        result = await notifyUser(user, {
+          category: type,
+          title,
+          body,
+          type,
+          actionPath,
+          pushData: { type: 'app_notification', actionPath },
+        });
+      }
+      if (result.saved) saved += 1;
+      if (result.pushed) pushed += 1;
+    }
+
+    res.json({ ok: true, total: users.length, saved, pushed });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 if (process.env.NODE_ENV !== 'production') {
+  app.post('/api/dev/test-push', async (req, res) => {
+    try {
+      const email = (req.body?.email || 'feitanfeitan61@gmail.com').toLowerCase();
+      const title = req.body?.title || 'Gevabal тест';
+      const body = req.body?.body || 'Push notification амжилттай ирлээ!';
+
+      const user = await User.findOne({ email });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const result = await notifyLegalUpdate(user, {
+        title,
+        body,
+        actionPath: req.body?.actionPath || '/profile/terms',
+      });
+
+      res.json({
+        ok: true,
+        email,
+        saved: result.saved,
+        pushed: result.pushed,
+        hasFcmToken: Boolean(user.fcmToken),
+        notification: result.notification,
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post('/api/dev/test-incoming-call', async (req, res) => {
     try {
       const clientEmail = (req.body?.clientEmail || '').toLowerCase();
       const monkQuery = req.body?.monkName || 'Buyntsog';
-
-      const client = await User.findOne({ email: clientEmail });
-      if (!client) {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-
-      const monk = await Monk.findOne({
-        $or: [
-          { 'name.mn': new RegExp(monkQuery, 'i') },
-          { 'name.en': new RegExp(monkQuery, 'i') },
-        ],
-      });
-      if (!monk) {
-        return res.status(404).json({ error: 'Monk not found' });
-      }
-
-      const monkName = monk.name?.mn ?? monk.name?.en ?? monkQuery;
-      let booking = await Booking.findOne({
-        clientId: client._id,
-        monkId: monk._id,
-        status: 'confirmed',
-        paid: true,
-      }).sort({ updatedAt: -1 });
-
-      const today = todayDateStr();
-      const nowMin = currentTimeMinutes();
-      const slot = `${String(Math.floor(nowMin / 60)).padStart(2, '0')}:${nowMin % 60 < 30 ? '00' : '30'}`;
-
-      if (!booking) {
-        booking = await Booking.create({
-          clientId: client._id,
-          monkId: monk._id,
-          serviceName: 'Тест дуудлага',
-          date: today,
-          slot,
-          amount: 50000,
-          status: 'confirmed',
-          paid: true,
-        });
-      } else {
-        await Booking.findByIdAndUpdate(booking._id, { date: today, slot });
-      }
-
-      const bookingId = booking._id.toString();
-      const payload = {
-        callerName: monkName,
-        callerImage: monk.image || '',
-        bookingId,
-        recipientRole: 'client',
-      };
-
-      pendingTestCalls.set(client._id.toString(), payload);
-
-      let pushed = false;
-      if (client.fcmToken) {
-        pushed = await sendIncomingCallPush(client.fcmToken, payload);
-      }
-
-      res.json({
-        ok: true,
-        bookingId,
-        clientEmail: client.email,
-        monkName,
-        pushed,
-        polled: true,
-      });
+      const result = await triggerTestIncomingCall(clientEmail, monkQuery);
+      res.json(result);
     } catch (e) {
-      res.status(500).json({ error: e.message });
+      res.status(e.status || 500).json({ error: e.message });
     }
   });
 
@@ -2495,16 +2817,16 @@ async function processCallTimeReminders() {
       const clientName = client?.name ?? 'Хэрэглэгч';
       const bookingId = booking._id.toString();
 
-      if (client?.fcmToken) {
-        await sendCallTimePush(client.fcmToken, {
+      if (client) {
+        await notifyCallTime(client, {
           peerName: monkName,
           peerImage: monk?.image ?? '',
           bookingId,
           recipientRole: 'client',
         });
       }
-      if (monkUser?.fcmToken) {
-        await sendCallTimePush(monkUser.fcmToken, {
+      if (monkUser) {
+        await notifyCallTime(monkUser, {
           peerName: clientName,
           peerImage: client?.avatar ?? '',
           bookingId,

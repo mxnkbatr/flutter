@@ -76,6 +76,19 @@ class LocalNotificationService {
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
+    const generalChannel = AndroidNotificationChannel(
+      'gevabal_general',
+      'Мэдэгдэл',
+      description: 'Захиалга, нөхцөл, мессежийн мэдэгдэл',
+      importance: Importance.high,
+      playSound: true,
+    );
+
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(generalChannel);
+
     _initialized = true;
   }
 
@@ -167,14 +180,72 @@ class LocalNotificationService {
 
   static Future<void> showFromRemoteData(Map<String, dynamic> data) async {
     final type = data['type'] as String?;
-    if (type != 'incoming_call' && type != 'call_time') return;
+    if (type == 'incoming_call' || type == 'call_time') {
+      await showIncomingCall(
+        bookingId: data['bookingId'] as String? ?? '',
+        callerName: data['callerName'] as String? ?? 'Хэрэглэгч',
+        callerImage: data['callerImage'] as String? ?? '',
+        role: data['recipientRole'] as String? ?? 'client',
+        directJoin: type == 'call_time',
+      );
+      return;
+    }
 
-    await showIncomingCall(
-      bookingId: data['bookingId'] as String? ?? '',
-      callerName: data['callerName'] as String? ?? 'Хэрэглэгч',
-      callerImage: data['callerImage'] as String? ?? '',
-      role: data['recipientRole'] as String? ?? 'client',
-      directJoin: type == 'call_time',
+    await showGeneral(
+      id: (data['notificationId'] as String? ?? type ?? '0').hashCode,
+      title: _titleFromData(data),
+      body: _bodyFromData(data),
+      payload: jsonEncode(data),
+    );
+  }
+
+  static String _titleFromData(Map<String, dynamic> data) {
+    final fromPayload = data['title'] as String?;
+    if (fromPayload != null && fromPayload.isNotEmpty) return fromPayload;
+    final type = data['type'] as String?;
+    return switch (type) {
+      'legal_update' => 'Үйлчилгээний нөхцөл шинэчлэгдлээ',
+      'booking_status' => 'Захиалгын мэдэгдэл',
+      'new_message' => 'Шинэ мессеж',
+      'promo' => 'Gevabal санал',
+      _ => 'Gevabal',
+    };
+  }
+
+  static String _bodyFromData(Map<String, dynamic> data) {
+    final fromPayload = data['body'] as String?;
+    if (fromPayload != null && fromPayload.isNotEmpty) return fromPayload;
+    return 'Шинэ мэдэгдэл ирлээ';
+  }
+
+  static Future<void> showGeneral({
+    required int id,
+    required String title,
+    required String body,
+    String payload = '',
+  }) async {
+    await initialize();
+
+    const android = AndroidNotificationDetails(
+      'gevabal_general',
+      'Мэдэгдэл',
+      channelDescription: 'Захиалга, нөхцөл, мессежийн мэдэгдэл',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const ios = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    await _plugin.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(android: android, iOS: ios),
+      payload: payload.isEmpty ? null : payload,
     );
   }
 }

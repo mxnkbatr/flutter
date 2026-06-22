@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/notifications/notification_prefs.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/notifications/firebase_background_handler.dart';
 import 'package:sacred_app/core/notifications/local_notification_service.dart';
 import 'package:sacred_app/core/router/app_router.dart';
+import 'package:sacred_app/features/notifications/providers/notifications_provider.dart';
 import 'package:sacred_app/features/video_call/providers/incoming_call_provider.dart';
 
 class PushNotificationService {
@@ -91,16 +94,34 @@ class PushNotificationService {
       });
 
       FirebaseMessaging.onMessage.listen((message) {
-        _handleMessage(message.data, ref, foreground: true);
+        _handleMessage(
+          message.data,
+          ref,
+          foreground: true,
+          title: message.notification?.title,
+          body: message.notification?.body,
+        );
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        _handleMessage(message.data, ref, foreground: false);
+        _handleMessage(
+          message.data,
+          ref,
+          foreground: false,
+          title: message.notification?.title,
+          body: message.notification?.body,
+        );
       });
 
       final initial = await messaging.getInitialMessage();
       if (initial != null) {
-        _handleMessage(initial.data, ref, foreground: false);
+        _handleMessage(
+          initial.data,
+          ref,
+          foreground: false,
+          title: initial.notification?.title,
+          body: initial.notification?.body,
+        );
       }
 
       await CallLaunchService.handlePendingLaunch(ref);
@@ -108,6 +129,7 @@ class PushNotificationService {
 
       if (authReady(ref)) {
         await syncFcmToken(ref);
+        ref.invalidate(notificationPrefsProvider);
       }
 
       if (kDebugMode) {
@@ -162,9 +184,13 @@ class PushNotificationService {
     Map<String, dynamic> data,
     WidgetRef ref, {
     required bool foreground,
+    String? title,
+    String? body,
   }) {
     final type = data['type'] as String?;
     final bookingId = data['bookingId'] as String?;
+
+    ref.read(notificationsProvider.notifier).refresh();
 
     if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
       _showIncomingCall(data, ref);
@@ -175,8 +201,66 @@ class PushNotificationService {
     }
 
     if (type == 'booking_status' && bookingId != null) {
+      if (foreground) {
+        LocalNotificationService.showGeneral(
+          id: bookingId.hashCode,
+          title: title ?? 'Захиалгын мэдэгдэл',
+          body: body ?? '',
+          payload: jsonEncode(data),
+        );
+      }
+      if (!foreground) {
+        _navigateFromData(data, ref);
+      }
+      return;
+    }
+
+    if (type == 'new_message') {
+      if (foreground) {
+        LocalNotificationService.showGeneral(
+          id: (data['conversationId'] as String? ?? 'msg').hashCode,
+          title: title ?? 'Шинэ мессеж',
+          body: body ?? '',
+          payload: jsonEncode(data),
+        );
+      }
+      if (!foreground) {
+        _navigateFromData(data, ref);
+      }
+      return;
+    }
+
+    if (type == 'legal_update' ||
+        type == 'promo' ||
+        type == 'app_notification') {
+      if (foreground) {
+        LocalNotificationService.showGeneral(
+          id: (data['notificationId'] as String? ?? type ?? '0').hashCode,
+          title: title ?? 'Gevabal',
+          body: body ?? '',
+          payload: jsonEncode(data),
+        );
+      }
+      if (!foreground) {
+        _navigateFromData(data, ref);
+      }
+      return;
+    }
+  }
+
+  static void _navigateFromData(Map<String, dynamic> data, WidgetRef ref) {
+    final type = data['type'] as String?;
+    final actionPath = data['actionPath'] as String?;
+    final bookingId = data['bookingId'] as String?;
+    final router = ref.read(appRouterProvider);
+
+    if (actionPath != null && actionPath.isNotEmpty) {
+      router.push(actionPath);
+      return;
+    }
+
+    if (type == 'booking_status' && bookingId != null) {
       final status = data['status'] as String?;
-      final router = ref.read(appRouterProvider);
       if (status == 'approved' || status == 'confirmed') {
         router.go('/payment/$bookingId');
       } else {
@@ -188,8 +272,18 @@ class PushNotificationService {
     if (type == 'new_message') {
       final conversationId = data['conversationId'] as String?;
       if (conversationId != null) {
-        ref.read(appRouterProvider).go('/messenger/$conversationId');
+        router.go('/messenger/$conversationId');
       }
+      return;
+    }
+
+    if (type == 'legal_update') {
+      router.push('/profile/terms');
+      return;
+    }
+
+    if (type == 'promo') {
+      router.go('/home');
     }
   }
 

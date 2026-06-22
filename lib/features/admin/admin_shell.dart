@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/features/admin/widgets/admin_logout_button.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
-class AdminShell extends StatelessWidget {
+class AdminShell extends ConsumerWidget {
   const AdminShell({super.key, required this.child});
 
   final Widget child;
@@ -34,13 +35,30 @@ class AdminShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final index = _selectedIndex(context);
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
-      body: child,
+      body: Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+              child: Row(
+                children: [
+                  Text('Gevabal Admin', style: AppText.caption),
+                  const Spacer(),
+                  const AdminLogoutButton(compact: true),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 10),
         child: Container(

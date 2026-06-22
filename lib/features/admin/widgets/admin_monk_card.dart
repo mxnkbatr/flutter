@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_monk.dart';
@@ -161,14 +162,50 @@ class AdminMonkCard extends ConsumerWidget {
                   ),
                 );
                 if (ok == true) {
-                  await deleteMonk(ref, monk.id);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${monk.displayName} устгагдлаа'),
-                        backgroundColor: AppColors.danger,
+                  try {
+                    await deleteMonkWithForceIfNeeded(
+                      ref,
+                      monk.id,
+                      confirmForce: (msg) => showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Идэвхтэй захиалга'),
+                          content: Text(
+                            '$msg\n\nЗахиалгуудыг цуцлаад устгах уу?',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Болих'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.danger,
+                              ),
+                              child: const Text('Цуцлаад устгах'),
+                            ),
+                          ],
+                        ),
                       ),
                     );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('${monk.displayName} устгагдлаа'),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(formatUserError(e)),
+                          backgroundColor: AppColors.danger,
+                        ),
+                      );
+                    }
                   }
                 }
               },

@@ -27,6 +27,8 @@ class AdminDashboardData {
     required this.monthlyRevenue,
     required this.pendingMonksList,
     required this.recentBookings,
+    this.qpayConfigured = false,
+    this.appBaseUrl = '',
   });
 
   final int totalRevenue;
@@ -39,6 +41,8 @@ class AdminDashboardData {
   final List<MonthlyRevenue> monthlyRevenue;
   final List<AdminMonk> pendingMonksList;
   final List<AdminBookingItem> recentBookings;
+  final bool qpayConfigured;
+  final String appBaseUrl;
 
   factory AdminDashboardData.fromJson(Map<String, dynamic> json) {
     final monthly = json['monthlyRevenue'] as List<dynamic>? ??
@@ -70,6 +74,12 @@ class AdminDashboardData {
       newUsersThisWeek: json['newUsersThisWeek'] as int? ??
           json['new_users_this_week'] as int? ??
           0,
+      qpayConfigured: json['qpayConfigured'] as bool? ??
+          json['qpay_configured'] as bool? ??
+          false,
+      appBaseUrl: json['appBaseUrl'] as String? ??
+          json['app_base_url'] as String? ??
+          '',
       monthlyRevenue: monthly
           .map((e) => MonthlyRevenue.fromJson(e as Map<String, dynamic>))
           .toList(),

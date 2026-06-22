@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sacred_app/core/api/api_client.dart';
@@ -71,11 +72,81 @@ Future<void> reorderMonks(WidgetRef ref, List<String> monkIds) async {
   ref.invalidate(adminDashboardProvider);
 }
 
-Future<void> deleteMonk(WidgetRef ref, String monkId) async {
-  await ref.read(apiClientProvider).delete('/admin/monks/$monkId');
+Future<void> deleteMonk(
+  WidgetRef ref,
+  String monkId, {
+  bool force = false,
+}) async {
+  await ref.read(apiClientProvider).delete(
+        '/admin/monks/$monkId',
+        queryParameters: force ? {'force': '1'} : null,
+      );
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(adminMonksProvider);
   ref.invalidate(adminMonkDetailProvider(monkId));
+}
+
+Future<void> deleteMonkWithForceIfNeeded(
+  WidgetRef ref,
+  String monkId, {
+  required Future<bool?> Function(String message) confirmForce,
+}) async {
+  try {
+    await deleteMonk(ref, monkId);
+  } on DioException catch (e) {
+    final data = e.response?.data;
+    final code = data is Map ? data['code'] as String? : null;
+    if (code == 'ACTIVE_BOOKINGS') {
+      final msg = data is Map
+          ? (data['error'] as String? ?? 'Идэвхтэй захиалга байна')
+          : 'Идэвхтэй захиалга байна';
+      final force = await confirmForce(msg);
+      if (force == true) {
+        await deleteMonk(ref, monkId, force: true);
+        return;
+      }
+      rethrow;
+    }
+    rethrow;
+  }
+}
+
+Future<void> deleteUser(
+  WidgetRef ref,
+  String userId, {
+  bool force = false,
+}) async {
+  await ref.read(apiClientProvider).delete(
+        '/admin/users/$userId',
+        queryParameters: force ? {'force': '1'} : null,
+      );
+  ref.invalidate(adminUsersProvider);
+  ref.invalidate(adminDashboardProvider);
+}
+
+Future<void> deleteUserWithForceIfNeeded(
+  WidgetRef ref,
+  String userId, {
+  required Future<bool?> Function(String message) confirmForce,
+}) async {
+  try {
+    await deleteUser(ref, userId);
+  } on DioException catch (e) {
+    final data = e.response?.data;
+    final code = data is Map ? data['code'] as String? : null;
+    if (code == 'ACTIVE_BOOKINGS') {
+      final msg = data is Map
+          ? (data['error'] as String? ?? 'Идэвхтэй захиалга байна')
+          : 'Идэвхтэй захиалга байна';
+      final force = await confirmForce(msg);
+      if (force == true) {
+        await deleteUser(ref, userId, force: true);
+        return;
+      }
+      rethrow;
+    }
+    rethrow;
+  }
 }
 
 final adminUsersProvider = FutureProvider<List<AdminUser>>((ref) async {

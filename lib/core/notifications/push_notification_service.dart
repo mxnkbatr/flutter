@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
-import 'package:sacred_app/core/notifications/notification_prefs.dart';
+import 'package:sacred_app/core/firebase/firebase_app_state.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/notifications/firebase_background_handler.dart';
 import 'package:sacred_app/core/notifications/local_notification_service.dart';
@@ -20,6 +20,7 @@ class PushNotificationService {
   /// Upload FCM token after login (backend uses PUT /users/profile).
   static Future<bool> syncFcmToken(WidgetRef ref) async {
     try {
+      if (!isFirebaseReady) return false;
       final auth = ref.read(authStateProvider).valueOrNull;
       if (auth == null || !auth.isAuthenticated) return false;
 
@@ -62,6 +63,8 @@ class PushNotificationService {
         );
       };
 
+      if (!isFirebaseReady) return;
+
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       final messaging = FirebaseMessaging.instance;
@@ -80,17 +83,7 @@ class PushNotificationService {
                 '/users/profile',
                 data: {'fcmToken': newToken},
               );
-        } catch (e) {
-          if (kDebugMode) debugPrint('FCM token refresh upload failed: $e');
-        }
-      });
-
-      ref.listen(authStateProvider, (previous, next) {
-        final wasAuthed = previous?.valueOrNull?.isAuthenticated == true;
-        final isAuthed = next.valueOrNull?.isAuthenticated == true;
-        if (!wasAuthed && isAuthed) {
-          syncFcmToken(ref);
-        }
+        } catch (_) {}
       });
 
       FirebaseMessaging.onMessage.listen((message) {
@@ -129,7 +122,6 @@ class PushNotificationService {
 
       if (authReady(ref)) {
         await syncFcmToken(ref);
-        ref.invalidate(notificationPrefsProvider);
       }
 
       if (kDebugMode) {
@@ -138,8 +130,8 @@ class PushNotificationService {
           _pollDevIncomingCall(ref);
         });
       }
-    } catch (e) {
-      if (kDebugMode) debugPrint('PushNotificationService init skipped: $e');
+    } catch (_) {
+      // Push init алдаа — апп ажилласаар байна
     }
   }
 
@@ -190,7 +182,7 @@ class PushNotificationService {
     final type = data['type'] as String?;
     final bookingId = data['bookingId'] as String?;
 
-    ref.read(notificationsProvider.notifier).refresh();
+    ref.read(notificationsProvider.notifier).refresh().catchError((_) {});
 
     if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
       _showIncomingCall(data, ref);

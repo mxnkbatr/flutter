@@ -34,17 +34,25 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   }
 
   Future<List<AppNotification>> _fetch() async {
-    final res = await ref.read(apiClientProvider).get('/notifications');
-    final data = res.data;
-    if (data is! List) return [];
-    return data
-        .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
-        .toList();
+    try {
+      final res = await ref.read(apiClientProvider).get('/notifications');
+      final data = res.data;
+      if (data is! List) return [];
+      return data
+          .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = AsyncData(await _fetch());
+    try {
+      final list = await _fetch();
+      state = AsyncData(list);
+    } catch (_) {
+      state = AsyncData(state.valueOrNull ?? []);
+    }
   }
 
   Future<void> markRead(String id) async {

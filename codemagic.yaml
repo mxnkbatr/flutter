@@ -73,6 +73,10 @@ definitions:
   ios_build: &ios_build
     name: Build Flutter iOS IPA (Release only)
     script: |
+      echo "=============================================="
+      echo " GEVABAL RELEASE BUILD $(grep '^version:' pubspec.yaml)"
+      echo " Using codemagic.yaml workflow: ios-app-store"
+      echo "=============================================="
       set -euo pipefail
       export FLUTTER_BUILD_MODE=release
       flutter clean

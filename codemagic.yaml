@@ -2,12 +2,12 @@
 # Codemagic UI: Application settings → Switch to YAML configuration
 # Docs: https://docs.codemagic.io/flutter-configuration/flutter-projects/
 #
-# Codemagic setup:
-#   1. Team → Integrations → Developer Portal → API key нэр: Gevabal
-#   2. Environment group "code-signing" → CERTIFICATE_PRIVATE_KEY (RSA private key, Secret)
-#
-# Required Codemagic env group "code-signing":
-#   CERTIFICATE_PRIVATE_KEY — RSA private key for Apple Distribution certificate (--create)
+# Codemagic → Environment variables → group "code-signing" (Application эсвэл Team):
+#   CERTIFICATE_PRIVATE_KEY              — RSA private key (Secret)
+#   APP_STORE_CONNECT_PRIVATE_KEY        — .p8 файлын бүтэн агуулга (Secret)
+#   APP_STORE_CONNECT_KEY_IDENTIFIER     — Key ID
+#   APP_STORE_CONNECT_ISSUER_ID          — Issuer ID
+# Integration (Gevabal) шаардлагагүй — дээрх 4 variable хангалттай.
 
 definitions:
   env_versions: &env_versions
@@ -49,6 +49,10 @@ definitions:
         echo "ERROR: Add CERTIFICATE_PRIVATE_KEY to the code-signing environment group"
         exit 1
       fi
+      if [ -z "${APP_STORE_CONNECT_PRIVATE_KEY:-}" ] || [ -z "${APP_STORE_CONNECT_KEY_IDENTIFIER:-}" ] || [ -z "${APP_STORE_CONNECT_ISSUER_ID:-}" ]; then
+        echo "ERROR: Add APP_STORE_CONNECT_PRIVATE_KEY, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_ISSUER_ID to code-signing group"
+        exit 1
+      fi
       app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
 
   ios_add_certificates: &ios_add_certificates
@@ -73,8 +77,6 @@ workflows:
     name: iOS App Store
     max_build_duration: 120
     instance_type: mac_mini_m2
-    integrations:
-      app_store_connect: Gevabal
     environment:
       <<: *env_versions
       groups:

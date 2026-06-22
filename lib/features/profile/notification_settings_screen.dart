@@ -38,7 +38,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(booking: v)),
+                        .savePrefs(prefs.copyWith(booking: v)),
                   ),
                   SwitchListTile.adaptive(
                     title: const Text('Захиалгын сануулагч'),
@@ -50,7 +50,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(bookingReminder: v)),
+                        .savePrefs(prefs.copyWith(bookingReminder: v)),
                   ),
                 ],
               ),
@@ -64,7 +64,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(message: v)),
+                        .savePrefs(prefs.copyWith(message: v)),
                   ),
                   SwitchListTile.adaptive(
                     title: const Text('Ирж буй дуудлага'),
@@ -76,7 +76,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(call: v)),
+                        .savePrefs(prefs.copyWith(call: v)),
                   ),
                 ],
               ),
@@ -94,7 +94,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(legal: v)),
+                        .savePrefs(prefs.copyWith(legal: v)),
                   ),
                 ],
               ),
@@ -112,7 +112,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     activeColor: AppColors.goldPrime,
                     onChanged: (v) => ref
                         .read(notificationPrefsProvider.notifier)
-                        .update(prefs.copyWith(promo: v)),
+                        .savePrefs(prefs.copyWith(promo: v)),
                   ),
                 ],
               ),

@@ -105,7 +105,7 @@ class NotificationPrefsNotifier extends AsyncNotifier<NotificationPrefs> {
     }
   }
 
-  Future<void> update(NotificationPrefs prefs) async {
+  Future<void> savePrefs(NotificationPrefs prefs) async {
     state = AsyncData(prefs);
     await prefs.saveLocal();
     try {

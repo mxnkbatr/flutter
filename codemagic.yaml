@@ -75,8 +75,11 @@ definitions:
     script: |
       set -euo pipefail
       export FLUTTER_BUILD_MODE=release
+      flutter clean
+      flutter pub get
       cd ios && pod install && cd ..
-      flutter build ios --config-only --release \
+      cp ios/export_options.plist /Users/builder/export_options.plist
+      flutter build ios --release --no-codesign \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
       if ! grep -q '^FLUTTER_BUILD_MODE=release' ios/Flutter/Generated.xcconfig; then
@@ -84,15 +87,27 @@ definitions:
         cat ios/Flutter/Generated.xcconfig
         exit 1
       fi
-      EXPORT_PLIST="${CM_BUILD_DIR:-$PWD}/ios/export_options.plist"
-      if [ ! -f "$EXPORT_PLIST" ]; then
-        EXPORT_PLIST="/Users/builder/export_options.plist"
+      echo "Generated.xcconfig:"
+      cat ios/Flutter/Generated.xcconfig
+      xcode-project build-ipa \
+        --workspace "${CM_BUILD_DIR:-$PWD}/ios/Runner.xcworkspace" \
+        --scheme "${XCODE_SCHEME:-Runner}"
+      IPA_PATH="$(find "${CM_BUILD_DIR:-$PWD}/build/ios/ipa" -name '*.ipa' -print -quit)"
+      if [ -z "$IPA_PATH" ]; then
+        echo "ERROR: IPA not found under build/ios/ipa"
+        exit 1
       fi
-      flutter build ipa --release \
-        --export-options-plist="$EXPORT_PLIST" \
-        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
-        --dart-define=PREFER_DEV_AUTH=false
-      echo "Verified build mode: $(grep FLUTTER_BUILD_MODE ios/Flutter/Generated.xcconfig)"
+      echo "Built IPA: $IPA_PATH"
+      TMP_IPA="$(mktemp -d)"
+      unzip -q "$IPA_PATH" -d "$TMP_IPA"
+      FLUTTER_FW="$TMP_IPA/Payload/Runner.app/Frameworks/Flutter.framework/Flutter"
+      if strings "$FLUTTER_FW" | grep -q "debug mode Flutter apps can only be launched"; then
+        echo "ERROR: IPA contains Flutter DEBUG framework — TestFlight will not launch this build."
+        rm -rf "$TMP_IPA"
+        exit 1
+      fi
+      rm -rf "$TMP_IPA"
+      echo "OK: IPA verified as Flutter RELEASE build"
 
 workflows:
   ios-app-store:
@@ -107,6 +122,8 @@ workflows:
         BUNDLE_ID: mn.gevabal.app
         API_BASE_URL: https://geva-backend.onrender.com/api
         FLUTTER_BUILD_MODE: release
+        XCODE_SCHEME: Runner
+        XCODE_WORKSPACE: ios/Runner.xcworkspace
     triggering:
       events:
         - push

@@ -32,7 +32,7 @@ function configureCloudinary() {
 
   const url = envValue('CLOUDINARY_URL');
   if (url) {
-    cloudinary.config({ secure: true });
+    cloudinary.config({ cloudinary_url: url, secure: true });
     return;
   }
 

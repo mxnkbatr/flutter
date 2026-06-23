@@ -2554,7 +2554,12 @@ app.put('/api/admin/orders/:id/status', authRequired, adminRequired, async (req,
   }
 });
 
-app.get('/api/health', (_, res) => res.json({ ok: true }));
+app.get('/api/health', (_, res) => {
+  res.json({
+    ok: true,
+    imageStorage: isCloudinaryConfigured() ? 'cloudinary' : 'local',
+  });
+});
 
 async function triggerTestIncomingCall(clientEmail, monkQuery = 'Buyntsog') {
   const client = await User.findOne({ email: clientEmail.toLowerCase() });

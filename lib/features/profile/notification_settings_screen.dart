@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/notifications/notification_prefs.dart';
+import 'package:sacred_app/core/notifications/push_notification_service.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/shared/widgets/ios_grouped_section.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
@@ -25,6 +26,27 @@ class NotificationSettingsScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(0, 24, 0, 32),
           child: Column(
             children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final ok = await PushNotificationService.requestNotificationPermission();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok
+                              ? 'Мэдэгдлийн зөвшөөрөл идэвхжлээ'
+                              : 'Тохиргоо → Gevabal → Мэдэгдэл идэвхжүүлнэ үү',
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.notifications_active_outlined),
+                  label: const Text('Утасны мэдэгдэл зөвшөөрөх'),
+                ),
+              ),
+              const SizedBox(height: 16),
               IosGroupedSection(
                 title: 'Захиалга',
                 children: [

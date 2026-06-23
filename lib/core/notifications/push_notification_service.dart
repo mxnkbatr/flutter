@@ -16,12 +16,30 @@ import 'package:sacred_app/features/video_call/providers/incoming_call_provider.
 class PushNotificationService {
   static Timer? _devPollTimer;
 
+  /// iOS/Android notification permission — нэвтэрсний дараа эсвэл тохиргооноос дуудна.
+  static Future<bool> requestNotificationPermission() async {
+    if (!isFirebaseReady) return false;
+    try {
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        sound: true,
+        badge: true,
+      );
+      return settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Upload FCM token after login (backend uses PUT /users/profile).
   static Future<bool> syncFcmToken(WidgetRef ref) async {
     try {
       if (!isFirebaseReady) return false;
       final auth = ref.read(authStateProvider).valueOrNull;
       if (auth == null || !auth.isAuthenticated) return false;
+
+      await requestNotificationPermission();
 
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) {
@@ -65,12 +83,6 @@ class PushNotificationService {
       if (!isFirebaseReady) return;
 
       final messaging = FirebaseMessaging.instance;
-
-      await messaging.requestPermission(
-        alert: true,
-        sound: true,
-        badge: true,
-      );
 
       messaging.onTokenRefresh.listen((newToken) async {
         try {

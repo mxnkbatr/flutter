@@ -1254,6 +1254,99 @@ app.put('/api/users/profile', authRequired, async (req, res) => {
   res.json(userJson(req.user));
 });
 
+// Apple App Store: in-app account deletion (Guideline 5.1.1)
+app.delete('/api/users/me', authRequired, async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role === 'admin') {
+      return res.status(403).json({ error: 'Админ бүртгэлийг аппаас устгах боломжгүй' });
+    }
+
+    const force = req.query.force === '1' || req.query.force === 'true';
+
+    if (user.role === 'monk' && user.monkProfileId) {
+      const monk = await Monk.findById(user.monkProfileId);
+      if (!monk) {
+        await User.deleteOne({ _id: user._id });
+        return res.json({ ok: true });
+      }
+
+      const activeBookings = await Booking.countDocuments({
+        monkId: monk._id,
+        status: { $nin: ['completed', 'cancelled'] },
+      });
+      if (activeBookings > 0 && !force) {
+        return res.status(400).json({
+          error: 'Идэвхтэй захиалга байна. Устгахын өмнө захиалгуудыг цуцлах уу?',
+          code: 'ACTIVE_BOOKINGS',
+          activeBookings,
+        });
+      }
+      if (activeBookings > 0 && force) {
+        await Booking.updateMany(
+          { monkId: monk._id, status: { $nin: ['completed', 'cancelled'] } },
+          { $set: { status: 'cancelled' } },
+        );
+      }
+
+      const monkId = monk._id;
+      await Booking.deleteMany({ monkId });
+      await Review.deleteMany({ monkId });
+      const conversations = await Conversation.find({ monkId });
+      const conversationIds = conversations.map((c) => c._id);
+      if (conversationIds.length) {
+        await Message.deleteMany({ conversationId: { $in: conversationIds } });
+      }
+      await Conversation.deleteMany({ monkId });
+      await Monk.deleteOne({ _id: monkId });
+      await Notification.deleteMany({ userId: user._id });
+      await User.deleteOne({ _id: user._id });
+      return res.json({ ok: true });
+    }
+
+    const userId = user._id;
+    const activeBookings = await Booking.countDocuments({
+      clientId: userId,
+      status: { $nin: ['completed', 'cancelled'] },
+    });
+    if (activeBookings > 0 && !force) {
+      return res.status(400).json({
+        error: 'Идэвхтэй захиалга байна. Устгахын өмнө захиалгуудыг цуцлах уу?',
+        code: 'ACTIVE_BOOKINGS',
+        activeBookings,
+      });
+    }
+    if (activeBookings > 0 && force) {
+      await Booking.updateMany(
+        { clientId: userId, status: { $nin: ['completed', 'cancelled'] } },
+        { $set: { status: 'cancelled' } },
+      );
+    }
+
+    const clientBookings = await Booking.find({ clientId: userId }).select('_id');
+    const bookingIds = clientBookings.map((b) => b._id);
+    if (bookingIds.length) {
+      await Payment.deleteMany({ bookingId: { $in: bookingIds } });
+      await Booking.deleteMany({ clientId: userId });
+    }
+    await Payment.deleteMany({ userId });
+    await Order.deleteMany({ userId });
+    await Notification.deleteMany({ userId });
+
+    const conversations = await Conversation.find({ clientId: userId });
+    const conversationIds = conversations.map((c) => c._id);
+    if (conversationIds.length) {
+      await Message.deleteMany({ conversationId: { $in: conversationIds } });
+    }
+    await Conversation.deleteMany({ clientId: userId });
+    await User.deleteOne({ _id: userId });
+
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Notification settings ───
 app.get('/api/users/notification-settings', authRequired, (req, res) => {
   res.json(prefsForUser(req.user));

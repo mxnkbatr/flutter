@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/config/feature_flags.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -15,6 +16,47 @@ import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Бүртгэл устгах уу?'),
+        content: const Text(
+          'Таны бүртгэл, захиалга, мессежийн түүх бүрмөсөн устгагдана. '
+          'Энэ үйлдлийг буцаах боломжгүй.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Болих'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Устгах'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(apiClientProvider).delete('/users/me?force=1');
+      if (!context.mounted) return;
+      await ref.read(authStateProvider.notifier).logout();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Бүртгэл амжилттай устгагдлаа')),
+      );
+      context.go('/login');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Устгахад алдаа: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -197,6 +239,16 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: 20),
           ProfileSettingsGroup(
             children: [
+              ProfileSettingsTile(
+                icon: Icons.delete_forever_outlined,
+                iconBackground: const Color(0xFFFFEBEB),
+                iconColor: AppColors.danger,
+                title: 'Бүртгэл устгах',
+                titleColor: AppColors.danger,
+                titleWeight: FontWeight.w500,
+                showChevron: false,
+                onTap: () => _confirmDeleteAccount(context, ref),
+              ),
               ProfileSettingsTile(
                 icon: Icons.logout_rounded,
                 iconBackground: const Color(0xFFFFEBEB),

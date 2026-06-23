@@ -66,9 +66,53 @@ definitions:
         exit 1
       fi
       keychain initialize
-      app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+      # Runner.entitlements has aps-environment; App Store profile must include Push Notifications.
+      BUNDLE_ID_RESOURCE_ID="$(app-store-connect bundle-ids list \
+        --bundle-id-identifier "$BUNDLE_ID" \
+        --strict-match-identifier \
+        --json \
+        | python3 -c "import json,sys; items=json.load(sys.stdin); print(items[0]['id'] if items else '')")"
+      if [ -z "$BUNDLE_ID_RESOURCE_ID" ]; then
+        echo "ERROR: Bundle ID $BUNDLE_ID not found in Apple Developer portal."
+        exit 1
+      fi
+      echo "Enabling Push Notifications on App ID $BUNDLE_ID ($BUNDLE_ID_RESOURCE_ID)"
+      app-store-connect bundle-ids enable-capabilities "$BUNDLE_ID_RESOURCE_ID" \
+        --capability "Push Notifications" || true
+      app-store-connect bundle-ids profiles \
+        --bundle-ids "$BUNDLE_ID_RESOURCE_ID" \
+        --type IOS_APP_STORE \
+        --json \
+        | python3 -c "import json,sys; [print(p['id']) for p in json.load(sys.stdin)]" \
+        | while read -r profile_id; do
+          [ -n "$profile_id" ] || continue
+          echo "Removing old App Store profile $profile_id (regenerate with push)"
+          app-store-connect profiles delete "$profile_id" --ignore-not-found || true
+        done
+      app-store-connect fetch-signing-files "$BUNDLE_ID" \
+        --type IOS_APP_STORE \
+        --create \
+        --delete-stale-profiles
       keychain add-certificates
       xcode-project use-profiles
+      PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+      [ -d "$PROFILE_DIR" ] || PROFILE_DIR="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+      PUSH_OK=false
+      for PROFILE in "$PROFILE_DIR"/*.mobileprovision; do
+        [ -f "$PROFILE" ] || continue
+        DECODED="$(security cms -D -i "$PROFILE" 2>/dev/null || true)"
+        echo "$DECODED" | grep -q "$BUNDLE_ID" || continue
+        if echo "$DECODED" | grep -q 'aps-environment'; then
+          echo "OK: Provisioning profile includes Push Notifications ($(basename "$PROFILE"))"
+          PUSH_OK=true
+          break
+        fi
+      done
+      if [ "$PUSH_OK" != true ]; then
+        echo "ERROR: No App Store profile for $BUNDLE_ID includes aps-environment."
+        echo "developer.apple.com → Identifiers → $BUNDLE_ID → Push Notifications → regenerate profile"
+        exit 1
+      fi
 
   ios_build: &ios_build
     name: Build Flutter iOS IPA (Release only)

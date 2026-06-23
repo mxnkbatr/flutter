@@ -25,14 +25,7 @@ class AdminDashboardScreen extends ConsumerWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: AppColors.inkDeep),
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Мэдэгдлийн төв удахгүй нээгдэнэ'),
-                duration: Duration(seconds: 2),
-              ),
-            );
-          },
+          onPressed: () => context.go('/notifications'),
         ),
       ],
       body: statsAsync.when(

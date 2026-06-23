@@ -49,7 +49,7 @@ class ProfileScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Бүртгэл амжилттай устгагдлаа')),
       );
-      context.go('/login');
+      context.go('/auth/login');
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

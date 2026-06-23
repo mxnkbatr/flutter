@@ -289,7 +289,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Хадгалах'),
+                    child: const Text('Хаах'),
                   ),
                 ],
               ),

@@ -64,9 +64,26 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Захиалга баталгаажлаа',
+              args.canJoinCall
+                  ? 'Захиалга баталгаажлаа'
+                  : 'Төлбөр амжилттай төлөгдлөө',
               style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
             ),
+            if (!args.canJoinCall) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'Лам таны захиалгыг баталгаажуулах хүртэл хүлээнэ үү. '
+                  'Баталгаажсаны дараа «Миний захиалга» хэсгээс видео дуудлага эхлүүлнэ.',
+                  textAlign: TextAlign.center,
+                  style: AppText.caption.copyWith(
+                    color: AppColors.goldMuted.withOpacity(0.9),
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 32),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -113,18 +130,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
               ),
             ),
             const Spacer(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SacredButton(
-                label: 'Оруулах',
-                icon: Icons.videocam_rounded,
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  context.go('/call/${args.bookingId}');
-                },
+            if (args.canJoinCall)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: SacredButton(
+                  label: 'Оруулах',
+                  icon: Icons.videocam_rounded,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    context.go('/call/${args.bookingId}');
+                  },
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+            if (args.canJoinCall) const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: SacredButton(

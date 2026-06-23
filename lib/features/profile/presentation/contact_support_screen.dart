@@ -59,16 +59,6 @@ class ContactSupportScreen extends StatelessWidget {
             onLongPress: () => _copy(context, 'И-мэйл', 'support@gevabal.mn'),
           ),
           const SizedBox(height: 12),
-          _ContactCard(
-            icon: Icons.phone_outlined,
-            iconBg: const Color(0xFFE8F8EF),
-            iconColor: AppColors.success,
-            title: 'Утас',
-            subtitle: '+976 7777-1234',
-            onTap: () => _launch(Uri.parse('tel:+97677771234')),
-            onLongPress: () => _copy(context, 'Утас', '+97677771234'),
-          ),
-          const SizedBox(height: 24),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: MinimalStyle.card(radius: 16),

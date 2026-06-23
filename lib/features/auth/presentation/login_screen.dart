@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/api/api_config.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
@@ -14,7 +13,6 @@ import 'package:sacred_app/shared/widgets/auth_ambient_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 import 'package:sacred_app/shared/widgets/sacred_divider.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
-import 'package:sacred_app/shared/widgets/sacred_outline_btn.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -126,10 +124,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return error.toString().replaceFirst('Exception: ', '');
   }
 
-  Future<void> _googleLogin() async {
-    setState(() => _formError = 'Google нэвтрэлт удахгүй нээгдэнэ');
-  }
-
   void _showForgotPassword(BuildContext context) {
     final forgotEmailCtrl = TextEditingController();
     var sending = false;
@@ -197,14 +191,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         sending = true;
                         forgotError = null;
                       });
-                      await Future.delayed(const Duration(milliseconds: 800));
+                      await Future.delayed(const Duration(milliseconds: 400));
                       if (!ctx.mounted) return;
                       Navigator.pop(ctx);
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text(
-                            'Сэргээх холбоос $email руу илгээгдлээ',
+                            'Нууц үг сэргээх: support@gevabal.mn хаяг руу и-мэйл илгээнэ үү',
                           ),
                           backgroundColor: AppColors.inkDeep,
                         ),
@@ -347,26 +341,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         isLoading: _loading,
                         onTap: _login,
                         sunShadow: true,
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        children: [
-                          const Expanded(child: SacredDivider()),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('эсвэл', style: AppText.caption),
-                          ),
-                          const Expanded(child: SacredDivider()),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      SacredOutlineBtn(
-                        label: 'Google-ээр нэвтрэх',
-                        prefixWidget: SvgPicture.asset(
-                          'assets/icons/google.svg',
-                          width: 20,
-                        ),
-                        onTap: _googleLogin,
                       ),
                       const SizedBox(height: 24),
                       Row(

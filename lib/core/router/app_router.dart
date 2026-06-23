@@ -143,7 +143,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             child: PaymentScreen(
               bookingId: state.pathParameters['bookingId']!,
               qpayData: extra is QPayData ? extra : null,
-              initialMethodTab: extra is int ? extra : 0,
+              initialMethodTab: extra is int ? extra : 1,
             ),
           );
         },

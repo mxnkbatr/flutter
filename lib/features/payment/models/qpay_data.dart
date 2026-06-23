@@ -101,6 +101,8 @@ class PaymentSuccessArgs {
     required this.dateStr,
     required this.timeSlot,
     required this.amount,
+    this.bookingStatus = 'pending',
+    this.canJoinCall = false,
   });
 
   final String bookingId;
@@ -108,4 +110,6 @@ class PaymentSuccessArgs {
   final String dateStr;
   final String timeSlot;
   final int amount;
+  final String bookingStatus;
+  final bool canJoinCall;
 }

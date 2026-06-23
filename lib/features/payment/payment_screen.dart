@@ -101,9 +101,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     ref.invalidate(bookingPaymentProvider(widget.bookingId));
   }
 
-  void _navigateToSuccess([BookingPaymentData? payment]) {
+  Future<void> _navigateToSuccess([BookingPaymentData? payment]) async {
     final data = _qpayData;
-    final amount = data?.totalAmount ?? payment?.amount ?? 0;
+    BookingPaymentData? info = payment;
+    try {
+      info ??= await ref.read(bookingPaymentProvider(widget.bookingId).future);
+    } catch (_) {}
+    final amount = data?.totalAmount ?? info?.amount ?? 0;
 
     final isShopOrder = data?.monkName == 'Gevabal Дэлгүүр' ||
         data?.monkName == 'Sacred Дэлгүүр' ||
@@ -119,14 +123,18 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     if (mounted) {
+      final status = info?.status ?? 'pending';
+      final canJoin = info != null && info.paid && status == 'confirmed';
       context.go(
         '/payment/${widget.bookingId}/success',
         extra: PaymentSuccessArgs(
           bookingId: widget.bookingId,
-          monkName: data?.monkName ?? payment?.monkName ?? 'Лам',
-          dateStr: data?.dateStr ?? payment?.date ?? '',
-          timeSlot: data?.timeSlot ?? payment?.slot ?? '',
+          monkName: data?.monkName ?? info?.monkName ?? 'Лам',
+          dateStr: data?.dateStr ?? info?.date ?? '',
+          timeSlot: data?.timeSlot ?? info?.slot ?? '',
           amount: amount,
+          bookingStatus: status,
+          canJoinCall: canJoin,
         ),
       );
     }

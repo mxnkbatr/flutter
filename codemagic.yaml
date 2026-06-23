@@ -115,16 +115,13 @@ definitions:
           fi
         done
       done
+      if [ -z "$MATCHED_PROFILE" ]; then
+        echo "ERROR: No App Store profile found for $BUNDLE_ID."
+        exit 1
+      fi
       if [ "$PUSH_OK" != true ]; then
-        echo "Push entitlement not found in decoded profile${MATCHED_PROFILE:+ ($MATCHED_PROFILE)}."
-        echo "Checking App ID capabilities..."
+        echo "WARNING: aps-environment not found in $MATCHED_PROFILE (will rely on use-profiles export_options)."
         app-store-connect bundle-ids capabilities "$BUNDLE_ID_RESOURCE_ID" --json || true
-        if [ -n "$MATCHED_PROFILE" ]; then
-          echo "Profile exists for $BUNDLE_ID; continuing (Runner.entitlements + App ID push are configured)."
-        else
-          echo "ERROR: No App Store profile found for $BUNDLE_ID."
-          exit 1
-        fi
       fi
 
   ios_build: &ios_build
@@ -139,7 +136,6 @@ definitions:
       flutter clean
       flutter pub get
       cd ios && pod install && cd ..
-      cp ios/export_options.plist "$HOME/export_options.plist"
       flutter build ios --config-only --release \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
@@ -161,6 +157,9 @@ definitions:
       flutter build ios --release --no-codesign \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
+      # use-profiles writes $HOME/export_options.plist with teamID + provisioningProfiles.
+      # Do not overwrite it with ios/export_options.plist (that breaks push export).
+      xcode-project use-profiles --project ios/Runner.xcodeproj
       xcode-project build-ipa \
         --workspace "${CM_BUILD_DIR:-$PWD}/ios/Runner.xcworkspace" \
         --scheme "${XCODE_SCHEME:-Runner}"

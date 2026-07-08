@@ -234,9 +234,30 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
+      - name: Android keystore (release signing)
+        script: |
+          set -euo pipefail
+          if [ -z "${CM_KEYSTORE:-}" ]; then
+            echo "ERROR: CM_KEYSTORE is missing (base64 keystore)."
+            echo "Codemagic → App → Environment variables:"
+            echo "  CM_KEYSTORE (base64 .jks)"
+            echo "  CM_KEYSTORE_PASSWORD"
+            echo "  CM_KEY_ALIAS"
+            echo "  CM_KEY_PASSWORD"
+            exit 1
+          fi
+          echo "$CM_KEYSTORE" | base64 --decode > android/app/upload-keystore.jks
+          cat > android/key.properties <<EOF
+          storePassword=${CM_KEYSTORE_PASSWORD}
+          keyPassword=${CM_KEY_PASSWORD}
+          keyAlias=${CM_KEY_ALIAS}
+          storeFile=app/upload-keystore.jks
+          EOF
+          echo "Keystore written: android/app/upload-keystore.jks"
+          echo "key.properties written: android/key.properties"
       - name: Build Android App Bundle
         script: |
-          flutter build appbundle --release \
+          flutter build appbundle --release --android-skip-build-dependency-validation \
             --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
             --dart-define=PREFER_DEV_AUTH=false
     artifacts:

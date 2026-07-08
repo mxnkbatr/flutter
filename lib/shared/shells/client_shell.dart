@@ -32,15 +32,17 @@ class ClientShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
+    final path = GoRouterState.of(context).uri.path;
     final index = _indexFromLocation(location);
     final bottom = MediaQuery.of(context).padding.bottom;
+    final showTopHeader = path == '/home';
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
       extendBody: true,
       body: Column(
         children: [
-          const AppTopHeader(),
+          if (showTopHeader) const AppTopHeader(),
           Expanded(child: child),
         ],
       ),

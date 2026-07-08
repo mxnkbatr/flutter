@@ -39,31 +39,57 @@ export async function sendPush(fcmToken, payload) {
       payload.data?.type === 'incoming_call' ||
       payload.data?.type === 'call_time';
 
+  const stringData = Object.fromEntries(
+    Object.entries({
+      ...(payload.data || {}),
+      title: payload.title || '',
+      body: payload.body || '',
+    }).map(([k, v]) => [k, String(v ?? '')]),
+  );
+
   try {
+    if (isCall) {
+      await getMessaging().send({
+        token: fcmToken,
+        data: stringData,
+        android: {
+          priority: 'high',
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: payload.title,
+                body: payload.body,
+              },
+              sound: 'default',
+              'content-available': 1,
+              'interruption-level': 'time-sensitive',
+            },
+          },
+        },
+      });
+      return true;
+    }
+
     await getMessaging().send({
       token: fcmToken,
       notification: {
         title: payload.title,
         body: payload.body,
       },
-      data: payload.data || {},
+      data: stringData,
       android: {
         priority: 'high',
-        notification: isCall
-            ? {
-                channelId: 'incoming_calls',
-                priority: 'max',
-                visibility: 'public',
-                defaultSound: true,
-              }
-            : undefined,
       },
       apns: {
         payload: {
           aps: {
             sound: 'default',
             contentAvailable: true,
-            interruptionLevel: isCall ? 'time-sensitive' : 'active',
           },
         },
       },

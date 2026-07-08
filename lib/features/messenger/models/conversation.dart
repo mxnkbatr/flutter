@@ -17,17 +17,22 @@ class Conversation {
   final String? lastMessageAt;
   final String? monkId;
 
-  String get displayName => monkName.isNotEmpty ? monkName : (clientName ?? '');
+  String get displayName {
+    if (monkName.isNotEmpty) return monkName;
+    if (clientName != null && clientName!.isNotEmpty) return clientName!;
+    return 'Чат';
+  }
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] ?? json['_id'];
     return Conversation(
-      id: json['id'] as String? ?? json['_id'] as String,
-      monkName: json['monkName'] as String? ?? '',
-      monkImage: json['monkImage'] as String?,
-      clientName: json['clientName'] as String?,
-      lastMessage: json['lastMessage'] as String?,
-      lastMessageAt: json['lastMessageAt'] as String?,
-      monkId: json['monkId'] as String?,
+      id: rawId?.toString() ?? '',
+      monkName: json['monkName']?.toString() ?? '',
+      monkImage: json['monkImage']?.toString(),
+      clientName: json['clientName']?.toString(),
+      lastMessage: json['lastMessage']?.toString(),
+      lastMessageAt: json['lastMessageAt']?.toString(),
+      monkId: json['monkId']?.toString(),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_schedule_day.dart';
@@ -27,8 +28,14 @@ class DayScheduleRow extends StatelessWidget {
     );
     final picked = await showTimePicker(context: context, initialTime: initial);
     if (picked != null) {
+      final total = picked.hour * 60 + picked.minute;
+      final snapped = ((total + AppTimezone.slotIntervalMinutes ~/ 2) ~/
+              AppTimezone.slotIntervalMinutes) *
+          AppTimezone.slotIntervalMinutes;
+      final hour = (snapped ~/ 60).clamp(0, 23);
+      final minute = snapped % 60;
       final formatted =
-          '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+          '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
       onSelected(formatted);
     }
   }

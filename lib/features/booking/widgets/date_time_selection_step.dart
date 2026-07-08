@@ -24,10 +24,12 @@ class DateTimeSelectionStep extends ConsumerStatefulWidget {
 
 class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
   DateTime? _focusedMonth;
+  final _slotsAnchorKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     final draft = ref.watch(bookingDraftProvider);
+    final dateConfirmed = ref.watch(bookingDateConfirmedProvider);
     final focusedMonth = _focusedMonth ?? draft.date ?? AppTimezone.now();
     final scheduleAsync = ref.watch(monkScheduleProvider(widget.monkId));
     final dateStr = draft.date != null
@@ -39,6 +41,25 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
             date: dateStr,
           )))
         : null;
+
+    ref.listen<bool>(
+      bookingDateConfirmedProvider,
+      (prev, next) {
+        if (prev != true && next == true) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final ctx = _slotsAnchorKey.currentContext;
+            if (ctx != null) {
+              Scrollable.ensureVisible(
+                ctx,
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: 0.15,
+              );
+            }
+          });
+        }
+      },
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -71,6 +92,7 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
               onDateSelected: (date) {
                 HapticFeedback.lightImpact();
                 ref.read(bookingDraftProvider.notifier).setDate(date);
+                ref.read(bookingDateConfirmedProvider.notifier).state = false;
               },
             ),
             data: (days) => MonthCalendar(
@@ -81,13 +103,20 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
               onDateSelected: (date) {
                 HapticFeedback.lightImpact();
                 ref.read(bookingDraftProvider.notifier).setDate(date);
+                ref.read(bookingDateConfirmedProvider.notifier).state = false;
               },
             ),
           ),
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              // Avoid being hidden behind BookingFlow bottomBar button.
+              MediaQuery.of(context).padding.bottom + 120,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -114,6 +143,7 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                   ),
                 const SizedBox(height: 16),
                 Row(
+                  key: _slotsAnchorKey,
                   children: [
                     const Text('Боломжит цагууд', style: AppText.h3),
                     const Spacer(),
@@ -147,6 +177,31 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
                         const SizedBox(height: 8),
                         Text(
                           'Эхлээд дээрх хуанлиас өдөр сонгоно уу',
+                          style: AppText.bodySmall,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
+                else if (!dateConfirmed)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceEl,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.touch_app_rounded,
+                          color: AppColors.sunGold.withOpacity(0.7),
+                          size: 30,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Өдрөө сонгоод доорх “Үргэлжлүүлэх” товч дарна уу',
                           style: AppText.bodySmall,
                           textAlign: TextAlign.center,
                         ),

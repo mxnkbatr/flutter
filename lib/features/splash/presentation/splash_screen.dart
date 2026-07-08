@@ -66,7 +66,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (auth?.isAuthenticated == true) {
       final dest = switch (auth!.role) {
-        'monk' => '/monk/dashboard',
+        'monk' => '/monk/calls',
         'admin' => '/admin/dashboard',
         _ => '/home',
       };

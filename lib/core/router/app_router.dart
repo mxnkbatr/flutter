@@ -22,6 +22,7 @@ import 'package:sacred_app/features/home/home_screen.dart';
 import 'package:sacred_app/features/home/search_screen.dart';
 import 'package:sacred_app/features/messenger/chat_screen.dart';
 import 'package:sacred_app/features/messenger/messenger_screen.dart';
+import 'package:sacred_app/features/monk_dash/monk_calls_screen.dart';
 import 'package:sacred_app/features/monk_dash/monk_dashboard_screen.dart';
 import 'package:sacred_app/features/monk_dash/monk_messenger_screen.dart';
 import 'package:sacred_app/features/monk_profile/monk_profile_screen.dart';
@@ -77,7 +78,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (isLoggedIn && isAuthRoute) {
         return switch (auth.role) {
-          'monk' => '/monk/dashboard',
+          'monk' => '/monk/calls',
           'admin' => '/admin/dashboard',
           _ => '/home',
         };
@@ -126,15 +127,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/messenger/:id',
-        pageBuilder: (context, state) => iosCupertinoPage(
-          state: state,
-          child: ChatScreen(
-            conversationId: state.pathParameters['id']!,
-            title: Uri.decodeComponent(
-              state.uri.queryParameters['title'] ?? 'Чат',
+        pageBuilder: (context, state) {
+          final rawTitle = state.uri.queryParameters['title'] ?? 'Чат';
+          String title;
+          try {
+            title = Uri.decodeComponent(rawTitle);
+          } catch (_) {
+            title = rawTitle;
+          }
+          if (title.trim().isEmpty) title = 'Чат';
+
+          return iosCupertinoPage(
+            state: state,
+            child: ChatScreen(
+              conversationId: state.pathParameters['id']!,
+              title: title,
             ),
-          ),
-        ),
+          );
+        },
       ),
       GoRoute(
         path: '/payment/:bookingId',
@@ -320,6 +330,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => MonkShell(child: child),
         routes: [
           GoRoute(
+            path: '/monk/calls',
+            builder: (context, state) => const MonkCallsScreen(),
+          ),
+          GoRoute(
             path: '/monk/dashboard',
             builder: (context, state) {
               final tab =
@@ -411,7 +425,7 @@ String? _guardRole(String location, String? role) {
       !location.startsWith('/payment') &&
       !location.startsWith('/call') &&
       !location.startsWith('/messenger/')) {
-    return '/monk/dashboard';
+    return '/monk/calls';
   }
   if (role == 'admin' &&
       (isClientRoute || location.startsWith('/monk'))) {

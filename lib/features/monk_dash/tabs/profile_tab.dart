@@ -144,8 +144,17 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
           ),
           children: [
             Container(
-              color: AppColors.inkDeep,
-              padding: const EdgeInsets.symmetric(vertical: 28),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppColors.orangeLight,
+                    AppColors.creamBg,
+                  ],
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
               child: Column(
                 children: [
                   ProfileImagePicker(
@@ -155,18 +164,20 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _nameCtrl.text.isNotEmpty ? _nameCtrl.text : (auth?.userName ?? ''),
-                    style: AppText.h2.copyWith(color: AppColors.onDark),
+                    _nameCtrl.text.isNotEmpty
+                        ? _nameCtrl.text
+                        : (auth?.userName ?? ''),
+                    style: AppText.h2.copyWith(color: AppColors.inkDeep),
                   ),
                   if (showPremium)
                     Text(
                       'Лам · ${tierLabel(tier)}',
-                      style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
+                      style: AppText.bodySmall.copyWith(color: AppColors.textSec),
                     ),
                   if (profile.email.isNotEmpty)
                     Text(
                       profile.email,
-                      style: AppText.caption.copyWith(color: AppColors.goldMuted),
+                      style: AppText.caption.copyWith(color: AppColors.textHint),
                     ),
                 ],
               ),

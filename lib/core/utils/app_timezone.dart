@@ -5,6 +5,7 @@ class AppTimezone {
   AppTimezone._();
 
   static const _offset = Duration(hours: 8);
+  static const int slotIntervalMinutes = 30;
 
   static DateTime now() => DateTime.now().toUtc().add(_offset);
 
@@ -50,7 +51,7 @@ class AppTimezone {
   static bool isInCallWindow(
     String? dateStr,
     String slot, {
-    int durationMinutes = 30,
+    int durationMinutes = slotIntervalMinutes,
   }) {
     if (dateStr == null || dateStr.isEmpty || slot.isEmpty) return false;
     final today = todayDateStr();

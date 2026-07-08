@@ -21,62 +21,63 @@ import 'package:sacred_app/features/shop/shop_payment_screen.dart';
 import 'package:sacred_app/features/video_call/providers/incoming_call_provider.dart';
 
 /// Drop cached user data when logging out or switching accounts.
-void clearSessionState(Ref ref) {
-  ref.read(incomingCallProvider.notifier).state = null;
+void clearSessionState(ProviderContainer container) {
+  container.read(incomingCallProvider.notifier).state = null;
 
-  ref.read(bookingDraftProvider.notifier).reset('');
-  ref.read(bookingStepProvider.notifier).state = 0;
-  ref.read(bookingSubmittingProvider.notifier).state = false;
-  ref.read(cartProvider.notifier).clear();
+  container.read(bookingDraftProvider.notifier).reset('');
+  container.read(bookingStepProvider.notifier).state = 0;
+  container.read(bookingSubmittingProvider.notifier).state = false;
+  container.read(cartProvider.notifier).clear();
 
-  ref.read(monkCategoryFilterProvider.notifier).state = 'Бүгд';
-  ref.read(monkSortFilterProvider.notifier).state = 'Үнэлгээ';
-  ref.read(monkSearchQueryProvider.notifier).state = '';
-  ref.read(favoriteMonksProvider.notifier).state = {};
-  ref.read(searchInputProvider.notifier).state = '';
-  ref.read(debouncedSearchProvider.notifier).state = '';
-  ref.read(shopCategoryProvider.notifier).state = 'Бүгд';
-  ref.read(adminMonkFilterProvider.notifier).state = 'all';
-  ref.read(adminBookingFilterProvider.notifier).state = 'all';
-  ref.read(adminShopOrderFilterProvider.notifier).state = 'all';
+  container.read(monkCategoryFilterProvider.notifier).state = 'Бүгд';
+  container.read(monkSortFilterProvider.notifier).state = 'Үнэлгээ';
+  container.read(monkSearchQueryProvider.notifier).state = '';
+  container.read(favoriteMonksProvider.notifier).state = {};
+  container.read(searchInputProvider.notifier).state = '';
+  container.read(debouncedSearchProvider.notifier).state = '';
+  container.read(shopCategoryProvider.notifier).state = 'Бүгд';
+  container.read(adminMonkFilterProvider.notifier).state = 'all';
+  container.read(adminBookingFilterProvider.notifier).state = 'all';
+  container.read(adminShopOrderFilterProvider.notifier).state = 'all';
 
-  ref.invalidate(userProfileProvider);
-  ref.invalidate(myBookingsProvider);
-  ref.invalidate(bookingPaymentProvider);
-  ref.invalidate(myOrdersProvider);
-  ref.invalidate(conversationsProvider);
-  ref.invalidate(messagesProvider);
-  ref.invalidate(monkDashboardProvider);
-  ref.invalidate(monkAvailabilityProvider);
-  ref.invalidate(monkBookingsProvider);
-  ref.invalidate(monkProfileEditProvider);
-  ref.invalidate(monkEarningsProvider);
-  ref.invalidate(monkScheduleManagerProvider);
-  ref.invalidate(notificationsProvider);
-  ref.invalidate(tierCacheProvider);
-  ref.invalidate(monksNotifierProvider);
-  ref.invalidate(recommendedMonksProvider);
-  ref.invalidate(monkDetailProvider);
-  ref.invalidate(monkServicesProvider);
-  ref.invalidate(monkScheduleProvider);
-  ref.invalidate(monkReviewsProvider);
-  ref.invalidate(adminDashboardProvider);
-  ref.invalidate(adminMonksProvider);
-  ref.invalidate(adminMonkDetailProvider);
-  ref.invalidate(adminUsersProvider);
-  ref.invalidate(adminBookingsProvider);
-  ref.invalidate(adminFinanceProvider);
-  ref.invalidate(adminProductsProvider);
-  ref.invalidate(adminOrdersProvider);
-  ref.invalidate(adminCategoriesProvider);
-  ref.invalidate(productsProvider);
-  ref.invalidate(productDetailProvider);
-  ref.invalidate(shopOrderPaymentProvider);
+  container.invalidate(userProfileProvider);
+  container.invalidate(myBookingsProvider);
+  container.invalidate(bookingPaymentProvider);
+  container.invalidate(myOrdersProvider);
+  container.invalidate(conversationsProvider);
+  container.invalidate(messagesProvider);
+  container.invalidate(monkDashboardProvider);
+  container.invalidate(monkAvailabilityProvider);
+  container.invalidate(monkBookingsProvider);
+  container.invalidate(monkProfileEditProvider);
+  container.invalidate(monkEarningsProvider);
+  container.invalidate(monkScheduleManagerProvider);
+  container.invalidate(notificationsProvider);
+  container.invalidate(tierCacheProvider);
+  container.invalidate(monksNotifierProvider);
+  container.invalidate(recommendedMonksProvider);
+  container.invalidate(monkDetailProvider);
+  container.invalidate(monkServicesProvider);
+  container.invalidate(monkScheduleProvider);
+  container.invalidate(monkReviewsProvider);
+  container.invalidate(adminDashboardProvider);
+  container.invalidate(adminMonksProvider);
+  container.invalidate(adminMonkDetailProvider);
+  container.invalidate(adminUsersProvider);
+  container.invalidate(adminBookingsProvider);
+  container.invalidate(adminFinanceProvider);
+  container.invalidate(adminProductsProvider);
+  container.invalidate(adminOrdersProvider);
+  container.invalidate(adminCategoriesProvider);
+  container.invalidate(productsProvider);
+  container.invalidate(productDetailProvider);
+  container.invalidate(shopOrderPaymentProvider);
 }
 
 /// AuthNotifier-ээс дуудахад circular dependency-г зайлсхийнэ.
 void scheduleSessionClear(Ref ref) {
-  Future.microtask(() => clearSessionState(ref));
+  final container = ref.container;
+  Future(() => clearSessionState(container));
 }
 
 /// Refresh public monk/product lists after profile image changes.

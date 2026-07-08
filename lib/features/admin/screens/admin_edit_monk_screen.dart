@@ -133,18 +133,18 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   Future<void> _delete() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Ламын бүртгэл устгах уу?'),
         content: Text(
           '${_nameCtrl.text.trim()} ламын бүртгэл, нэвтрэх эрх болон холбогдох мэдээлэл бүрмөсөн устгагдана.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Үгүй'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
               'Устгах',
               style: TextStyle(color: AppColors.danger),

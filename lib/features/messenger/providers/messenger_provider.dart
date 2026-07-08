@@ -10,6 +10,7 @@ final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
       : (res.data as Map<String, dynamic>)['conversations'] as List? ?? [];
   return list
       .map((e) => Conversation.fromJson(e as Map<String, dynamic>))
+      .where((c) => c.id.isNotEmpty)
       .toList();
 });
 
@@ -19,19 +20,36 @@ final messagesProvider =
         '/messenger/conversations/$conversationId/messages',
       );
   final list = res.data is List ? res.data as List : [];
-  return list
-      .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-      .toList();
+  final messages = <ChatMessage>[];
+  for (final item in list) {
+    if (item is! Map<String, dynamic>) continue;
+    try {
+      final msg = ChatMessage.fromJson(item);
+      if (msg.id.isNotEmpty) messages.add(msg);
+    } catch (_) {}
+  }
+  return messages;
 });
 
-Future<String> startConversation(WidgetRef ref, String monkId) async {
+class StartConversationResult {
+  const StartConversationResult({required this.id, required this.monkName});
+  final String id;
+  final String monkName;
+}
+
+Future<StartConversationResult> startConversation(
+  WidgetRef ref,
+  String monkId,
+) async {
   final res = await ref.read(apiClientProvider).post(
         '/messenger/conversations',
         data: {'monkId': monkId},
       );
   final data = res.data as Map<String, dynamic>;
   ref.invalidate(conversationsProvider);
-  return data['id'] as String;
+  final id = data['id']?.toString() ?? '';
+  final monkName = data['monkName']?.toString() ?? '';
+  return StartConversationResult(id: id, monkName: monkName);
 }
 
 Future<void> sendMessage(
@@ -43,6 +61,6 @@ Future<void> sendMessage(
         '/messenger/conversations/$conversationId/messages',
         data: {'text': text},
       );
-  ref.invalidate(messagesProvider(conversationId));
   ref.invalidate(conversationsProvider);
+  final _ = await ref.refresh(messagesProvider(conversationId).future);
 }

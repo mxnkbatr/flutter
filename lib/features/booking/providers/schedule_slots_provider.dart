@@ -43,7 +43,7 @@ class DaySchedule {
   /// 30-minute slots, 09:00–17:30 (Mon–Fri default window).
   static List<String> defaultSlots() {
     final slots = <String>[];
-    for (var m = 9 * 60; m < 18 * 60; m += 30) {
+    for (var m = 9 * 60; m < 18 * 60; m += AppTimezone.slotIntervalMinutes) {
       final h = m ~/ 60;
       final min = m % 60;
       slots.add(

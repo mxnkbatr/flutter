@@ -99,7 +99,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final auth = authAsync.valueOrNull;
     if (auth?.isAuthenticated == true) {
       final dest = switch (auth!.role) {
-        'monk' => '/monk/dashboard',
+        'monk' => '/monk/calls',
         'admin' => '/admin/dashboard',
         _ => '/home',
       };

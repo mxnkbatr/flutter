@@ -53,9 +53,30 @@ final apiClientProvider = Provider<Dio>((ref) {
       },
       onError: (error, handler) {
         if (error.response?.statusCode == 401) {
-          final token = ref.read(authStateProvider).valueOrNull?.token;
-          if (!isDevAuthToken(token)) {
-            ref.read(authStateProvider.notifier).logout();
+          final skipLogout =
+              error.requestOptions.extra['skipAuthLogout'] == true;
+          final path = error.requestOptions.path;
+          final isAuthRoute = path.contains('/auth/login') ||
+              path.contains('/auth/signup');
+
+          if (!skipLogout && !isAuthRoute) {
+            final auth = ref.read(authStateProvider).valueOrNull;
+            final notifier = ref.read(authStateProvider.notifier);
+
+            if (auth?.isAuthenticated == true &&
+                !isDevAuthToken(auth!.token) &&
+                !notifier.isLoggingOut) {
+              final requestAuth =
+                  error.requestOptions.headers['Authorization'] as String?;
+              final currentAuth = 'Bearer ${auth.token}';
+              final isStaleRequest = requestAuth != null &&
+                  requestAuth.isNotEmpty &&
+                  requestAuth != currentAuth;
+
+              if (!isStaleRequest) {
+                notifier.logout();
+              }
+            }
           }
         }
         handler.next(error);

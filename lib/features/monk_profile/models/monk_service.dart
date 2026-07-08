@@ -21,7 +21,7 @@ class MonkService {
 
   factory MonkService.fromJson(Map<String, dynamic> json) {
     return MonkService(
-      id: json['id'] as String? ?? json['_id'] as String,
+      id: json['id'] as String? ?? json['_id'] as String? ?? '',
       name: _localizedMap(json['name']),
       description: json['description'] as String?,
       durationMinutes:

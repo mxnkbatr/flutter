@@ -29,8 +29,10 @@ class ShopProductDetailScreen extends ConsumerWidget {
     final bottom = MediaQuery.of(context).padding.bottom;
 
     return PremiumLayeredScaffold(
-      title: product?.name ?? 'Бараа',
+      subtitle: 'Дэлгүүр',
+      title: 'Бараа',
       showBackButton: true,
+      useNativeNavBar: true,
       expandBody: true,
       bottomBar: product != null && product.stock > 0
           ? Container(
@@ -91,22 +93,9 @@ class ShopProductDetailScreen extends ConsumerWidget {
           ),
         ),
         data: (p) => ListView(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, bottom + 100),
+          padding: EdgeInsets.fromLTRB(20, 4, 20, bottom + 100),
           children: [
-            Container(
-              decoration: MinimalStyle.card(radius: MinimalStyle.cardRadiusLg),
-              clipBehavior: Clip.antiAlias,
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: p.image.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: p.image,
-                        fit: BoxFit.cover,
-                        errorWidget: (_, __, ___) => _imagePlaceholder(),
-                      )
-                    : _imagePlaceholder(),
-              ),
-            ),
+            _ProductHeroImage(product: p),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -117,32 +106,46 @@ class ShopProductDetailScreen extends ConsumerWidget {
                 children: [
                   Row(
                     children: [
-                      CategoryChip(
-                        label: p.category,
-                        isSelected: true,
-                        onTap: () {},
-                      ),
+                      _CategoryTag(label: p.category),
                       const Spacer(),
                       _StockBadge(stock: p.stock),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   Text(
                     p.name,
                     style: AppText.h2.copyWith(
-                      fontSize: 22,
+                      fontSize: 21,
                       fontWeight: FontWeight.w700,
-                      height: 1.25,
+                      height: 1.3,
+                      letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '₮${_fmt(p.price)}',
-                    style: AppText.price.copyWith(
-                      fontSize: 26,
-                      color: AppColors.orange,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '₮${_fmt(p.price)}',
+                        style: AppText.price.copyWith(
+                          fontSize: 28,
+                          color: AppColors.orange,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'MNT',
+                          style: AppText.caption.copyWith(
+                            color: AppColors.textHint,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -199,14 +202,158 @@ class ShopProductDetailScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  Widget _imagePlaceholder() {
+class _ProductHeroImage extends StatelessWidget {
+  const _ProductHeroImage({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      color: AppColors.orangeLight,
-      child: Icon(
-        Icons.storefront_outlined,
-        size: 56,
-        color: AppColors.orange.withOpacity(0.35),
+      decoration: MinimalStyle.card(radius: MinimalStyle.cardRadiusLg),
+      clipBehavior: Clip.antiAlias,
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: product.image.isNotEmpty
+            ? CachedNetworkImage(
+                imageUrl: product.image,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => _ProductImagePlaceholder(
+                  category: product.category,
+                  loading: true,
+                ),
+                errorWidget: (_, __, ___) => _ProductImagePlaceholder(
+                  category: product.category,
+                ),
+              )
+            : _ProductImagePlaceholder(category: product.category),
+      ),
+    );
+  }
+}
+
+class _ProductImagePlaceholder extends StatelessWidget {
+  const _ProductImagePlaceholder({
+    required this.category,
+    this.loading = false,
+  });
+
+  final String category;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = CategoryChip.iconFor(category);
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.orangeLight,
+            AppColors.orangeLight.withOpacity(0.55),
+            AppColors.creamBg,
+          ],
+        ),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Positioned(
+            top: -24,
+            right: -24,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.orange.withOpacity(0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -16,
+            left: -16,
+            child: Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.orange.withOpacity(0.05),
+              ),
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.88),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.orange.withOpacity(0.12),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(22),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: AppColors.orange,
+                        ),
+                      )
+                    : Icon(
+                        icon,
+                        size: 34,
+                        color: AppColors.orange.withOpacity(0.75),
+                      ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                loading ? 'Зураг ачаалж байна...' : 'Зураг байхгүй',
+                style: AppText.caption.copyWith(
+                  color: AppColors.textSec,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryTag extends StatelessWidget {
+  const _CategoryTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.orangeLight,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.orange.withOpacity(0.2)),
+      ),
+      child: Text(
+        label,
+        style: AppText.caption.copyWith(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.orangeDeep,
+        ),
       ),
     );
   }

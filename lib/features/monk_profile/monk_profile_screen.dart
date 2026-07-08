@@ -12,7 +12,9 @@ import 'package:sacred_app/core/theme/app_gradients.dart';
 
 import 'package:sacred_app/core/theme/app_text.dart';
 
+import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/features/home/models/monk.dart';
 
 import 'package:sacred_app/core/utils/formatters.dart';
 
@@ -101,20 +103,32 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
 
   Future<void> _bookMonk(Monk monk) async {
-
-    final ok = await TierGating.checkMonkAccess(context, ref, monk);
-
-    if (ok && mounted) {
-
-      context.go('/booking/${widget.monkId}');
-
+    if (!monk.canBook) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Энэ лам одоогоор захиалга хүлээн авахгүй байна.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
     }
 
+    final ok = await TierGating.checkMonkAccess(context, ref, monk);
+    if (ok && mounted) {
+      context.go('/booking/${widget.monkId}');
+    }
   }
 
-
-
   Future<void> _bookService(Monk monk, String serviceId) async {
+    if (!monk.canBook) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Энэ лам одоогоор захиалга хүлээн авахгүй байна.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
 
     final ok = await TierGating.checkMonkAccess(context, ref, monk);
 
@@ -130,10 +144,17 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
   Future<void> _messageMonk(Monk monk) async {
     try {
-      final convoId = await startConversation(ref, widget.monkId);
+      final result = await startConversation(ref, widget.monkId);
       if (!mounted) return;
-      final title = Uri.encodeComponent(monk.displayName);
-      context.push('/messenger/$convoId?title=$title');
+      if (result.id.isEmpty) {
+        throw Exception('Чат эхлүүлэхэд алдаа гарлаа');
+      }
+      final title = result.monkName.trim().isNotEmpty
+          ? result.monkName
+          : monk.displayName;
+      context.push(
+        '/messenger/${result.id}?title=${Uri.encodeComponent(title)}',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -22,6 +22,7 @@ class PendingCallLaunch {
   final bool directJoin;
 
   Map<String, String> toJson() => {
+        'type': directJoin ? 'call_time' : 'incoming_call',
         'bookingId': bookingId,
         'role': role,
         'callerName': callerName,
@@ -30,12 +31,16 @@ class PendingCallLaunch {
       };
 
   factory PendingCallLaunch.fromJson(Map<String, dynamic> json) {
+    final type = json['type'] as String?;
+    final directJoin = json['directJoin'] == true ||
+        json['directJoin'] == 'true' ||
+        type == 'call_time';
     return PendingCallLaunch(
       bookingId: json['bookingId'] as String? ?? '',
       role: json['role'] as String? ?? 'client',
       callerName: json['callerName'] as String? ?? '',
       callerImage: json['callerImage'] as String? ?? '',
-      directJoin: json['directJoin'] == true || json['directJoin'] == 'true',
+      directJoin: directJoin,
     );
   }
 }
@@ -100,7 +105,13 @@ class LocalNotificationService {
       final map = jsonDecode(payload) as Map<String, dynamic>;
       final type = map['type'] as String?;
       if (type == 'incoming_call' || type == 'call_time') {
-        final pending = PendingCallLaunch.fromJson(map);
+        final pending = PendingCallLaunch(
+          bookingId: map['bookingId'] as String? ?? '',
+          role: map['role'] as String? ?? 'client',
+          callerName: map['callerName'] as String? ?? '',
+          callerImage: map['callerImage'] as String? ?? '',
+          directJoin: true,
+        );
         _storePending(pending);
         onCallNotificationTap?.call(pending);
         return;
@@ -109,6 +120,17 @@ class LocalNotificationService {
     } catch (e) {
       if (kDebugMode) debugPrint('Notification tap parse error: $e');
     }
+  }
+
+  static Future<void> storeIncomingCallOverlay(PendingCallLaunch pending) async {
+    await _storePending(
+      PendingCallLaunch(
+        bookingId: pending.bookingId,
+        role: pending.role,
+        callerName: pending.callerName,
+        callerImage: pending.callerImage,
+      ),
+    );
   }
 
   static Future<void> _storePending(PendingCallLaunch pending) async {
@@ -140,15 +162,21 @@ class LocalNotificationService {
     await initialize();
     if (bookingId.isEmpty) return;
 
-    final payload = jsonEncode(
-      PendingCallLaunch(
-        bookingId: bookingId,
-        role: role,
-        callerName: callerName,
-        callerImage: callerImage,
-        directJoin: directJoin,
-      ).toJson(),
+    final pending = PendingCallLaunch(
+      bookingId: bookingId,
+      role: role,
+      callerName: callerName,
+      callerImage: callerImage,
+      directJoin: directJoin,
     );
+    final payload = jsonEncode({
+      'type': directJoin ? 'call_time' : 'incoming_call',
+      ...pending.toJson(),
+    });
+
+    if (!directJoin) {
+      await storeIncomingCallOverlay(pending);
+    }
 
     const android = AndroidNotificationDetails(
       'incoming_calls',
@@ -162,6 +190,9 @@ class LocalNotificationService {
       autoCancel: false,
       visibility: NotificationVisibility.public,
       ticker: 'Дуудлага ирж байна',
+      playSound: true,
+      enableVibration: true,
+      audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
     );
 
     const ios = DarwinNotificationDetails(

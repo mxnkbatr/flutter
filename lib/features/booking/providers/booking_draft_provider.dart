@@ -108,3 +108,8 @@ final bookingDraftProvider =
 final bookingStepProvider = StateProvider<int>((ref) => 0);
 
 final bookingSubmittingProvider = StateProvider<bool>((ref) => false);
+
+/// Step 2 (date/time) sub-step:
+/// - false: user is choosing date, then must press Continue
+/// - true: user is choosing time slot
+final bookingDateConfirmedProvider = StateProvider<bool>((ref) => false);

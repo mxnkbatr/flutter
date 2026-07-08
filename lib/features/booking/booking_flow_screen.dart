@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
 import 'package:sacred_app/features/booking/widgets/confirmation_step.dart';
 import 'package:sacred_app/features/booking/widgets/date_time_selection_step.dart';
 import 'package:sacred_app/features/booking/widgets/service_selection_step.dart';
 import 'package:sacred_app/features/booking/widgets/step_indicator.dart';
+import 'package:sacred_app/features/home/models/monk.dart';
+import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
@@ -56,29 +59,64 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     ref.read(bookingStepProvider.notifier).state = 0;
     ref.read(bookingDraftProvider.notifier).reset(widget.monkId);
 
+    Monk monk;
     try {
-      final monk = await ref.read(monkDetailProvider(widget.monkId).future);
-      if (mounted) {
-        final ok = await TierGating.checkMonkAccess(context, ref, monk);
-        if (!ok) {
-          context.pop();
-          return;
-        }
+      monk = await ref.read(monkDetailProvider(widget.monkId).future);
+      if (!mounted) return;
+      final ok = await TierGating.checkMonkAccess(context, ref, monk);
+      if (!mounted) return;
+      if (!ok) {
+        context.pop();
+        return;
       }
     } catch (_) {
       if (mounted) context.pop();
       return;
     }
 
+    if (!monk.canBook) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Энэ лам одоогоор захиалга хүлээн авахгүй байна.'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+        context.pop();
+      }
+      return;
+    }
+
+    List<MonkService> services;
+    try {
+      services = await ref.read(monkServicesProvider(widget.monkId).future);
+    } catch (_) {
+      if (mounted) context.pop();
+      return;
+    }
+
+    if (services.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Энэ лам үйлчилгээ нэмээгүй байна.'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+        context.pop();
+      }
+      return;
+    }
+
     if (widget.initialServiceId != null) {
-      final services =
-          await ref.read(monkServicesProvider(widget.monkId).future);
       for (final service in services) {
         if (service.id == widget.initialServiceId) {
           ref.read(bookingDraftProvider.notifier).setService(service);
           break;
         }
       }
+    } else if (services.length == 1) {
+      ref.read(bookingDraftProvider.notifier).setService(services.first);
     }
 
     if (widget.initialDate != null) {
@@ -94,14 +132,12 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
           .setSlot(Uri.decodeComponent(widget.initialSlot!));
     }
 
-    var startStep = 0;
     final draft = ref.read(bookingDraftProvider);
-    if (draft.service != null) startStep = 1;
-    if (draft.service != null && draft.date != null && draft.slot != null) {
-      startStep = 2;
-    } else if (draft.service != null && draft.date != null) {
-      startStep = 1;
-    }
+    final startStep = draft.isComplete
+        ? 2
+        : draft.service != null
+            ? 1
+            : 0;
 
     if (startStep > 0) {
       ref.read(bookingStepProvider.notifier).state = startStep;
@@ -126,10 +162,11 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   Widget build(BuildContext context) {
     final step = ref.watch(bookingStepProvider);
     final draft = ref.watch(bookingDraftProvider);
+    final dateConfirmed = ref.watch(bookingDateConfirmedProvider);
     final isLastStep = step == 2;
     final canGoNext = switch (step) {
       0 => draft.canProceedStep1,
-      1 => draft.canProceedStep2,
+      1 => dateConfirmed ? (draft.date != null && draft.slot != null) : (draft.date != null),
       _ => false,
     };
 
@@ -162,6 +199,17 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                   onTap: canGoNext
                       ? () {
                           HapticFeedback.lightImpact();
+                          if (step == 1) {
+                            // Step 2 is a 2-phase flow: pick date -> Continue -> pick time.
+                            final confirmed =
+                                ref.read(bookingDateConfirmedProvider);
+                            if (!confirmed) {
+                              ref
+                                  .read(bookingDateConfirmedProvider.notifier)
+                                  .state = true;
+                              return;
+                            }
+                          }
                           _goToStep(step + 1);
                         }
                       : null,

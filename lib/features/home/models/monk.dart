@@ -16,7 +16,8 @@ class Monk {
     this.bio,
     this.bioLocalized,
     this.completedBookings = 0,
-    this.isOnline = false,
+    this.    isOnline = false,
+    this.status = 'active',
   });
 
   final String id;
@@ -34,6 +35,9 @@ class Monk {
   final Map<String, String>? bioLocalized;
   final int completedBookings;
   final bool isOnline;
+  final String status;
+
+  bool get canBook => status == 'active' && isAvailable;
 
   String get displayName => name['mn'] ?? name['en'] ?? name.values.first;
 
@@ -57,7 +61,7 @@ class Monk {
   factory Monk.fromJson(Map<String, dynamic> json) {
     final rawImage = json['image'] as String? ?? json['avatarUrl'] as String?;
     return Monk(
-      id: json['id'] as String? ?? json['_id'] as String,
+      id: json['id'] as String? ?? json['_id'] as String? ?? '',
       name: _localizedMap(json['name']),
       title: json['title'] != null ? _localizedMap(json['title']) : null,
       image: rawImage != null && rawImage.isNotEmpty
@@ -84,6 +88,7 @@ class Monk {
           json['bookingCount'] as int? ??
           0,
       isOnline: json['isOnline'] as bool? ?? false,
+      status: json['status'] as String? ?? 'active',
     );
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -36,11 +37,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _sending = false;
   bool _refreshingMessages = false;
   Timer? _pollTimer;
+  int _lastMessageCount = 0;
 
-  String get _initial =>
-      widget.title.isNotEmpty ? widget.title[0].toUpperCase() : '?';
+  String get _initial {
+    final trimmed = widget.title.trim();
+    if (trimmed.isEmpty) return '?';
+    return String.fromCharCode(trimmed.runes.first).toUpperCase();
+  }
 
-  String get _roleLabel {
+  String _roleLabel() {
+    final role = ref.read(authStateProvider).valueOrNull?.role;
+    if (role == 'monk') return 'Хэрэглэгч';
     final t = widget.title.toLowerCase();
     if (t.contains('дэмжлэг')) return 'Дэмжлэг';
     return 'Лам';
@@ -58,8 +65,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     if (_refreshingMessages || !mounted) return;
     _refreshingMessages = true;
     try {
-      ref.invalidate(messagesProvider(widget.conversationId));
-      await ref.read(messagesProvider(widget.conversationId).future);
+      final _ = await ref.refresh(messagesProvider(widget.conversationId).future);
     } catch (_) {
     } finally {
       _refreshingMessages = false;
@@ -118,6 +124,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.conversationId.trim().isEmpty) {
+      return PremiumLayeredScaffold(
+        expandBody: true,
+        headerContent: _ChatHeader(
+          initial: '?',
+          name: widget.title,
+          role: _roleLabel(),
+          onBack: () => context.pop(),
+        ),
+        body: ErrorState(
+          error: Exception('Чат олдсонгүй'),
+          fallback: 'Чат олдсонгүй.',
+          onRetry: () => context.pop(),
+        ),
+      );
+    }
+
     final messagesAsync = ref.watch(messagesProvider(widget.conversationId));
     final bottom = MediaQuery.of(context).padding.bottom;
 
@@ -126,13 +149,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       headerContent: _ChatHeader(
         initial: _initial,
         name: widget.title,
-        role: _roleLabel,
+        role: _roleLabel(),
         onBack: () => context.pop(),
       ),
       body: Column(
         children: [
           Expanded(
             child: messagesAsync.when(
+              skipLoadingOnReload: true,
               loading: () => const Center(
                 child: CircularProgressIndicator(color: AppColors.orange),
               ),
@@ -144,7 +168,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
               data: (messages) {
                 if (messages.isEmpty) return _emptyChat();
-                _scrollToBottom();
+                if (messages.length != _lastMessageCount) {
+                  _lastMessageCount = messages.length;
+                  _scrollToBottom();
+                }
                 return ListView.builder(
                   controller: _scrollCtrl,
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
@@ -253,7 +280,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              '$_roleLabel ${widget.title}-тай\nэхний мессежээ бичээрэй',
+              '${_roleLabel()} ${widget.title}-тай\nэхний мессежээ бичээрэй',
               style: AppText.bodySmall.copyWith(color: AppColors.textSec),
               textAlign: TextAlign.center,
             ),

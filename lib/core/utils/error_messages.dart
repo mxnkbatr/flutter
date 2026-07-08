@@ -25,6 +25,9 @@ String formatUserError(
     if (code == 404) {
       return 'Мэдээлэл олдсонгүй.';
     }
+    if (code == 409) {
+      return 'Энэ цаг аль хэдийн захиалагдсан байна.\nӨөр цаг сонгоно уу.';
+    }
 
     final data = error.response?.data;
     if (data is Map) {

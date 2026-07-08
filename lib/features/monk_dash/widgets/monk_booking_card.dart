@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_booking_item.dart';
 import 'package:sacred_app/features/monk_dash/widgets/small_btn.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
@@ -26,10 +28,23 @@ class MonkBookingCard extends ConsumerWidget {
     }
   }
 
+  String _dateLabel(String? date) {
+    if (date == null || date.isEmpty) return '';
+    try {
+      final ymd = date.length >= 10 ? date.substring(0, 10) : date;
+      final dt = AppTimezone.parseDateOnly(ymd);
+      return DateFormat('M сарын d').format(dt);
+    } catch (_) {
+      return date;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final canJoinCall =
         booking.status == 'confirmed' && booking.paid == true;
+    final inWindow = canJoinCall &&
+        AppTimezone.isInCallWindow(booking.date, booking.slot);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: SacredCard(
@@ -39,9 +54,15 @@ class MonkBookingCard extends ConsumerWidget {
             Column(
               children: [
                 Text(booking.slot, style: AppText.h3),
+                if (_dateLabel(booking.date).isNotEmpty)
+                  Text(
+                    _dateLabel(booking.date),
+                    style: AppText.caption.copyWith(color: AppColors.textSec),
+                  ),
+                const SizedBox(height: 4),
                 Container(
                   width: 2,
-                  height: 32,
+                  height: 28,
                   color: _statusColor(booking.status),
                 ),
               ],
@@ -51,8 +72,24 @@ class MonkBookingCard extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(booking.clientName, style: AppText.body),
+                  Text(
+                    booking.clientName.isNotEmpty
+                        ? booking.clientName
+                        : 'Хэрэглэгч',
+                    style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                  ),
                   Text(booking.serviceName, style: AppText.bodySmall),
+                  if (inWindow)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '● Одоо видео дуудлагад орох боломжтой',
+                        style: AppText.caption.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -63,9 +100,9 @@ class MonkBookingCard extends ConsumerWidget {
                 if (canJoinCall) ...[
                   const SizedBox(height: 8),
                   SmallBtn(
-                    label: 'Дуудлага эхлэх',
-                    color: AppColors.goldPrime,
-                    textColor: AppColors.inkDeep,
+                    label: inWindow ? 'Орох' : 'Дуудлага',
+                    color: inWindow ? AppColors.success : AppColors.goldPrime,
+                    textColor: inWindow ? Colors.white : AppColors.inkDeep,
                     onTap: () =>
                         context.go('/call/${booking.id}?role=monk'),
                   ),

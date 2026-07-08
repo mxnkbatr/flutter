@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { AccessToken } from 'livekit-server-sdk';
 import {
@@ -96,6 +97,16 @@ function mapName(obj) {
   const name = obj.name instanceof Map ? Object.fromEntries(obj.name) : obj.name;
   const title = obj.title instanceof Map ? Object.fromEntries(obj.title) : obj.title;
   return { ...obj.toObject?.() ?? obj, name, title };
+}
+
+function monkDisplayName(monk) {
+  if (!monk) return '';
+  const mapped = mapName(monk);
+  const n = mapped.name;
+  if (typeof n === 'string') return n;
+  if (n?.mn) return n.mn;
+  if (n?.en) return n.en;
+  return '';
 }
 
 function monkJson(m) {
@@ -324,7 +335,7 @@ app.delete('/api/admin/categories/:id', authRequired, adminRequired, async (req,
 // ─── Monks ───
 app.get('/api/monks', async (req, res) => {
   try {
-    let query = { status: { $in: ['active', 'pending'] } };
+    let query = { status: 'active' };
     if (req.query.category) {
       query.categories = req.query.category;
     }
@@ -536,12 +547,12 @@ app.post('/api/bookings', authRequired, async (req, res) => {
     const monk = await Monk.findById(monkId);
     if (!monk) return res.status(404).json({ error: 'Monk not found' });
     if (monk.status !== 'active') {
-      return res.status(403).json({ error: 'Monk is not available' });
+      return res.status(403).json({ error: 'Энэ лам одоогоор захиалга хүлээн авахгүй байна' });
     }
 
     const dateStr = date?.slice(0, 10);
     if (!dateStr || !slot) {
-      return res.status(400).json({ error: 'Date and slot are required' });
+      return res.status(400).json({ error: 'Огноо болон цаг заавал шаардлагатай' });
     }
 
     const { slots, bookedSlots } = await getSlotsForDate(
@@ -550,18 +561,34 @@ app.post('/api/bookings', authRequired, async (req, res) => {
       dateStr,
     );
     if (!slots.includes(slot)) {
-      return res.status(400).json({ error: 'Invalid time slot' });
+      return res.status(400).json({ error: 'Сонгосон цаг боломжгүй байна' });
     }
     if (bookedSlots.includes(slot)) {
-      return res.status(409).json({ error: 'Time slot already booked' });
+      return res.status(409).json({ error: 'Энэ цаг аль хэдийн захиалагдсан байна' });
     }
     if (isPastSlot(dateStr, slot)) {
       return res.status(400).json({ error: 'Энэ цаг өнгөрсөн байна' });
     }
 
-    const svcIdx = serviceId?.split('_svc_')[1];
-    const service = svcIdx != null ? monk.services[Number(svcIdx)] : monk.services[0];
-    if (!service) return res.status(400).json({ error: 'Service not found' });
+    let service = null;
+    if (serviceId?.includes('_svc_')) {
+      const svcIdx = Number(serviceId.split('_svc_')[1]);
+      if (!Number.isNaN(svcIdx) && monk.services?.[svcIdx]) {
+        service = monk.services[svcIdx];
+      }
+    }
+    if (!service) {
+      return res.status(400).json({ error: 'Үйлчилгээ олдсонгүй' });
+    }
+
+    const serviceNameRaw = service.name;
+    const serviceName =
+      typeof serviceNameRaw === 'string'
+        ? serviceNameRaw
+        : serviceNameRaw?.mn ||
+          serviceNameRaw?.get?.('mn') ||
+          serviceNameRaw?.en ||
+          'Үйлчилгээ';
 
     const basePrice = service.price || 0;
     const tier = effectiveTier(req.user);
@@ -574,7 +601,7 @@ app.post('/api/bookings', authRequired, async (req, res) => {
       clientId: req.user._id,
       monkId: monk._id,
       serviceId,
-      serviceName: service?.name || 'Үйлчилгээ',
+      serviceName,
       date: dateStr,
       slot,
       amount: finalAmount,
@@ -1618,6 +1645,9 @@ app.get('/api/monk/salary', authRequired, async (req, res) => {
 
 // ─── Messenger ───
 async function conversationAccess(conversationId, user) {
+  if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+    return { error: 'Not found', status: 404 };
+  }
   const convo = await Conversation.findById(conversationId).lean();
   if (!convo) return { error: 'Not found', status: 404 };
 
@@ -1650,7 +1680,7 @@ app.get('/api/messenger/conversations', authRequired, async (req, res) => {
     result.push({
       id: c._id.toString(),
       monkId: c.monkId?.toString(),
-      monkName: monk?.name?.get?.('mn') || monk?.name?.mn || '',
+      monkName: monkDisplayName(monk),
       monkImage: monk?.image,
       clientName: other?.name,
       lastMessage: c.lastMessage,
@@ -1730,8 +1760,11 @@ app.post('/api/messenger/conversations', authRequired, async (req, res) => {
       monkId: monk._id,
       monkUserId: monk.userId,
     });
+  } else if (!convo.monkUserId && monk.userId) {
+    convo.monkUserId = monk.userId;
+    await convo.save();
   }
-  res.json({ id: convo._id.toString() });
+  res.json({ id: convo._id.toString(), monkName: monkDisplayName(monk) });
 });
 
 // ─── Admin (simplified) ───
@@ -2466,7 +2499,13 @@ app.put('/api/admin/products/:id', authRequired, async (req, res) => {
 app.delete('/api/admin/products/:id', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-    await Product.findByIdAndUpdate(req.params.id, { isActive: false });
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (force) {
+      await Product.deleteOne({ _id: req.params.id });
+    } else {
+      // Soft delete: hide from shop
+      await Product.findByIdAndUpdate(req.params.id, { isActive: false });
+    }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

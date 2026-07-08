@@ -12,7 +12,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) {
     debugPrint('FCM background: ${message.data}');
   }
-  // FCM already shows a system notification when `notification` payload is set.
+
+  final type = message.data['type'] as String?;
+  if (type == 'incoming_call' || type == 'call_time') {
+    await LocalNotificationService.showFromRemoteData(message.data);
+    return;
+  }
+
   if (message.notification != null) return;
   await LocalNotificationService.showFromRemoteData(message.data);
 }

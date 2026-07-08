@@ -56,18 +56,18 @@ class _AdminCategoriesScreenState extends ConsumerState<AdminCategoriesScreen> {
   Future<void> _delete(AdminCategory cat) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Ангилал устгах уу?'),
         content: Text(
           '"${cat.name}" ангиллыг устгахад ламнуудын профайлаас хасагдана.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Үгүй'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Устгах', style: TextStyle(color: AppColors.danger)),
           ),
         ],

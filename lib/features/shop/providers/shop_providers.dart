@@ -112,8 +112,15 @@ Future<void> adminUpdateProduct(
   ref.invalidate(productsProvider);
 }
 
-Future<void> adminDeleteProduct(WidgetRef ref, String id) async {
-  await ref.read(apiClientProvider).delete('/admin/products/$id');
+Future<void> adminDeleteProduct(
+  WidgetRef ref,
+  String id, {
+  bool force = true,
+}) async {
+  await ref.read(apiClientProvider).delete(
+        '/admin/products/$id',
+        queryParameters: force ? {'force': '1'} : null,
+      );
   ref.invalidate(adminProductsProvider);
   ref.invalidate(productsProvider);
 }

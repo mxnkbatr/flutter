@@ -59,16 +59,16 @@ class _UserCard extends ConsumerWidget {
     final label = user.isActive ? 'хаах' : 'нээх';
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: Text('Хэрэглэгч $label уу?'),
         content: Text(user.name),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Болих'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(
               foregroundColor: user.isActive ? AppColors.danger : AppColors.success,
             ),
@@ -119,16 +119,16 @@ class _UserCard extends ConsumerWidget {
 
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Хэрэглэгч устгах уу?'),
         content: Text('${user.name} (${user.email}) бүртгэл бүрмөсөн устгагдана.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Болих'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: const Text('Устгах'),
           ),

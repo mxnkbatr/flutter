@@ -12,11 +12,12 @@ class ChatMessage {
   final String? createdAt;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final rawId = json['id'] ?? json['_id'];
     return ChatMessage(
-      id: json['id'] as String? ?? json['_id'] as String,
-      text: json['text'] as String? ?? '',
+      id: rawId?.toString() ?? '',
+      text: json['text']?.toString() ?? '',
       isMine: json['isMine'] as bool? ?? false,
-      createdAt: json['createdAt'] as String?,
+      createdAt: json['createdAt']?.toString(),
     );
   }
 }

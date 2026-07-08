@@ -53,7 +53,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   static const _storage = FlutterSecureStorage();
   static const _tokenKey = 'sacred_jwt_token';
   final _devAuth = DevAuthStore();
+  bool _loggingOut = false;
 
+  bool get isLoggingOut => _loggingOut;
   bool get _useDevAuth => shouldUseDevAuth;
 
   bool _isConnectionError(DioException e) =>
@@ -94,10 +96,26 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final authState = _authStateFromUser(data, token);
       await _persistTier(authState);
       return authState;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await _storage.delete(key: _tokenKey);
+        await TierCache.clear();
+        return const AuthState();
+      }
+      return await _offlineAuthState(token);
     } catch (_) {
-      await _storage.delete(key: _tokenKey);
-      return const AuthState();
+      return await _offlineAuthState(token);
     }
+  }
+
+  Future<AuthState> _offlineAuthState(String token) async {
+    final cached = await TierCache.load();
+    return AuthState(
+      isAuthenticated: true,
+      token: token,
+      tier: cached?.tier ?? 'free',
+      tierExpiresAt: cached?.expiresAt,
+    );
   }
 
   Future<void> login(String email, String password) async {
@@ -134,10 +152,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     final token = data['token'] as String;
     final user = data['user'] as Map<String, dynamic>;
     await _storage.write(key: _tokenKey, value: token);
-    scheduleSessionClear(ref);
     final authState = _authStateFromUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
+    scheduleSessionClear(ref);
   }
 
   Future<void> _loginViaDevAuth(String email, String password) async {
@@ -151,10 +169,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     }
     final token = _devAuth.tokenFor(user);
     await _storage.write(key: _tokenKey, value: token);
-    scheduleSessionClear(ref);
     final authState = _authStateFromDevUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
+    scheduleSessionClear(ref);
   }
 
   Future<void> signup(String email, String password, String name) async {
@@ -171,10 +189,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
           final token = data['token'] as String;
           final user = data['user'] as Map<String, dynamic>;
           await _storage.write(key: _tokenKey, value: token);
-          scheduleSessionClear(ref);
           final authState = _authStateFromUser(user, token);
           await _persistTier(authState);
           state = AsyncData(authState);
+          scheduleSessionClear(ref);
           return;
         } on DioException catch (e) {
           if (ApiConfig.preferDevAuth &&
@@ -190,10 +208,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final user = await _devAuth.signup(email, password, name);
       final token = _devAuth.tokenFor(user);
       await _storage.write(key: _tokenKey, value: token);
-      scheduleSessionClear(ref);
       final authState = _authStateFromDevUser(user, token);
       await _persistTier(authState);
       state = AsyncData(authState);
+      scheduleSessionClear(ref);
     } catch (e, st) {
       state = AsyncError<AuthState>(e, st).copyWithPrevious(previous);
     }
@@ -238,18 +256,25 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    if (_loggingOut) return;
+    _loggingOut = true;
     try {
       if (isFirebaseReady && state.valueOrNull?.isAuthenticated == true) {
-        await ref.read(apiClientProvider).put(
-              '/users/profile',
-              data: {'fcmToken': ''},
-            );
+        try {
+          await ref.read(apiClientProvider).put(
+                '/users/profile',
+                data: {'fcmToken': ''},
+                options: Options(extra: {'skipAuthLogout': true}),
+              );
+        } catch (_) {}
       }
-    } catch (_) {}
-    await _storage.delete(key: _tokenKey);
-    await TierCache.clear();
-    state = const AsyncData(AuthState());
-    scheduleSessionClear(ref);
+    } finally {
+      await _storage.delete(key: _tokenKey);
+      await TierCache.clear();
+      state = const AsyncData(AuthState());
+      scheduleSessionClear(ref);
+      _loggingOut = false;
+    }
   }
 }
 

@@ -123,16 +123,16 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
   ) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Бараа устгах уу?'),
         content: Text(product.name),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Болих'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: const Text('Устгах'),
           ),
@@ -141,7 +141,8 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
     );
     if (ok == true) {
       try {
-        await adminDeleteProduct(ref, product.id);
+        // Force delete from admin panel (not just hide in shop)
+        await adminDeleteProduct(ref, product.id, force: true);
         if (context.mounted) {
           showAppSnackBar(
             context,

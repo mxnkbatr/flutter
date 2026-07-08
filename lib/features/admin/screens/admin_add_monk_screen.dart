@@ -56,7 +56,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
     _ServiceDraft(
       name: 'Чулуут цаг',
       description: 'Чулуут цагийн үйлчилгээ',
-      durationMinutes: 60,
+      durationMinutes: 30,
       price: 80000,
       category: 'Тахилга',
     ),

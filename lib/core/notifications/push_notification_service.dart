@@ -111,16 +111,7 @@ class PushNotificationService {
       await LocalNotificationService.initialize();
 
       LocalNotificationService.onCallNotificationTap = (pending) {
-        if (pending.directJoin) {
-          CallLaunchService.handlePendingLaunch(ref);
-          return;
-        }
-        ref.read(incomingCallProvider.notifier).state = IncomingCallState(
-          callerName: pending.callerName,
-          callerImage: pending.callerImage,
-          bookingId: pending.bookingId,
-          recipientRole: pending.role,
-        );
+        CallLaunchService.handlePendingLaunch(ref);
       };
 
       LocalNotificationService.onGeneralNotificationTap = (data) {
@@ -302,8 +293,30 @@ class PushNotificationService {
 
   static void _handleOpenedMessage(Map<String, dynamic> data, WidgetRef ref) {
     ref.read(notificationsProvider.notifier).refresh().catchError((_) {});
+
+    final type = data['type'] as String?;
+    if ((type == 'incoming_call' || type == 'call_time') &&
+        data['bookingId'] != null) {
+      _openCallFromPush(data, ref);
+      return;
+    }
+
     _markReadFromData(data, ref);
     _navigateFromData(data, ref);
+  }
+
+  static void _openCallFromPush(Map<String, dynamic> data, WidgetRef ref) {
+    final bookingId = data['bookingId'] as String? ?? '';
+    if (bookingId.isEmpty) return;
+
+    final auth = ref.read(authStateProvider).valueOrNull;
+    final role = data['recipientRole'] as String? ??
+        auth?.role ??
+        'client';
+
+    LocalNotificationService.cancelIncomingCall(bookingId);
+    ref.read(incomingCallProvider.notifier).state = null;
+    ref.read(appRouterProvider).go('/call/$bookingId?role=$role');
   }
 
   static void _markReadFromData(Map<String, dynamic> data, WidgetRef ref) {
@@ -348,6 +361,17 @@ class PushNotificationService {
 
     if (type == 'promo') {
       router.go('/home');
+      return;
+    }
+
+    if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
+      final auth = ref.read(authStateProvider).valueOrNull;
+      final role = data['recipientRole'] as String? ??
+          auth?.role ??
+          'client';
+      LocalNotificationService.cancelIncomingCall(bookingId);
+      ref.read(incomingCallProvider.notifier).state = null;
+      router.go('/call/$bookingId?role=$role');
     }
   }
 
@@ -361,13 +385,7 @@ class PushNotificationService {
         auth?.role ??
         'client';
     final bookingId = data['bookingId'] as String? ?? '';
-
-    if (type == 'call_time') {
-      ref.read(appRouterProvider).go(
-            '/call/$bookingId?role=$recipientRole',
-          );
-      return;
-    }
+    final isScheduled = type == 'call_time';
 
     final existing = ref.read(incomingCallProvider);
     if (existing?.bookingId == bookingId) return;
@@ -375,15 +393,17 @@ class PushNotificationService {
     ref.read(incomingCallProvider.notifier).state = IncomingCallState(
       callerName: data['callerName'] as String? ?? 'Хэрэглэгч',
       callerImage: data['callerImage'] as String? ?? '',
-      bookingId: data['bookingId'] as String? ?? '',
+      bookingId: bookingId,
       recipientRole: recipientRole,
+      isScheduledStart: isScheduled,
     );
 
     LocalNotificationService.showIncomingCall(
-      bookingId: data['bookingId'] as String? ?? '',
+      bookingId: bookingId,
       callerName: data['callerName'] as String? ?? 'Хэрэглэгч',
       callerImage: data['callerImage'] as String? ?? '',
       role: recipientRole,
+      directJoin: false,
     );
   }
 }

@@ -32,7 +32,7 @@ dependencies:
   # Push notifications
   firebase_core: ^3.8.0
   firebase_messaging: ^15.1.0
-  flutter_local_notifications: ^16.3.0
+  flutter_local_notifications: ^22.0.1
 
   # Media
   cached_network_image: ^3.3.0

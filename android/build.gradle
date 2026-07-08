@@ -24,6 +24,18 @@ subprojects {
     }
 }
 
+// Ensure Kotlin compilation uses the same JVM target as Java (17).
+// Do this in a plugin-safe way (some subprojects apply Kotlin later).
+subprojects { project ->
+    project.plugins.withId("org.jetbrains.kotlin.android") {
+        project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = JavaVersion.VERSION_17.toString()
+            }
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }

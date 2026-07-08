@@ -5,6 +5,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
 import 'package:sacred_app/features/admin/widgets/admin_booking_row.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 
 class AdminBookingsScreen extends ConsumerStatefulWidget {
   const AdminBookingsScreen({super.key});
@@ -28,8 +29,8 @@ class _AdminBookingsScreenState extends ConsumerState<AdminBookingsScreen> {
     final filter = ref.watch(adminBookingFilterProvider);
     final bookingsAsync = ref.watch(adminBookingsProvider(filter));
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Захиалгууд')),
+    return AdminPageScaffold(
+      title: 'Захиалгууд',
       body: Column(
         children: [
           SizedBox(

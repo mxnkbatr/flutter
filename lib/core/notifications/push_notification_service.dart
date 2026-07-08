@@ -15,11 +15,20 @@ import 'package:sacred_app/features/video_call/providers/incoming_call_provider.
 
 class PushNotificationService {
   static Timer? _devPollTimer;
+  static Timer? _fcmRetryTimer;
 
   /// iOS/Android notification permission — нэвтэрсний дараа эсвэл тохиргооноос дуудна.
   static Future<bool> requestNotificationPermission() async {
     if (!isFirebaseReady) return false;
     try {
+      final current = await FirebaseMessaging.instance.getNotificationSettings();
+      if (current.authorizationStatus == AuthorizationStatus.authorized ||
+          current.authorizationStatus == AuthorizationStatus.provisional) {
+        return true;
+      }
+      if (current.authorizationStatus == AuthorizationStatus.denied) {
+        return false;
+      }
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         sound: true,
@@ -27,23 +36,41 @@ class PushNotificationService {
       );
       return settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('FCM permission error: $e');
       return false;
     }
   }
 
+  static Future<void> _waitForApnsIfNeeded() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    for (var i = 0; i < 8; i++) {
+      final apns = await FirebaseMessaging.instance.getAPNSToken();
+      if (apns != null) return;
+      await Future<void>.delayed(const Duration(milliseconds: 750));
+    }
+  }
+
   /// Upload FCM token after login (backend uses PUT /users/profile).
-  static Future<bool> syncFcmToken(WidgetRef ref) async {
+  static Future<bool> syncFcmToken(WidgetRef ref, {int attempt = 0}) async {
     try {
-      if (!isFirebaseReady) return false;
+      if (!isFirebaseReady) {
+        debugPrint('FCM sync skipped: Firebase not ready');
+        return false;
+      }
       final auth = ref.read(authStateProvider).valueOrNull;
       if (auth == null || !auth.isAuthenticated) return false;
 
       await requestNotificationPermission();
+      await _waitForApnsIfNeeded();
 
-      final token = await FirebaseMessaging.instance.getToken();
+      var token = await FirebaseMessaging.instance.getToken();
+      if (token == null && attempt < 4) {
+        await Future<void>.delayed(Duration(seconds: 1 + attempt));
+        return syncFcmToken(ref, attempt: attempt + 1);
+      }
       if (token == null) {
-        if (kDebugMode) debugPrint('FCM: no token (Firebase not ready on this device)');
+        debugPrint('FCM: no token after ${attempt + 1} attempt(s)');
         return false;
       }
 
@@ -51,12 +78,28 @@ class PushNotificationService {
             '/users/profile',
             data: {'fcmToken': token},
           );
-      if (kDebugMode) debugPrint('FCM token saved: ${token.substring(0, 12)}...');
+      debugPrint('FCM token saved: ${token.substring(0, 12)}...');
       return true;
     } catch (e) {
-      if (kDebugMode) debugPrint('FCM token upload failed: $e');
+      debugPrint('FCM token upload failed (attempt ${attempt + 1}): $e');
+      if (attempt < 3) {
+        await Future<void>.delayed(Duration(seconds: 2 + attempt));
+        return syncFcmToken(ref, attempt: attempt + 1);
+      }
       return false;
     }
+  }
+
+  /// Auth бэлэн болоход хэд хэдэн удаа дахин оролдоно (release build-д ч ажиллана).
+  static void scheduleFcmSync(WidgetRef ref) {
+    _fcmRetryTimer?.cancel();
+    unawaited(syncFcmToken(ref));
+    _fcmRetryTimer = Timer(const Duration(seconds: 3), () {
+      unawaited(syncFcmToken(ref));
+    });
+    Timer(const Duration(seconds: 8), () {
+      unawaited(syncFcmToken(ref));
+    });
   }
 
   static Future<void> initialize(WidgetRef ref) async {
@@ -78,6 +121,11 @@ class PushNotificationService {
           bookingId: pending.bookingId,
           recipientRole: pending.role,
         );
+      };
+
+      LocalNotificationService.onGeneralNotificationTap = (data) {
+        _markReadFromData(data, ref);
+        _navigateFromData(data, ref);
       };
 
       if (!isFirebaseReady) return;
@@ -106,31 +154,32 @@ class PushNotificationService {
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((message) {
-        _handleMessage(
-          message.data,
-          ref,
-          foreground: false,
-          title: message.notification?.title,
-          body: message.notification?.body,
-        );
+        _handleOpenedMessage(message.data, ref);
       });
 
       final initial = await messaging.getInitialMessage();
       if (initial != null) {
-        _handleMessage(
-          initial.data,
-          ref,
-          foreground: false,
-          title: initial.notification?.title,
-          body: initial.notification?.body,
-        );
+        _handleOpenedMessage(initial.data, ref);
       }
 
       await CallLaunchService.handlePendingLaunch(ref);
       await CallLaunchService.checkActiveCallWindow(ref);
 
+      ref.listen(authStateProvider, (prev, next) {
+        final wasAuthed = prev?.valueOrNull?.isAuthenticated == true;
+        final isAuthed = next.valueOrNull?.isAuthenticated == true;
+        if (!wasAuthed && isAuthed) {
+          scheduleFcmSync(ref);
+        }
+      });
+
       if (authReady(ref)) {
-        await syncFcmToken(ref);
+        scheduleFcmSync(ref);
+      } else {
+        // Auth ачаалж дуустал хүлээгээд дахин оролдоно.
+        Timer(const Duration(seconds: 2), () {
+          if (authReady(ref)) scheduleFcmSync(ref);
+        });
       }
 
       if (kDebugMode) {
@@ -155,15 +204,19 @@ class PushNotificationService {
       final data = res.data;
       if (data is! Map<String, dynamic> || data['bookingId'] == null) return;
 
+      final bookingId = data['bookingId'] as String;
+      final existing = ref.read(incomingCallProvider);
+      if (existing?.bookingId == bookingId) return;
+
       if (kDebugMode) {
-        debugPrint('Dev incoming call: ${data['callerName']} → ${data['bookingId']}');
+        debugPrint('Dev incoming call: ${data['callerName']} → $bookingId');
       }
 
       _showIncomingCall({
         'type': 'incoming_call',
         'callerName': data['callerName'],
         'callerImage': data['callerImage'],
-        'bookingId': data['bookingId'],
+        'bookingId': bookingId,
         'recipientRole': data['recipientRole'] ?? 'client',
       }, ref);
     } catch (e) {
@@ -176,7 +229,7 @@ class PushNotificationService {
   }
 
   static Future<void> _onAppResumed(WidgetRef ref) async {
-    await syncFcmToken(ref);
+    scheduleFcmSync(ref);
     await CallLaunchService.handlePendingLaunch(ref);
     await CallLaunchService.checkActiveCallWindow(ref);
   }
@@ -195,9 +248,6 @@ class PushNotificationService {
 
     if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
       _showIncomingCall(data, ref);
-      if (!foreground) {
-        LocalNotificationService.showFromRemoteData(data);
-      }
       return;
     }
 
@@ -211,6 +261,7 @@ class PushNotificationService {
         );
       }
       if (!foreground) {
+        _markReadFromData(data, ref);
         _navigateFromData(data, ref);
       }
       return;
@@ -224,8 +275,8 @@ class PushNotificationService {
           body: body ?? '',
           payload: jsonEncode(data),
         );
-      }
-      if (!foreground) {
+      } else {
+        _markReadFromData(data, ref);
         _navigateFromData(data, ref);
       }
       return;
@@ -241,12 +292,24 @@ class PushNotificationService {
           body: body ?? '',
           payload: jsonEncode(data),
         );
-      }
-      if (!foreground) {
+      } else {
+        _markReadFromData(data, ref);
         _navigateFromData(data, ref);
       }
       return;
     }
+  }
+
+  static void _handleOpenedMessage(Map<String, dynamic> data, WidgetRef ref) {
+    ref.read(notificationsProvider.notifier).refresh().catchError((_) {});
+    _markReadFromData(data, ref);
+    _navigateFromData(data, ref);
+  }
+
+  static void _markReadFromData(Map<String, dynamic> data, WidgetRef ref) {
+    final id = data['notificationId'] as String?;
+    if (id == null || id.isEmpty) return;
+    ref.read(notificationsProvider.notifier).markReadFromPush(id).catchError((_) {});
   }
 
   static void _navigateFromData(Map<String, dynamic> data, WidgetRef ref) {
@@ -297,13 +360,17 @@ class PushNotificationService {
     final recipientRole = data['recipientRole'] as String? ??
         auth?.role ??
         'client';
+    final bookingId = data['bookingId'] as String? ?? '';
 
     if (type == 'call_time') {
       ref.read(appRouterProvider).go(
-            '/call/${data['bookingId']}?role=$recipientRole',
+            '/call/$bookingId?role=$recipientRole',
           );
       return;
     }
+
+    final existing = ref.read(incomingCallProvider);
+    if (existing?.bookingId == bookingId) return;
 
     ref.read(incomingCallProvider.notifier).state = IncomingCallState(
       callerName: data['callerName'] as String? ?? 'Хэрэглэгч',

@@ -26,6 +26,7 @@ class PremiumLayeredScaffold extends StatelessWidget {
     this.centerTitle = false,
     this.backIcon = Icons.arrow_back_ios_new_rounded,
     this.onBack,
+    this.canPop,
     this.expandBody = false,
     this.bottomBar,
     this.useNativeNavBar = false,
@@ -46,6 +47,8 @@ class PremiumLayeredScaffold extends StatelessWidget {
   final bool centerTitle;
   final IconData backIcon;
   final VoidCallback? onBack;
+  /// When false, system back invokes [onBack] / header back instead of popping.
+  final bool Function()? canPop;
   final bool expandBody;
   final Widget? bottomBar;
   /// Push screens: compact centered nav bar (Лам нар, Хайх…).
@@ -56,10 +59,31 @@ class PremiumLayeredScaffold extends StatelessWidget {
       HapticFeedback.lightImpact();
       if (onBack != null) {
         onBack!();
-      } else {
+      } else if (context.canPop()) {
         context.pop();
+      } else {
+        context.go('/home');
       }
     };
+  }
+
+  bool _handlesSystemBack() => showBackButton || onBack != null;
+
+  bool _resolveCanPop() {
+    if (canPop != null) return canPop!();
+    return true;
+  }
+
+  Widget _wrapPopScope(BuildContext context, Widget child) {
+    if (!_handlesSystemBack()) return child;
+
+    return PopScope(
+      canPop: _resolveCanPop(),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _backAction(context)();
+      },
+      child: child,
+    );
   }
 
   Widget? _buildBackButton(BuildContext context) {
@@ -137,7 +161,9 @@ class PremiumLayeredScaffold extends StatelessWidget {
     final top = MediaQuery.of(context).padding.top;
 
     if (expandBody) {
-      return Scaffold(
+      return _wrapPopScope(
+        context,
+        Scaffold(
         backgroundColor: AppColors.creamBg,
         floatingActionButton: fab,
         bottomNavigationBar: bottomBar,
@@ -166,6 +192,7 @@ class PremiumLayeredScaffold extends StatelessWidget {
             ),
           ],
         ),
+      ),
       );
     }
 
@@ -193,17 +220,20 @@ class PremiumLayeredScaffold extends StatelessWidget {
       ],
     );
 
-    return Scaffold(
-      backgroundColor: AppColors.creamBg,
-      floatingActionButton: fab,
-      bottomNavigationBar: bottomBar,
-      body: onRefresh == null
-          ? scrollView
-          : RefreshIndicator(
-              color: AppColors.orange,
-              onRefresh: onRefresh!,
-              child: scrollView,
-            ),
+    return _wrapPopScope(
+      context,
+      Scaffold(
+        backgroundColor: AppColors.creamBg,
+        floatingActionButton: fab,
+        bottomNavigationBar: bottomBar,
+        body: onRefresh == null
+            ? scrollView
+            : RefreshIndicator(
+                color: AppColors.orange,
+                onRefresh: onRefresh!,
+                child: scrollView,
+              ),
+      ),
     );
   }
 }

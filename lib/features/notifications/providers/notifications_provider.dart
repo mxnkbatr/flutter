@@ -9,18 +9,21 @@ final notificationsProvider =
 );
 
 final unreadNotificationsCountProvider = Provider<int>((ref) {
-  final async = ref.watch(notificationsProvider);
-  return async.maybeWhen(
-    data: (list) => list.where((n) => !n.isRead).length,
-    orElse: () => 0,
-  );
+  ref.watch(notificationsProvider);
+  return ref.watch(_unreadCountProvider);
 });
+
+final _unreadCountProvider = StateProvider<int>((ref) => 0);
 
 class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
   @override
   Future<List<AppNotification>> build() async {
-    final authed = ref.watch(authStateProvider).valueOrNull?.isAuthenticated == true;
-    if (!authed) return [];
+    final authed =
+        ref.watch(authStateProvider).valueOrNull?.isAuthenticated == true;
+    if (!authed) {
+      ref.read(_unreadCountProvider.notifier).state = 0;
+      return [];
+    }
 
     ref.listen(authStateProvider, (prev, next) {
       final wasAuthed = prev?.valueOrNull?.isAuthenticated == true;
@@ -33,14 +36,34 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
     return _fetch();
   }
 
+  Future<int> _fetchUnreadCount() async {
+    try {
+      final res = await ref.read(apiClientProvider).get('/notifications/unread-count');
+      final data = res.data;
+      if (data is Map<String, dynamic>) {
+        return (data['count'] as num?)?.toInt() ?? 0;
+      }
+      return 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> _syncUnreadCount() async {
+    final count = await _fetchUnreadCount();
+    ref.read(_unreadCountProvider.notifier).state = count;
+  }
+
   Future<List<AppNotification>> _fetch() async {
     try {
       final res = await ref.read(apiClientProvider).get('/notifications');
       final data = res.data;
       if (data is! List) return [];
-      return data
+      final list = data
           .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
           .toList();
+      await _syncUnreadCount();
+      return list;
     } catch (_) {
       return [];
     }
@@ -61,6 +84,22 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
       for (final n in state.valueOrNull ?? [])
         if (n.id == id) n.copyWith(isRead: true) else n,
     ]);
+    await _syncUnreadCount();
+  }
+
+  Future<void> markReadFromPush(String? id) async {
+    if (id == null || id.isEmpty) return;
+    try {
+      await ref.read(apiClientProvider).put('/notifications/$id/read');
+      final current = state.valueOrNull ?? [];
+      if (current.any((n) => n.id == id)) {
+        state = AsyncData([
+          for (final n in current)
+            if (n.id == id) n.copyWith(isRead: true) else n,
+        ]);
+      }
+      await _syncUnreadCount();
+    } catch (_) {}
   }
 
   Future<void> markAllRead() async {
@@ -68,5 +107,6 @@ class NotificationsNotifier extends AsyncNotifier<List<AppNotification>> {
     state = AsyncData([
       for (final n in state.valueOrNull ?? []) n.copyWith(isRead: true),
     ]);
+    ref.read(_unreadCountProvider.notifier).state = 0;
   }
 }

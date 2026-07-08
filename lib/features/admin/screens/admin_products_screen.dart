@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/screens/admin_shop_orders_tab.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/features/shop/models/product.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/profile_image_picker.dart';
@@ -44,25 +46,24 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
   Widget build(BuildContext context) {
     final productsAsync = ref.watch(adminProductsProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Дэлгүүр'),
-        bottom: TabBar(
-          controller: _tabCtrl,
-          labelColor: AppColors.goldPrime,
-          unselectedLabelColor: AppColors.goldMuted,
-          indicatorColor: AppColors.goldPrime,
-          tabs: const [
-            Tab(text: 'Бараа'),
-            Tab(text: 'Захиалга'),
-          ],
-        ),
-        actions: [
-          if (_tabCtrl.index == 0)
-            IconButton(
-              icon: const Icon(Icons.add_rounded),
-              onPressed: () => _showProductSheet(context, ref, null),
-            ),
+    return AdminPageScaffold(
+      title: 'Дэлгүүр',
+      actions: [
+        if (_tabCtrl.index == 0)
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.orange),
+            onPressed: () => _showProductSheet(context, ref, null),
+          ),
+      ],
+      bottom: TabBar(
+        controller: _tabCtrl,
+        indicatorColor: AppColors.orange,
+        labelColor: AppColors.orange,
+        unselectedLabelColor: AppColors.textSec,
+        labelStyle: AppText.caption.copyWith(fontWeight: FontWeight.w700),
+        tabs: const [
+          Tab(text: 'Бараа'),
+          Tab(text: 'Захиалга'),
         ],
       ),
       body: TabBarView(
@@ -77,7 +78,13 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
               color: AppColors.goldPrime,
               onRefresh: () => ref.refresh(adminProductsProvider.future),
               child: products.isEmpty
-                  ? const Center(child: Text('Бараа байхгүй'))
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('Бараа байхгүй')),
+                      ],
+                    )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
                       itemCount: products.length,
@@ -85,6 +92,8 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
                         product: products[i],
                         onEdit: () => _showProductSheet(context, ref, products[i]),
                         onDelete: () => _confirmDelete(context, ref, products[i]),
+                        onToggleActive: () =>
+                            _toggleActive(context, ref, products[i]),
                       ),
                     ),
             ),
@@ -131,11 +140,55 @@ class _AdminProductsScreenState extends ConsumerState<AdminProductsScreen>
       ),
     );
     if (ok == true) {
-      await adminDeleteProduct(ref, product.id);
+      try {
+        await adminDeleteProduct(ref, product.id);
+        if (context.mounted) {
+          showAppSnackBar(
+            context,
+            SnackBar(
+              content: Text('${product.name} устгагдлаа'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          showAppSnackBar(
+            context,
+            SnackBar(
+              content: Text(formatUserError(e)),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _toggleActive(
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+  ) async {
+    try {
+      await adminUpdateProduct(ref, product.id, {'isActive': !product.isActive});
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showAppSnackBar(
+          context,
           SnackBar(
-            content: Text('${product.name} устгагдлаа'),
+            content: Text(
+              product.isActive ? 'Бараа идэвхгүй боллоо' : 'Бараа идэвхжлээ',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showAppSnackBar(
+          context,
+          SnackBar(
+            content: Text(formatUserError(e)),
             backgroundColor: AppColors.danger,
           ),
         );
@@ -149,11 +202,13 @@ class _ProductAdminCard extends StatelessWidget {
     required this.product,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleActive,
   });
 
   final Product product;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onToggleActive;
 
   String _fmt(int n) =>
       n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
@@ -231,6 +286,17 @@ class _ProductAdminCard extends StatelessWidget {
             Column(
               children: [
                 IconButton(
+                  icon: Icon(
+                    product.isActive
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 20,
+                  ),
+                  color: product.isActive ? AppColors.textSec : AppColors.success,
+                  tooltip: product.isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх',
+                  onPressed: onToggleActive,
+                ),
+                IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 20),
                   color: AppColors.goldPrime,
                   onPressed: onEdit,
@@ -265,6 +331,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
   late String _category;
   String? _imageUrl;
   bool _saving = false;
+  late bool _isActive;
 
   @override
   void initState() {
@@ -276,6 +343,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
     _stockCtrl = TextEditingController(text: p != null ? '${p.stock}' : '0');
     _category = p?.category ?? 'Бусад';
     _imageUrl = p?.image.isNotEmpty == true ? p!.image : null;
+    _isActive = p?.isActive ?? true;
   }
 
   @override
@@ -302,6 +370,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
         'price': int.tryParse(_priceCtrl.text.trim()) ?? 0,
         'stock': int.tryParse(_stockCtrl.text.trim()) ?? 0,
         'category': _category,
+        'isActive': _isActive,
         if (_imageUrl != null) 'image': _imageUrl,
       };
       if (widget.existing != null) {
@@ -366,6 +435,7 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                 imageUrl: _imageUrl,
                 size: 90,
                 label: 'Барааны зураг',
+                folder: 'products',
                 onImageChanged: (url) => setState(() => _imageUrl = url),
               ),
             ),
@@ -425,6 +495,20 @@ class _ProductFormSheetState extends ConsumerState<_ProductFormSheet> {
                   .toList(),
               onChanged: (v) => setState(() => _category = v ?? _category),
             ),
+            if (widget.existing != null) ...[
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Идэвхтэй'),
+                subtitle: Text(
+                  _isActive ? 'Дэлгүүрт харагдана' : 'Дэлгүүрт нуугдсан',
+                  style: AppText.caption,
+                ),
+                value: _isActive,
+                activeColor: AppColors.orange,
+                onChanged: (v) => setState(() => _isActive = v),
+              ),
+            ],
             const SizedBox(height: 20),
             SacredButton(
               label: widget.existing != null ? 'Хадгалах' : 'Бараа нэмэх',

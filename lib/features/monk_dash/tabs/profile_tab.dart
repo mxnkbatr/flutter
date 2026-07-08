@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/auth/auth_actions.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
 import 'package:sacred_app/core/config/feature_flags.dart';
@@ -45,7 +46,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   void _loadFromProfile(MonkProfileData profile) {
     if (_loaded) return;
-    _loaded = true;
     _nameCtrl.text = profile.name;
     _titleCtrl.text = profile.title;
     _templeCtrl.text = profile.temple;
@@ -68,6 +68,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     if (_services.isEmpty) {
       _services.add(MonkServiceDraft(name: 'Ерөөл', category: 'Ерөөл', price: 50000));
     }
+    _loaded = true;
   }
 
   Future<void> _saveProfile() async {
@@ -87,6 +88,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
       });
       await ref.read(authStateProvider.notifier).refreshProfile();
       if (mounted) {
+        setState(() => _loaded = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Профайл хадгалагдлаа')),
         );
@@ -113,6 +115,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authStateProvider, (prev, next) {
+      final prevId = prev?.valueOrNull?.userId;
+      final nextId = next.valueOrNull?.userId;
+      if (prevId != nextId) {
+        setState(() => _loaded = false);
+      }
+    });
+
     final auth = ref.watch(authStateProvider).valueOrNull;
     final tier = ref.watch(userTierProvider);
     final showPremium = FeatureFlags.premiumSubscriptionsEnabled;
@@ -392,7 +402,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     'Гарах',
                     style: AppText.body.copyWith(color: AppColors.danger),
                   ),
-                  onTap: () => ref.read(authStateProvider.notifier).logout(),
+                  onTap: () => performLogout(ref, context),
                 ),
               ],
             ),

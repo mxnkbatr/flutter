@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
+import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 /// Featured monk — editorial hero card with overlay typography.
@@ -85,31 +85,9 @@ class _FeaturedHero extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (monk.image != null)
-            Hero(
-              tag: Monk.heroTag(monk.id),
-              child: CachedNetworkImage(
-                imageUrl: monk.image!,
-                fit: BoxFit.cover,
-                placeholder: (_, __) => const _HeroPlaceholder(),
-                errorWidget: (_, __, ___) => const _HeroPlaceholder(),
-              ),
-            )
-          else
-            const _HeroPlaceholder(),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.08),
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.55),
-                ],
-                stops: const [0, 0.45, 1],
-              ),
-            ),
+          Hero(
+            tag: Monk.heroTag(monk.id),
+            child: const _BrandLogoHero(),
           ),
           Positioned(
             top: 0,
@@ -166,7 +144,7 @@ class _FeaturedHero extends StatelessWidget {
           Positioned(
             top: 12,
             right: 12,
-            child: _FavoriteBtn(isFavorite: isFavorite, onTap: onFavorite, light: true),
+            child: _FavoriteBtn(isFavorite: isFavorite, onTap: onFavorite),
           ),
           Positioned(
             left: 20,
@@ -179,7 +157,7 @@ class _FeaturedHero extends StatelessWidget {
                   monk.displayName,
                   style: AppText.displaySerif(
                     size: 26,
-                    color: Colors.white,
+                    color: AppColors.inkDeep,
                   ),
                 ),
                 if (monk.displayTitle != null) ...[
@@ -187,7 +165,7 @@ class _FeaturedHero extends StatelessWidget {
                   Text(
                     monk.displayTitle!,
                     style: AppText.bodySmall.copyWith(
-                      color: Colors.white.withOpacity(0.88),
+                      color: AppColors.textSec,
                       fontSize: 13,
                     ),
                   ),
@@ -280,8 +258,8 @@ class _DetailCta extends StatelessWidget {
   }
 }
 
-class _HeroPlaceholder extends StatelessWidget {
-  const _HeroPlaceholder();
+class _BrandLogoHero extends StatelessWidget {
+  const _BrandLogoHero();
 
   @override
   Widget build(BuildContext context) {
@@ -297,12 +275,8 @@ class _HeroPlaceholder extends StatelessWidget {
           ],
         ),
       ),
-      child: Center(
-        child: Icon(
-          Icons.self_improvement_rounded,
-          size: 72,
-          color: AppColors.orange.withOpacity(0.7),
-        ),
+      child: const Center(
+        child: GevabalLogo(height: 150, glow: true),
       ),
     );
   }

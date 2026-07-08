@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/auth/session_clear.dart';
 import 'package:sacred_app/features/admin/models/admin_booking_item.dart';
 import 'package:sacred_app/features/admin/models/admin_dashboard_data.dart';
 import 'package:sacred_app/features/admin/models/admin_finance_data.dart';
@@ -44,6 +45,7 @@ Future<void> createMonk(WidgetRef ref, Map<String, dynamic> data) async {
   await ref.read(apiClientProvider).post('/admin/monks', data: data);
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(adminMonksProvider);
+  invalidatePublicMonkCaches(ref);
 }
 
 final adminMonkDetailProvider =
@@ -61,6 +63,7 @@ Future<void> updateMonk(
   ref.invalidate(adminDashboardProvider);
   ref.invalidate(adminMonksProvider);
   ref.invalidate(adminMonkDetailProvider(monkId));
+  invalidatePublicMonkCaches(ref);
 }
 
 Future<void> reorderMonks(WidgetRef ref, List<String> monkIds) async {
@@ -178,19 +181,24 @@ final selectedAdminFinanceMonthProvider = StateProvider<String>((ref) {
   return DateFormat('yyyy-MM').format(DateTime.now());
 });
 
+void _invalidateBookingCaches(WidgetRef ref) {
+  ref.invalidate(adminBookingsProvider);
+  ref.invalidate(adminDashboardProvider);
+}
+
 Future<void> approveBooking(WidgetRef ref, String bookingId) async {
   await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/approve');
-  ref.invalidate(adminBookingsProvider);
+  _invalidateBookingCaches(ref);
 }
 
 Future<void> rejectBooking(WidgetRef ref, String bookingId) async {
   await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/reject');
-  ref.invalidate(adminBookingsProvider);
+  _invalidateBookingCaches(ref);
 }
 
 Future<void> confirmBookingPayment(WidgetRef ref, String bookingId) async {
   await ref.read(apiClientProvider).put('/admin/bookings/$bookingId/confirm-payment');
-  ref.invalidate(adminBookingsProvider);
+  _invalidateBookingCaches(ref);
 }
 
 final adminFinanceProvider = FutureProvider<AdminFinanceData>((ref) async {

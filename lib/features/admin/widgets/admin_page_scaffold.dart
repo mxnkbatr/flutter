@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 /// Cream admin layout — matches client app aesthetic.
 class AdminPageScaffold extends StatelessWidget {
@@ -32,32 +33,34 @@ class AdminPageScaffold extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 4, 12, 0),
-                  child: Row(
-                    children: [
-                      if (onBack != null)
-                        IconButton(
-                          icon: const Icon(
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 12, 0),
+                child: Row(
+                  children: [
+                    if (onBack != null)
+                      ScaleTap(
+                        pressedScale: 0.92,
+                        onTap: onBack,
+                        child: const SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Icon(
                             Icons.arrow_back_ios_new_rounded,
-                            size: 20,
+                            size: 18,
                             color: AppColors.inkDeep,
                           ),
-                          onPressed: onBack,
-                        )
-                      else
-                        const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: AppText.displaySerif(size: 26),
                         ),
+                      )
+                    else
+                      const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: AppText.displaySerif(size: 26),
                       ),
-                      if (actions != null) ...actions!,
-                    ],
-                  ),
+                    ),
+                    if (actions != null) ...actions!,
+                  ],
                 ),
               ),
               if (bottom != null) bottom!,

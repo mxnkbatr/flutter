@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -91,18 +92,31 @@ class AdminShopOrdersTab extends ConsumerWidget {
                           order: filtered[i],
                           fmt: _fmt,
                           onStatusChange: (status) async {
-                            await adminUpdateOrderStatus(
-                              ref,
-                              filtered[i].id,
-                              status,
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Захиалгын төлөв шинэчлэгдлээ'),
-                                  backgroundColor: AppColors.success,
-                                ),
+                            try {
+                              await adminUpdateOrderStatus(
+                                ref,
+                                filtered[i].id,
+                                status,
                               );
+                              if (context.mounted) {
+                                showAppSnackBar(
+                                  context,
+                                  const SnackBar(
+                                    content: Text('Захиалгын төлөв шинэчлэгдлээ'),
+                                    backgroundColor: AppColors.success,
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                showAppSnackBar(
+                                  context,
+                                  SnackBar(
+                                    content: Text(formatUserError(e)),
+                                    backgroundColor: AppColors.danger,
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),

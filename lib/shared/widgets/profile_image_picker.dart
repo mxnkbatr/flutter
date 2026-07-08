@@ -7,6 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sacred_app/core/api/image_upload_service.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/core/utils/media_url.dart';
 
 class ProfileImagePicker extends ConsumerStatefulWidget {
   const ProfileImagePicker({
@@ -15,12 +18,14 @@ class ProfileImagePicker extends ConsumerStatefulWidget {
     required this.onImageChanged,
     this.size = 108,
     this.label = 'Зураг сонгох',
+    this.folder = 'monks',
   });
 
   final String? imageUrl;
   final ValueChanged<String> onImageChanged;
   final double size;
   final String label;
+  final String folder;
 
   @override
   ConsumerState<ProfileImagePicker> createState() => _ProfileImagePickerState();
@@ -29,6 +34,20 @@ class ProfileImagePicker extends ConsumerStatefulWidget {
 class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
   Uint8List? _localPreview;
   bool _uploading = false;
+
+  String? get _resolvedRemote {
+    final url = widget.imageUrl;
+    if (url == null || url.isEmpty) return null;
+    return resolveMediaUrl(url);
+  }
+
+  @override
+  void didUpdateWidget(ProfileImagePicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl && !_uploading) {
+      _localPreview = null;
+    }
+  }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -46,17 +65,31 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
     });
 
     try {
-      final url = await uploadImageBytes(ref, bytes);
+      final url = await uploadImageBytes(
+        ref,
+        bytes,
+        folder: widget.folder,
+      );
       widget.onImageChanged(url);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Зураг амжилттай хадгалагдлаа')),
+        showAppSnackBar(
+          context,
+          const SnackBar(
+            content: Text('Зураг амжилттай орууллаа. Хадгалах товч дарна уу.'),
+            duration: Duration(seconds: 2),
+            backgroundColor: AppColors.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Зураг оруулахад алдаа: $e')),
+        setState(() => _localPreview = null);
+        showAppSnackBar(
+          context,
+          SnackBar(
+            content: Text(formatUserError(e, fallback: 'Зураг оруулахад алдаа гарлаа')),
+            backgroundColor: AppColors.danger,
+          ),
         );
       }
     } finally {
@@ -66,7 +99,8 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
 
   @override
   Widget build(BuildContext context) {
-    final hasRemote = widget.imageUrl != null && widget.imageUrl!.isNotEmpty;
+    final remote = _resolvedRemote;
+    final hasRemote = remote != null && remote.isNotEmpty;
 
     return Column(
       children: [
@@ -79,11 +113,9 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
               backgroundImage: _localPreview != null
                   ? MemoryImage(_localPreview!)
                   : hasRemote
-                      ? CachedNetworkImageProvider(widget.imageUrl!)
+                      ? CachedNetworkImageProvider(remote)
                       : null,
-              child: !_uploading &&
-                      _localPreview == null &&
-                      !hasRemote
+              child: !_uploading && _localPreview == null && !hasRemote
                   ? Icon(
                       Icons.person,
                       size: widget.size * 0.45,

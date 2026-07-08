@@ -50,13 +50,15 @@ import 'package:sacred_app/shared/shells/client_shell.dart';
 import 'package:sacred_app/shared/shells/monk_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authAsync = ref.watch(authStateProvider);
-  final auth = authAsync.valueOrNull ?? const AuthState();
+  final refresh = _RouterRefresh(ref);
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     initialLocation: '/splash',
-    refreshListenable: _RouterRefresh(ref),
+    refreshListenable: refresh,
     redirect: (context, state) {
+      final authAsync = ref.read(authStateProvider);
+      final auth = authAsync.valueOrNull ?? const AuthState();
       final isLoggedIn = auth.isAuthenticated;
       final isAuthRoute = state.matchedLocation.startsWith('/auth');
       final isOnboarding = state.matchedLocation == '/onboarding';
@@ -143,7 +145,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             child: PaymentScreen(
               bookingId: state.pathParameters['bookingId']!,
               qpayData: extra is QPayData ? extra : null,
-              initialMethodTab: extra is int ? extra : 1,
             ),
           );
         },
@@ -431,4 +432,9 @@ class _RouterRefresh extends ChangeNotifier {
   }
 
   final Ref _ref;
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
 }

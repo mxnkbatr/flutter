@@ -46,6 +46,7 @@ class LocalNotificationService {
 
   static bool _initialized = false;
   static void Function(PendingCallLaunch)? onCallNotificationTap;
+  static void Function(Map<String, dynamic> data)? onGeneralNotificationTap;
 
   static Future<void> initialize() async {
     if (_initialized) return;
@@ -97,9 +98,14 @@ class LocalNotificationService {
     if (payload == null || payload.isEmpty) return;
     try {
       final map = jsonDecode(payload) as Map<String, dynamic>;
-      final pending = PendingCallLaunch.fromJson(map);
-      _storePending(pending);
-      onCallNotificationTap?.call(pending);
+      final type = map['type'] as String?;
+      if (type == 'incoming_call' || type == 'call_time') {
+        final pending = PendingCallLaunch.fromJson(map);
+        _storePending(pending);
+        onCallNotificationTap?.call(pending);
+        return;
+      }
+      onGeneralNotificationTap?.call(map);
     } catch (e) {
       if (kDebugMode) debugPrint('Notification tap parse error: $e');
     }

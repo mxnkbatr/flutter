@@ -1247,7 +1247,7 @@ app.post('/api/subscription/activate', authRequired, async (req, res) => {
 // ─── Users profile / FCM ───
 app.put('/api/users/profile', authRequired, async (req, res) => {
   const { fcmToken, name, phone } = req.body;
-  if (fcmToken) req.user.fcmToken = fcmToken;
+  if (fcmToken !== undefined) req.user.fcmToken = fcmToken || null;
   if (name) req.user.name = name;
   if (phone !== undefined) req.user.phone = phone;
   await req.user.save();
@@ -1737,33 +1737,78 @@ app.post('/api/messenger/conversations', authRequired, async (req, res) => {
 // ─── Admin (simplified) ───
 app.get('/api/admin/dashboard', authRequired, async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const bookings = await Booking.find({ paid: true });
-  const totalRevenue = bookings.reduce((s, b) => s + (b.amount || 0), 0);
-  const monks = await Monk.find();
-  const users = await User.find({ role: 'client' });
+  const allBookings = await Booking.find({ paid: true }).lean();
+  const totalRevenue = allBookings.reduce((s, b) => s + (b.amount || 0), 0);
+  const monks = await Monk.find().lean();
+  const users = await User.find({ role: 'client' }).lean();
   const pending = monks.filter((m) => m.status === 'pending');
+
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const newUsersThisWeek = users.filter(
+    (u) => u.createdAt && new Date(u.createdAt) >= weekAgo,
+  ).length;
+
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const thisMonthCount = allBookings.filter(
+    (b) => b.createdAt && new Date(b.createdAt) >= thisMonthStart,
+  ).length;
+  const lastMonthCount = allBookings.filter((b) => {
+    if (!b.createdAt) return false;
+    const d = new Date(b.createdAt);
+    return d >= lastMonthStart && d < thisMonthStart;
+  }).length;
+  const bookingsGrowth =
+    lastMonthCount > 0
+      ? Math.round(((thisMonthCount - lastMonthCount) / lastMonthCount) * 1000) / 10
+      : thisMonthCount > 0
+        ? 100
+        : 0;
+
+  const monthlyRevenue = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const amount = allBookings
+      .filter((b) => b.date?.startsWith(monthStr))
+      .reduce((s, b) => s + (b.amount || 0), 0);
+    monthlyRevenue.push({ label: `${d.getMonth() + 1}-р`, amount });
+  }
+
+  const recentRaw = [...allBookings]
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    .slice(0, 5);
+  const clientIds = [...new Set(recentRaw.map((b) => b.clientId?.toString()).filter(Boolean))];
+  const monkIds = [...new Set(recentRaw.map((b) => b.monkId?.toString()).filter(Boolean))];
+  const [clients, monksForRecent] = await Promise.all([
+    User.find({ _id: { $in: clientIds } }, 'name').lean(),
+    Monk.find({ _id: { $in: monkIds } }, 'name').lean(),
+  ]);
+  const clientMap = Object.fromEntries(clients.map((u) => [u._id.toString(), u.name]));
+  const monkMap = Object.fromEntries(
+    monksForRecent.map((m) => [m._id.toString(), m.name?.mn ?? m.name?.en ?? '']),
+  );
 
   res.json({
     totalRevenue,
-    totalBookings: bookings.length,
-    bookingsGrowth: 8.5,
+    totalBookings: allBookings.length,
+    bookingsGrowth,
     activeMonks: monks.filter((m) => m.status === 'active').length,
     pendingMonks: pending.length,
     totalUsers: users.length,
-    newUsersThisWeek: 5,
+    newUsersThisWeek,
     qpayConfigured: isQPayConfigured(),
     appBaseUrl: process.env.APP_BASE_URL || '',
-    monthlyRevenue: [
-      { label: '1-р', amount: Math.round(totalRevenue * 0.1) },
-      { label: '2-р', amount: Math.round(totalRevenue * 0.12) },
-      { label: '3-р', amount: Math.round(totalRevenue * 0.15) },
-      { label: '4-р', amount: Math.round(totalRevenue * 0.18) },
-      { label: '5-р', amount: Math.round(totalRevenue * 0.2) },
-      { label: '6-р', amount: Math.round(totalRevenue * 0.25) },
-    ],
+    monthlyRevenue,
     pendingMonksList: pending.map(monkJson),
-    recentBookings: bookings.slice(-5).reverse().map((b) =>
-      bookingJson(b, { clientName: '', monkName: '', serviceName: b.serviceName, amount: b.amount }),
+    recentBookings: recentRaw.map((b) =>
+      bookingJson(b, {
+        clientName: clientMap[b.clientId?.toString()] ?? '',
+        monkName: monkMap[b.monkId?.toString()] ?? '',
+        serviceName: b.serviceName ?? '',
+        amount: b.amount,
+      }),
     ),
   });
 });
@@ -2193,6 +2238,17 @@ app.put('/api/admin/bookings/:id/reject', authRequired, async (req, res) => {
     }
     booking.status = 'cancelled';
     await booking.save();
+
+    const monk = await Monk.findById(booking.monkId);
+    const client = await User.findById(booking.clientId);
+    if (client) {
+      await notifyBookingStatus(client, {
+        status: 'cancelled',
+        monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
+        bookingId: booking._id.toString(),
+      });
+    }
+
     res.json({ ok: true, status: 'cancelled' });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -12,5 +12,7 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (kDebugMode) {
     debugPrint('FCM background: ${message.data}');
   }
+  // FCM already shows a system notification when `notification` payload is set.
+  if (message.notification != null) return;
   await LocalNotificationService.showFromRemoteData(message.data);
 }

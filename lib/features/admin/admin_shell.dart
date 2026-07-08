@@ -3,8 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
-import 'package:sacred_app/core/theme/app_text.dart';
-import 'package:sacred_app/features/admin/widgets/admin_logout_button.dart';
+import 'package:sacred_app/features/admin/widgets/admin_shell_header.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class AdminShell extends ConsumerWidget {
@@ -14,7 +13,9 @@ class AdminShell extends ConsumerWidget {
 
   int _selectedIndex(BuildContext context) {
     final loc = GoRouterState.of(context).matchedLocation;
-    if (loc.startsWith('/admin/monks')) return 1;
+    if (loc.startsWith('/admin/monks') || loc.startsWith('/admin/categories')) {
+      return 1;
+    }
     if (loc.startsWith('/admin/users')) return 2;
     if (loc.startsWith('/admin/bookings')) return 3;
     if (loc.startsWith('/admin/finance')) return 4;
@@ -43,18 +44,9 @@ class AdminShell extends ConsumerWidget {
       backgroundColor: AppColors.creamBg,
       body: Column(
         children: [
-          SafeArea(
+          const SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
-              child: Row(
-                children: [
-                  Text('Gevabal Admin', style: AppText.caption),
-                  const Spacer(),
-                  const AdminLogoutButton(compact: true),
-                ],
-              ),
-            ),
+            child: AdminShellHeader(),
           ),
           Expanded(child: child),
         ],

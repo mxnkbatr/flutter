@@ -3,13 +3,11 @@ import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/utils/formatters.dart';
@@ -34,12 +32,10 @@ class PaymentScreen extends ConsumerStatefulWidget {
     super.key,
     required this.bookingId,
     this.qpayData,
-    this.initialMethodTab = 1,
   });
 
   final String bookingId;
   final QPayData? qpayData;
-  final int initialMethodTab;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -49,15 +45,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Timer? _pollTimer;
   bool _paid = false;
   bool _expired = false;
-  late int _methodTab;
+  bool _checkingPayment = false;
   QPayData? _qpayData;
   bool _creatingQpay = false;
-  bool _submittingBank = false;
 
   @override
   void initState() {
     super.initState();
-    _methodTab = widget.initialMethodTab.clamp(0, 1);
     if (widget.qpayData != null) {
       _qpayData = widget.qpayData;
       _startPolling(widget.qpayData!.invoiceId);
@@ -79,7 +73,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   }
 
   Future<void> _checkPayment(String invoiceId) async {
-    if (_paid) return;
+    if (_paid || _checkingPayment) return;
+    _checkingPayment = true;
     try {
       final res = await ref.read(apiClientProvider).get(
             '/payment/qpay/check/$invoiceId',
@@ -92,7 +87,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _invalidateBookings();
         _navigateToSuccess();
       }
-    } catch (_) {}
+    } catch (_) {} finally {
+      _checkingPayment = false;
+    }
   }
 
   void _invalidateBookings() {
@@ -198,51 +195,6 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
-  Future<void> _submitBankTransfer() async {
-    setState(() => _submittingBank = true);
-    try {
-      final res = await ref.read(apiClientProvider).post(
-            '/payment/bank-transfer/${widget.bookingId}',
-          );
-      final data = res.data as Map<String, dynamic>;
-      _invalidateBookings();
-      if (!mounted) return;
-      if (data['paid'] == true) {
-        setState(() => _paid = true);
-        final payment = await ref.read(
-          bookingPaymentProvider(widget.bookingId).future,
-        );
-        _navigateToSuccess(payment);
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Шилжүүлэг бүртгэгдлээ. Админ баталгаажуулах хүлээнэ.',
-          ),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      ref.invalidate(bookingPaymentProvider(widget.bookingId));
-      if (mounted) context.go('/bookings');
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(formatUserError(e)), backgroundColor: AppColors.danger),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _submittingBank = false);
-    }
-  }
-
-  void _copy(String label, String value) {
-    Clipboard.setData(ClipboardData(text: value));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label хуулагдлаа'), duration: const Duration(seconds: 1)),
-    );
-  }
-
   Widget _buildQrImage(String base64Str) {
     try {
       final bytes = base64Decode(base64Str);
@@ -337,94 +289,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
-  Widget _bankTab(BookingPaymentData payment, bool canPay) {
-    final bank = payment.bank;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SacredCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Банкны данс', style: AppText.h3),
-              const SizedBox(height: 16),
-              _bankRow('Банк', bank.bankName, canPay),
-              if (bank.iban.isNotEmpty)
-                _bankRow('IBAN', bank.iban, canPay),
-              _bankRow('Данс', bank.accountNumber, canPay),
-              _bankRow('Эзэмшигч', bank.accountHolder, canPay),
-              _bankRow('Гүйлгээний утга', payment.reference, canPay),
-              _bankRow('Дүн', Formatters.currency(payment.amount), false),
-              if (!canPay)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    'Хэрэглэгч банкаар шилжүүлэг хийнэ',
-                    style: AppText.caption.copyWith(color: AppColors.textSec),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        if (payment.paymentPending) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.warning.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.hourglass_top_rounded, color: AppColors.warning),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Банкны шилжүүлэг админ баталгаажуулах хүлээгдэж байна',
-                    style: AppText.bodySmall.copyWith(color: AppColors.warning),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (canPay && !payment.paymentPending) ...[
-          const SizedBox(height: 20),
-          SacredButton(
-            label: 'Би шилжүүлсэн',
-            icon: Icons.check_circle_outline_rounded,
-            isLoading: _submittingBank,
-            onTap: _submittingBank ? null : _submitBankTransfer,
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _bankRow(String label, String value, bool copyable) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          SizedBox(width: 110, child: Text(label, style: AppText.bodySmall)),
-          Expanded(
-            child: Text(
-              value,
-              style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
-          if (copyable)
-            IconButton(
-              icon: const Icon(Icons.copy_rounded, size: 18),
-              color: AppColors.saffron,
-              onPressed: () => _copy(label, value),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _qpayTab(BookingPaymentData payment, bool canPay) {
+  Widget _qpaySection(BookingPaymentData payment, bool canPay) {
     if (!canPay) {
       return SacredCard(
         child: Text(
@@ -640,93 +505,11 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                   ),
                 _summaryCard(payment),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceEl,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border, width: 0.5),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _MethodTab(
-                          label: 'QPay',
-                          icon: Icons.qr_code_2_rounded,
-                          selected: _methodTab == 1,
-                          onTap: () {
-                            setState(() => _methodTab = 1);
-                            if (canPay) _ensureQPay(payment);
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: _MethodTab(
-                          label: 'Банкаар',
-                          icon: Icons.account_balance_outlined,
-                          selected: _methodTab == 0,
-                          onTap: () => setState(() => _methodTab = 0),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_methodTab == 0)
-                  _bankTab(payment, canPay)
-                else
-                  _qpayTab(payment, canPay),
+                _qpaySection(payment, canPay),
               ],
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _MethodTab extends StatelessWidget {
-  const _MethodTab({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: selected ? AppGradients.primary : null,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 18,
-              color: selected ? AppColors.inkDeep : AppColors.textSec,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: AppText.bodySmall.copyWith(
-                fontWeight: FontWeight.w700,
-                color: selected ? AppColors.inkDeep : AppColors.textSec,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

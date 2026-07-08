@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/admin/models/admin_booking_item.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
@@ -119,6 +121,35 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
       .toString()
       .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
 
+  Future<void> _runAction(
+    Future<void> Function() action, {
+    required String successMessage,
+  }) async {
+    setState(() => _loading = true);
+    try {
+      await action();
+      if (!mounted) return;
+      Navigator.pop(context);
+      showAppSnackBar(
+        context,
+        SnackBar(
+          content: Text(successMessage),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      showAppSnackBar(
+        context,
+        SnackBar(
+          content: Text(formatUserError(e)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -169,11 +200,10 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                     isLoading: _loading,
                     onTap: _loading
                         ? null
-                        : () async {
-                            setState(() => _loading = true);
-                            await approveBooking(ref, booking.id);
-                            if (mounted) Navigator.pop(context);
-                          },
+                        : () => _runAction(
+                              () => approveBooking(ref, booking.id),
+                              successMessage: 'Захиалга батлагдлаа',
+                            ),
                   ),
                   const SizedBox(height: 10),
                   SacredButton(
@@ -181,35 +211,33 @@ class _DetailSheetState extends ConsumerState<_DetailSheet> {
                     outline: true,
                     onTap: _loading
                         ? null
-                        : () async {
-                            setState(() => _loading = true);
-                            await rejectBooking(ref, booking.id);
-                            if (mounted) Navigator.pop(context);
-                          },
-                  ),
-                ],
-                if (booking.status == 'approved' &&
-                    !booking.paid &&
-                    booking.bankTransferPending) ...[
-                  const SizedBox(height: 20),
-                  SacredButton(
-                    label: 'Банкны төлбөр батлах',
-                    isLoading: _loading,
-                    onTap: _loading
-                        ? null
-                        : () async {
-                            setState(() => _loading = true);
-                            await confirmBookingPayment(ref, booking.id);
-                            if (mounted) Navigator.pop(context);
-                          },
+                        : () => _runAction(
+                              () => rejectBooking(ref, booking.id),
+                              successMessage: 'Захиалга татгалзлаа',
+                            ),
                   ),
                 ] else if (booking.status == 'approved' && !booking.paid) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Хэрэглэгч QPay эсвэл банкаар төлбөр төлнө',
+                    booking.bankTransferPending
+                        ? 'Банкны шилжүүлэг хүлээгдэж байна'
+                        : 'Хэрэглэгч QPay-ээр төлбөр төлнө',
                     style: AppText.caption.copyWith(color: AppColors.textSec),
                     textAlign: TextAlign.center,
                   ),
+                  if (booking.bankTransferPending) ...[
+                    const SizedBox(height: 16),
+                    SacredButton(
+                      label: 'Төлбөр батлах',
+                      isLoading: _loading,
+                      onTap: _loading
+                          ? null
+                          : () => _runAction(
+                                () => confirmBookingPayment(ref, booking.id),
+                                successMessage: 'Төлбөр баталгаажлаа',
+                              ),
+                    ),
+                  ],
                 ],
               ],
             ),

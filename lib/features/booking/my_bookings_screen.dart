@@ -206,10 +206,7 @@ class _BookingCard extends ConsumerWidget {
       return 'Төлбөр төлсөн — лам баталгаажуулах хүлээнэ үү';
     }
     if (booking.status == 'approved' && !booking.paid) {
-      if (booking.bankTransferPending) {
-        return 'Банкны шилжүүлэг баталгаажихыг хүлээж байна';
-      }
-      return 'Төлбөр төлж захиалгаа баталгаажуулна уу';
+      return 'QPay-ээр төлбөр төлж захиалгаа баталгаажуулна уу';
     }
     if (booking.canJoinCall) {
       return 'Захиалга баталгаажсан — видео дуудлага эхлүүлж болно';
@@ -289,7 +286,7 @@ class _BookingCard extends ConsumerWidget {
               style: AppText.caption.copyWith(color: AppColors.textSec),
             ),
           ],
-          if (needsPay && !booking.bankTransferPending) ...[
+          if (needsPay) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

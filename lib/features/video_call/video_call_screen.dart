@@ -312,32 +312,49 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   Widget build(BuildContext context) {
     if (_connecting) {
-      return ConnectingView(
-        peerName: _peerName,
-        peerImage: _peerImage,
-        role: widget.role,
-        onCancel: _cancelConnecting,
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _cancelConnecting();
+        },
+        child: ConnectingView(
+          peerName: _peerName,
+          peerImage: _peerImage,
+          role: widget.role,
+          onCancel: _cancelConnecting,
+        ),
       );
     }
 
     if (_error != null) {
-      return CallErrorView(
-        message: _error!,
-        onBack: _leaveCallScreen,
-        onRetry: () {
-          setState(() {
-            _error = null;
-            _connecting = true;
-          });
-          _connect();
+      return PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _leaveCallScreen();
         },
+        child: CallErrorView(
+          message: _error!,
+          onBack: _leaveCallScreen,
+          onRetry: () {
+            setState(() {
+              _error = null;
+              _connecting = true;
+            });
+            _connect();
+          },
+        ),
       );
     }
 
     final remoteTrack = _videoTrackFor(_remote);
     final localTrack = _videoTrackFor(_local);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _endCall();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.inkDeep,
       body: Stack(
         children: [
@@ -388,6 +405,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/auth/auth_actions.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/config/feature_flags.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -257,7 +258,7 @@ class ProfileScreen extends ConsumerWidget {
                 titleColor: AppColors.danger,
                 titleWeight: FontWeight.w500,
                 showChevron: false,
-                onTap: () => ref.read(authStateProvider.notifier).logout(),
+                onTap: () => performLogout(ref, context),
               ),
             ],
           ),

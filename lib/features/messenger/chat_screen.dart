@@ -34,6 +34,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _sending = false;
+  bool _refreshingMessages = false;
   Timer? _pollTimer;
 
   String get _initial =>
@@ -48,9 +49,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      ref.invalidate(messagesProvider(widget.conversationId));
+    _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _refreshMessages();
     });
+  }
+
+  Future<void> _refreshMessages() async {
+    if (_refreshingMessages || !mounted) return;
+    _refreshingMessages = true;
+    try {
+      ref.invalidate(messagesProvider(widget.conversationId));
+      await ref.read(messagesProvider(widget.conversationId).future);
+    } catch (_) {
+    } finally {
+      _refreshingMessages = false;
+    }
   }
 
   @override

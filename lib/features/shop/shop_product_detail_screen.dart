@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/home/widgets/category_chip.dart';
 import 'package:sacred_app/features/shop/models/product.dart';
@@ -187,7 +188,8 @@ class ShopProductDetailScreen extends ConsumerWidget {
   void _addToCart(BuildContext context, WidgetRef ref, Product product) {
     HapticFeedback.lightImpact();
     ref.read(cartProvider.notifier).addItem(product);
-    ScaffoldMessenger.of(context).showSnackBar(
+    showAppSnackBar(
+      context,
       SnackBar(
         content: Text('${product.name} нэмэгдлээ'),
         duration: const Duration(seconds: 1),

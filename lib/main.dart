@@ -111,7 +111,7 @@ class _SacredAppState extends ConsumerState<SacredApp>
       final wasAuthed = previous?.valueOrNull?.isAuthenticated == true;
       final isAuthed = next.valueOrNull?.isAuthenticated == true;
       if (!wasAuthed && isAuthed) {
-        PushNotificationService.syncFcmToken(ref);
+        PushNotificationService.scheduleFcmSync(ref);
       }
     });
 
@@ -130,12 +130,15 @@ class _SacredAppState extends ConsumerState<SacredApp>
             if (child != null) child,
             if (incoming != null)
               Positioned.fill(
-                child: IncomingCallOverlay(
-                  callerName: incoming.callerName,
-                  callerImage: incoming.callerImage,
-                  isScheduledStart: incoming.isScheduledStart,
-                  onAccept: () => CallLaunchService.acceptCall(ref, incoming),
-                  onDecline: () => CallLaunchService.declineCall(ref, incoming),
+                child: PopScope(
+                  canPop: false,
+                  child: IncomingCallOverlay(
+                    callerName: incoming.callerName,
+                    callerImage: incoming.callerImage,
+                    isScheduledStart: incoming.isScheduledStart,
+                    onAccept: () => CallLaunchService.acceptCall(ref, incoming),
+                    onDecline: () => CallLaunchService.declineCall(ref, incoming),
+                  ),
                 ),
               ),
           ],

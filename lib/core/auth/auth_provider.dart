@@ -5,7 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/api/api_config.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
+import 'package:sacred_app/core/auth/session_clear.dart';
 import 'package:sacred_app/core/auth/tier_cache.dart';
+import 'package:sacred_app/core/firebase/firebase_app_state.dart';
 
 class AuthState {
   final bool isAuthenticated;
@@ -132,6 +134,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     final token = data['token'] as String;
     final user = data['user'] as Map<String, dynamic>;
     await _storage.write(key: _tokenKey, value: token);
+    scheduleSessionClear(ref);
     final authState = _authStateFromUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
@@ -148,6 +151,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     }
     final token = _devAuth.tokenFor(user);
     await _storage.write(key: _tokenKey, value: token);
+    scheduleSessionClear(ref);
     final authState = _authStateFromDevUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
@@ -167,6 +171,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
           final token = data['token'] as String;
           final user = data['user'] as Map<String, dynamic>;
           await _storage.write(key: _tokenKey, value: token);
+          scheduleSessionClear(ref);
           final authState = _authStateFromUser(user, token);
           await _persistTier(authState);
           state = AsyncData(authState);
@@ -185,6 +190,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final user = await _devAuth.signup(email, password, name);
       final token = _devAuth.tokenFor(user);
       await _storage.write(key: _tokenKey, value: token);
+      scheduleSessionClear(ref);
       final authState = _authStateFromDevUser(user, token);
       await _persistTier(authState);
       state = AsyncData(authState);
@@ -232,9 +238,18 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   }
 
   Future<void> logout() async {
+    try {
+      if (isFirebaseReady && state.valueOrNull?.isAuthenticated == true) {
+        await ref.read(apiClientProvider).put(
+              '/users/profile',
+              data: {'fcmToken': ''},
+            );
+      }
+    } catch (_) {}
     await _storage.delete(key: _tokenKey);
     await TierCache.clear();
     state = const AsyncData(AuthState());
+    scheduleSessionClear(ref);
   }
 }
 

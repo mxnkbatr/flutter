@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/shared/widgets/app_top_header.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class ClientShell extends StatelessWidget {
@@ -37,7 +38,12 @@ class ClientShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.creamBg,
       extendBody: true,
-      body: child,
+      body: Column(
+        children: [
+          const AppTopHeader(),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: Padding(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 12),
         child: Container(

@@ -1,3 +1,5 @@
+import 'package:sacred_app/core/utils/media_url.dart';
+
 class Monk {
   const Monk({
     required this.id,
@@ -53,11 +55,14 @@ class Monk {
   }
 
   factory Monk.fromJson(Map<String, dynamic> json) {
+    final rawImage = json['image'] as String? ?? json['avatarUrl'] as String?;
     return Monk(
       id: json['id'] as String? ?? json['_id'] as String,
       name: _localizedMap(json['name']),
       title: json['title'] != null ? _localizedMap(json['title']) : null,
-      image: json['image'] as String? ?? json['avatarUrl'] as String?,
+      image: rawImage != null && rawImage.isNotEmpty
+          ? resolveMediaUrl(rawImage)
+          : null,
       isAvailable: json['isAvailable'] as bool? ?? true,
       isSpecial: json['isSpecial'] as bool? ?? false,
       isVip: json['isVip'] as bool? ?? json['is_vip'] as bool? ?? false,

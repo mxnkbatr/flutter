@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
@@ -12,10 +11,8 @@ import 'package:sacred_app/features/home/widgets/explore_search_bar.dart';
 import 'package:sacred_app/features/home/widgets/featured_discovery_card.dart';
 import 'package:sacred_app/features/home/widgets/home_error_view.dart';
 import 'package:sacred_app/core/providers/monk_categories_provider.dart';
-import 'package:sacred_app/features/notifications/providers/notifications_provider.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
-import 'package:sacred_app/shared/widgets/native_app_header.dart';
 
 const _defaultCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
 
@@ -48,18 +45,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authStateProvider).valueOrNull;
     final monksAsync = ref.watch(monksNotifierProvider);
     final selectedCategory = ref.watch(monkCategoryFilterProvider);
     final favorites = ref.watch(favoriteMonksProvider);
-    final unread = ref.watch(unreadNotificationsCountProvider);
     final categoryList = ref.watch(monkCategoriesProvider).valueOrNull ?? _defaultCategories;
     final categories = ['Бүгд', ...categoryList];
-    final top = MediaQuery.of(context).padding.top;
     final bottomPad = MediaQuery.of(context).padding.bottom + 100;
-    final initial = (auth?.userName?.isNotEmpty ?? false)
-        ? auth!.userName![0].toUpperCase()
-        : '?';
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
@@ -80,32 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, top + 8, 20, 0),
-                    child: NativeLargeTitleHeader(
-                      eyebrow: 'Сайн байна уу,',
-                      title: auth?.userName ?? 'Зочин',
-                      serifTitle: true,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          NativeHeaderIconButton(
-                            icon: Icons.notifications_outlined,
-                            badgeCount: unread,
-                            onTap: () => context.push('/notifications'),
-                          ),
-                          const SizedBox(width: 10),
-                          NativeAvatarButton(
-                            initial: initial,
-                            onTap: () => context.go('/profile'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                     child: ExploreSearchBar(
                       hint: 'Лам хайх...',
                       minimal: true,

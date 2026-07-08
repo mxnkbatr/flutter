@@ -136,12 +136,13 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
     return PremiumLayeredScaffold(
       title: 'Захиалах',
       showBackButton: true,
+      canPop: () => step == 0,
       headerHeight: 196,
       onBack: () {
         HapticFeedback.lightImpact();
         if (step > 0) {
           _goToStep(step - 1);
-        } else {
+        } else if (context.canPop()) {
           context.pop();
         }
       },

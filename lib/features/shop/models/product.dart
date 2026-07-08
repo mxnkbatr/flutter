@@ -1,3 +1,5 @@
+import 'package:sacred_app/core/utils/media_url.dart';
+
 class Product {
   const Product({
     required this.id,
@@ -24,7 +26,7 @@ class Product {
         name: j['name'] as String? ?? '',
         description: j['description'] as String? ?? '',
         price: (j['price'] as num?)?.toInt() ?? 0,
-        image: j['image'] as String? ?? '',
+        image: resolveMediaUrl(j['image'] as String? ?? ''),
         category: j['category'] as String? ?? 'Бусад',
         stock: (j['stock'] as num?)?.toInt() ?? 0,
         isActive: j['isActive'] as bool? ?? true,

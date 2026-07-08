@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/app_feedback.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
@@ -24,26 +25,11 @@ class ShopScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final productsAsync = ref.watch(productsProvider);
     final category = ref.watch(shopCategoryProvider);
-    final cartCount = ref.watch(cartCountProvider);
     final bottomPad = MediaQuery.of(context).padding.bottom + 100;
 
     return PremiumLayeredScaffold(
       subtitle: 'Буддийн бараа, бэлэг',
       title: 'Дэлгүүр',
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _MinimalHeaderIcon(
-            icon: Icons.receipt_long_outlined,
-            onTap: () => context.push('/shop/orders'),
-          ),
-          const SizedBox(width: 8),
-          _CartHeaderIcon(
-            count: cartCount,
-            onTap: () => context.push('/shop/cart'),
-          ),
-        ],
-      ),
       sheetTopContent: SizedBox(
         height: 44,
         child: ListView.separated(
@@ -175,76 +161,6 @@ class ShopScreen extends ConsumerWidget {
   }
 }
 
-class _MinimalHeaderIcon extends StatelessWidget {
-  const _MinimalHeaderIcon({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTap(
-      pressedScale: 0.92,
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceEl,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.borderSub, width: 1.5),
-        ),
-        child: Icon(icon, color: AppColors.orange, size: 20),
-      ),
-    );
-  }
-}
-
-class _CartHeaderIcon extends StatelessWidget {
-  const _CartHeaderIcon({required this.count, required this.onTap});
-
-  final int count;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        _MinimalHeaderIcon(
-          icon: Icons.shopping_bag_outlined,
-          onTap: onTap,
-        ),
-        if (count > 0)
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              width: 18,
-              height: 18,
-              decoration: BoxDecoration(
-                gradient: AppGradients.primary,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                count > 9 ? '9+' : '$count',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _ProductCard extends ConsumerWidget {
   const _ProductCard({required this.product});
   final Product product;
@@ -371,7 +287,8 @@ class _ProductCard extends ConsumerWidget {
                                 ref
                                     .read(cartProvider.notifier)
                                     .addItem(product);
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                showAppSnackBar(
+                                  context,
                                   SnackBar(
                                     content:
                                         Text('${product.name} нэмэгдлээ'),

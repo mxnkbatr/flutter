@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/auth/session_clear.dart';
+import 'package:sacred_app/core/utils/media_url.dart';
 
 class MonkProfileData {
   const MonkProfileData({
@@ -53,7 +55,7 @@ class MonkProfileData {
           .map((e) => MonkServiceDraft.fromJson(e as Map<String, dynamic>))
           .toList(),
       email: json['email'] as String? ?? '',
-      image: json['image'] as String?,
+      image: resolveMediaUrl(json['image'] as String?),
     );
   }
 }
@@ -108,6 +110,7 @@ final monkProfileEditProvider =
 Future<void> saveMonkProfile(WidgetRef ref, Map<String, dynamic> data) async {
   await ref.read(apiClientProvider).put('/monk/profile', data: data);
   ref.invalidate(monkProfileEditProvider);
+  invalidatePublicMonkCaches(ref);
 }
 
 Future<void> saveMonkServices(

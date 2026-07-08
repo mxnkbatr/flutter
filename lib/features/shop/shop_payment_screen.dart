@@ -75,6 +75,7 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
   bool _paid = false;
   bool _expired = false;
   bool _regenerating = false;
+  bool _checkingPayment = false;
   QPayData? _qpayData;
 
   @override
@@ -101,7 +102,8 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
   }
 
   Future<void> _checkPayment(String invoiceId) async {
-    if (_paid) return;
+    if (_paid || _checkingPayment) return;
+    _checkingPayment = true;
     try {
       final res = await ref.read(apiClientProvider).get(
             '/payment/qpay/check/$invoiceId',
@@ -109,7 +111,9 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
       if ((res.data as Map<String, dynamic>)['paid'] == true) {
         await _onPaid();
       }
-    } catch (_) {}
+    } catch (_) {} finally {
+      _checkingPayment = false;
+    }
   }
 
   Future<void> _onPaid() async {

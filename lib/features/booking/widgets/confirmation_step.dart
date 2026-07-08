@@ -50,7 +50,7 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
           await ref.read(bookingDraftProvider.notifier).createBooking();
 
       if (!context.mounted) return;
-      context.go('/payment/$bookingId', extra: 1);
+      context.go('/payment/$bookingId');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

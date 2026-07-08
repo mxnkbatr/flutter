@@ -6,6 +6,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/admin/models/admin_user.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
+import 'package:sacred_app/features/admin/widgets/admin_page_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_card.dart';
 
 class AdminUsersScreen extends ConsumerWidget {
@@ -14,8 +15,8 @@ class AdminUsersScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final usersAsync = ref.watch(adminUsersProvider);
-    return Scaffold(
-      appBar: AppBar(title: const Text('Хэрэглэгчид')),
+    return AdminPageScaffold(
+      title: 'Хэрэглэгчид',
       body: usersAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.goldPrime),

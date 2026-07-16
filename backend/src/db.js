@@ -57,7 +57,8 @@ const monkSchema = new mongoose.Schema(
 
 const userSchema = new mongoose.Schema(
   {
-    email: { type: String, unique: true, lowercase: true },
+    // Optional on signup; sparse unique so missing email does not collide
+    email: { type: String, unique: true, sparse: true, lowercase: true },
     password: String,
     name: String,
     role: { type: String, default: 'client' },
@@ -65,7 +66,8 @@ const userSchema = new mongoose.Schema(
     tierExpiresAt: Date,
     fcmToken: String,
     monkProfileId: { type: mongoose.Schema.Types.ObjectId, ref: 'Monk' },
-    phone: { type: String, default: '' },
+    // Required for new client signups; sparse unique avoids '' collisions
+    phone: { type: String, unique: true, sparse: true },
     isActive: { type: Boolean, default: true },
     notificationPrefs: {
       booking: { type: Boolean, default: true },

@@ -15,6 +15,9 @@
 # Flutter dart-define (codemagic.yaml vars-д байна):
 #   API_BASE_URL=https://geva-backend.onrender.com/api
 #   PREFER_DEV_AUTH=false
+#
+# Android release signing: docs/ANDROID_RELEASE_SIGNING.md
+# CM_KEYSTORE (Secret), CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD
 
 definitions:
   env_versions: &env_versions

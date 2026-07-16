@@ -1,0 +1,24 @@
+# Render free tier sleeps after ~15 min idle. Ping every 10 min to reduce cold starts.
+# Alternative: upgrade Render plan or use UptimeRobot (https://uptimerobot.com) → GET /api/health
+name: Keep Render warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping production health
+        run: |
+          curl -sf --max-time 45 \
+            "https://geva-backend.onrender.com/api/health" \
+            | tee /tmp/health.json
+          node -e "
+            const h = require('/tmp/health.json');
+            if (!h.ok) { console.error('Health not ok:', h); process.exit(1); }
+            console.log('OK — build:', h.build || 'unknown', 'version:', h.version || '?');
+          "

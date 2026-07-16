@@ -4,6 +4,7 @@ import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/auth_phone.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/profile/providers/user_profile_provider.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
@@ -48,13 +49,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       return;
     }
 
+    final phoneRaw = _phoneCtrl.text.trim();
+    if (phoneRaw.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Утасны дугаар оруулна уу')),
+      );
+      return;
+    }
+    if (!AuthPhone.isValid(phoneRaw)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Зөв утасны дугаар оруулна уу')),
+      );
+      return;
+    }
+
     setState(() => _saving = true);
     try {
       await ref.read(apiClientProvider).put(
             '/users/profile',
             data: {
               'name': name,
-              'phone': _phoneCtrl.text.trim(),
+              'phone': AuthPhone.normalize(phoneRaw),
             },
           );
       await ref.read(authStateProvider.notifier).refreshProfile();
@@ -136,7 +151,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         border: Border.all(color: AppColors.borderSub),
                       ),
                       child: Text(
-                        _email,
+                        _email.isEmpty ? 'Бүртгээгүй' : _email,
                         style: AppText.body.copyWith(color: AppColors.textSec),
                       ),
                     ),
@@ -144,7 +159,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'И-мэйл хаягийг аюулгүй байдлын үүднээс энд өөрчлөх боломжгүй.',
+                  _email.isEmpty
+                      ? 'И-мэйл бүртгэлгүй. Утасны дугаараар нэвтрэнэ.'
+                      : 'И-мэйл хаягийг аюулгүй байдлын үүднээс энд өөрчлөх боломжгүй.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.textHint,
                         fontSize: 12,

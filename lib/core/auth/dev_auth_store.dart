@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:sacred_app/core/utils/auth_phone.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DevAuthUser {
@@ -8,6 +9,7 @@ class DevAuthUser {
     required this.email,
     required this.password,
     required this.name,
+    this.phone = '',
     this.role = 'client',
   });
 
@@ -15,6 +17,7 @@ class DevAuthUser {
   final String email;
   final String password;
   final String name;
+  final String phone;
   final String role;
 
   Map<String, dynamic> toJson() => {
@@ -22,15 +25,17 @@ class DevAuthUser {
         'email': email,
         'password': password,
         'name': name,
+        'phone': phone,
         'role': role,
       };
 
   factory DevAuthUser.fromJson(Map<String, dynamic> json) {
     return DevAuthUser(
       id: json['id'] as String,
-      email: json['email'] as String,
+      email: json['email'] as String? ?? '',
       password: json['password'] as String,
       name: json['name'] as String,
+      phone: json['phone'] as String? ?? '',
       role: json['role'] as String? ?? 'client',
     );
   }
@@ -39,6 +44,7 @@ class DevAuthUser {
 class DevAuthStore {
   static const usersKey = 'dev_auth_users';
   static const defaultEmail = '12345678@test.com';
+  static const defaultPhone = '99112233';
   static const defaultPassword = '12345678';
   static const defaultName = '12345678';
 
@@ -51,6 +57,7 @@ class DevAuthStore {
       const DevAuthUser(
         id: 'dev-user-1',
         email: defaultEmail,
+        phone: defaultPhone,
         password: defaultPassword,
         name: defaultName,
       ),
@@ -92,30 +99,53 @@ class DevAuthStore {
     return userFromToken(token, await _loadUsers());
   }
 
-  Future<DevAuthUser?> login(String email, String password) async {
+  Future<DevAuthUser?> login(String loginId, String password) async {
     await ensureSeeded();
     final users = await _loadUsers();
-    final normalized = email.trim().toLowerCase();
+    final raw = loginId.trim();
+    final phone = AuthPhone.normalize(raw);
     for (final user in users) {
-      if (user.email.toLowerCase() == normalized &&
-          user.password == password) {
+      if (user.password != password) continue;
+      if (AuthPhone.looksLikeEmail(raw)) {
+        if (user.email.toLowerCase() == raw.toLowerCase()) return user;
+      } else if (phone.isNotEmpty &&
+          AuthPhone.normalize(user.phone) == phone) {
         return user;
       }
     }
     return null;
   }
 
-  Future<DevAuthUser> signup(String email, String password, String name) async {
+  Future<DevAuthUser> signup({
+    required String name,
+    required String phone,
+    required String password,
+    String? email,
+  }) async {
     await ensureSeeded();
     final users = await _loadUsers();
-    final normalized = email.trim().toLowerCase();
-    if (users.any((u) => u.email.toLowerCase() == normalized)) {
-      throw Exception('Энэ имэйлээр бүртгэл байна');
+    final normalizedPhone = AuthPhone.normalize(phone);
+    if (normalizedPhone.isEmpty || !AuthPhone.isValid(normalizedPhone)) {
+      throw Exception('Утасны дугаар буруу байна');
+    }
+    if (users.any((u) => AuthPhone.normalize(u.phone) == normalizedPhone)) {
+      throw Exception('Энэ утасны дугаар бүртгэлтэй байна');
+    }
+
+    final normalizedEmail = (email ?? '').trim().toLowerCase();
+    if (normalizedEmail.isNotEmpty) {
+      if (!normalizedEmail.contains('@')) {
+        throw Exception('Зөв и-мэйл оруулна уу');
+      }
+      if (users.any((u) => u.email.toLowerCase() == normalizedEmail)) {
+        throw Exception('Энэ и-мэйл бүртгэлтэй байна');
+      }
     }
 
     final user = DevAuthUser(
       id: 'dev-user-${users.length + 1}',
-      email: normalized,
+      email: normalizedEmail,
+      phone: normalizedPhone,
       password: password,
       name: name.trim(),
     );

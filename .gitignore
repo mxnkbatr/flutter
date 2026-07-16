@@ -53,6 +53,9 @@ backend/.env
 backend/firebase-service-account.json
 backend/uploads/*
 !backend/uploads/.gitkeep
+android/key.properties
+android/app/upload-keystore.jks
+**/*.jks
 
 # Firebase client configs are committed for CI (keys also in lib/firebase_options.dart)
 # Override via Codemagic env vars if needed.

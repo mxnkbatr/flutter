@@ -32,12 +32,29 @@ bool get shouldUseDevAuth {
 bool isDevAuthToken(String? token) =>
     token != null && token.startsWith('dev_');
 
+/// Render free-tier cold starts often take 30–60s. Allow enough time and
+/// retry once on transient timeouts so login does not look "broken".
+const Duration kApiConnectTimeout = Duration(seconds: 60);
+const Duration kApiReceiveTimeout = Duration(seconds: 90);
+
+bool _isTransientNetworkError(DioException error) {
+  switch (error.type) {
+    case DioExceptionType.connectionTimeout:
+    case DioExceptionType.sendTimeout:
+    case DioExceptionType.receiveTimeout:
+    case DioExceptionType.connectionError:
+      return true;
+    default:
+      return false;
+  }
+}
+
 final apiClientProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
       baseUrl: baseUrl,
-      connectTimeout: const Duration(seconds: 25),
-      receiveTimeout: const Duration(seconds: 30),
+      connectTimeout: kApiConnectTimeout,
+      receiveTimeout: kApiReceiveTimeout,
       headers: {'Content-Type': 'application/json'},
     ),
   );
@@ -51,7 +68,38 @@ final apiClientProvider = Provider<Dio>((ref) {
         }
         handler.next(options);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
+        final opts = error.requestOptions;
+        final retryCount = (opts.extra['retryCount'] as int?) ?? 0;
+        final allowRetry = opts.extra['allowRetry'] != false;
+
+        if (allowRetry &&
+            retryCount < 1 &&
+            _isTransientNetworkError(error) &&
+            opts.method.toUpperCase() != 'GET') {
+          opts.extra['retryCount'] = retryCount + 1;
+          try {
+            // Wake a sleeping free-tier instance before the real retry.
+            await dio.get(
+              '/health',
+              options: Options(
+                receiveTimeout: kApiReceiveTimeout,
+                sendTimeout: kApiConnectTimeout,
+                extra: {'allowRetry': false, 'skipAuthLogout': true},
+              ),
+            );
+          } catch (_) {}
+          try {
+            final response = await dio.fetch(opts);
+            return handler.resolve(response);
+          } catch (e) {
+            if (e is DioException) {
+              return handler.next(e);
+            }
+            return handler.next(error);
+          }
+        }
+
         if (error.response?.statusCode == 401) {
           final skipLogout =
               error.requestOptions.extra['skipAuthLogout'] == true;

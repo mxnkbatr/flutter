@@ -52,6 +52,11 @@ import {
   uploadBase64Image,
   isCloudinaryConfigured,
 } from './uploadUtils.js';
+import {
+  normalizePhone,
+  isValidPhone,
+  looksLikeEmail,
+} from './phoneUtils.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -203,7 +208,7 @@ function userJson(u) {
   return {
     id: u._id.toString(),
     _id: u._id.toString(),
-    email: u.email,
+    email: u.email || '',
     name: u.name,
     phone: u.phone || '',
     role: u.role,
@@ -237,34 +242,83 @@ app.post('/api/upload/image', authRequired, async (req, res) => {
 // ─── Auth ───
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Missing fields' });
+    const { email, password, name, phone } = req.body;
+    const normalizedPhone = normalizePhone(phone);
+    if (!password || !name || !normalizedPhone) {
+      return res.status(400).json({ error: 'Нэр, утасны дугаар, нууц үг заавал' });
     }
-    const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(400).json({ error: 'Email already registered' });
+    if (!isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ error: 'Утасны дугаар буруу байна' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Нууц үг хамгийн багадаа 6 тэмдэгт' });
+    }
+
+    const phoneExists = await User.findOne({ phone: normalizedPhone });
+    if (phoneExists) {
+      return res.status(400).json({ error: 'Энэ утасны дугаар бүртгэлтэй байна' });
+    }
+
+    let normalizedEmail;
+    if (email && String(email).trim()) {
+      normalizedEmail = String(email).trim().toLowerCase();
+      if (!normalizedEmail.includes('@')) {
+        return res.status(400).json({ error: 'Зөв и-мэйл оруулна уу' });
+      }
+      const emailExists = await User.findOne({ email: normalizedEmail });
+      if (emailExists) {
+        return res.status(400).json({ error: 'Энэ и-мэйл бүртгэлтэй байна' });
+      }
+    }
+
     const user = await User.create({
-      email: email.toLowerCase(),
+      ...(normalizedEmail ? { email: normalizedEmail } : {}),
+      phone: normalizedPhone,
       password: await bcrypt.hash(password, 10),
-      name,
+      name: String(name).trim(),
       role: 'client',
     });
     const token = signToken(user);
     res.json({ token, user: userJson(user) });
   } catch (e) {
+    if (e?.code === 11000) {
+      const field = Object.keys(e.keyPattern || {})[0] || 'field';
+      const msg =
+        field === 'phone'
+          ? 'Энэ утасны дугаар бүртгэлтэй байна'
+          : field === 'email'
+            ? 'Энэ и-мэйл бүртгэлтэй байна'
+            : 'Бүртгэл давхцаж байна';
+      return res.status(400).json({ error: msg });
+    }
     res.status(500).json({ error: e.message });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await User.findOne({ email: email?.toLowerCase() });
+    const { email, phone, password, login } = req.body;
+    const identifier = String(login || email || phone || '').trim();
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Нэвтрэх мэдээлэл дутуу' });
+    }
+
+    let user;
+    if (looksLikeEmail(identifier)) {
+      user = await User.findOne({ email: identifier.toLowerCase() });
+    } else {
+      const normalizedPhone = normalizePhone(identifier);
+      if (!normalizedPhone) {
+        return res.status(401).json({ error: 'Утас/и-мэйл эсвэл нууц үг буруу' });
+      }
+      user = await User.findOne({ phone: normalizedPhone });
+    }
+
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Утас/и-мэйл эсвэл нууц үг буруу' });
     }
     if (user.isActive === false) {
-      return res.status(403).json({ error: 'Account disabled' });
+      return res.status(403).json({ error: 'Бүртгэл идэвхгүй байна' });
     }
     const token = signToken(user);
     res.json({ token, user: userJson(user) });
@@ -1273,12 +1327,36 @@ app.post('/api/subscription/activate', authRequired, async (req, res) => {
 
 // ─── Users profile / FCM ───
 app.put('/api/users/profile', authRequired, async (req, res) => {
-  const { fcmToken, name, phone } = req.body;
-  if (fcmToken !== undefined) req.user.fcmToken = fcmToken || null;
-  if (name) req.user.name = name;
-  if (phone !== undefined) req.user.phone = phone;
-  await req.user.save();
-  res.json(userJson(req.user));
+  try {
+    const { fcmToken, name, phone } = req.body;
+    if (fcmToken !== undefined) req.user.fcmToken = fcmToken || null;
+    if (name) req.user.name = name;
+    if (phone !== undefined) {
+      const normalizedPhone = normalizePhone(phone);
+      if (normalizedPhone) {
+        if (!isValidPhone(normalizedPhone)) {
+          return res.status(400).json({ error: 'Утасны дугаар буруу байна' });
+        }
+        const taken = await User.findOne({
+          phone: normalizedPhone,
+          _id: { $ne: req.user._id },
+        });
+        if (taken) {
+          return res.status(400).json({ error: 'Энэ утасны дугаар бүртгэлтэй байна' });
+        }
+        req.user.phone = normalizedPhone;
+      } else {
+        req.user.phone = undefined;
+      }
+    }
+    await req.user.save();
+    res.json(userJson(req.user));
+  } catch (e) {
+    if (e?.code === 11000) {
+      return res.status(400).json({ error: 'Энэ утасны дугаар бүртгэлтэй байна' });
+    }
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Apple App Store: in-app account deletion (Guideline 5.1.1)
@@ -2745,7 +2823,15 @@ app.put('/api/admin/orders/:id/status', authRequired, adminRequired, async (req,
 app.get('/api/health', (_, res) => {
   res.json({
     ok: true,
+    version: '1.0.0',
+    build: process.env.RENDER_GIT_COMMIT?.slice(0, 7) || process.env.BUILD_SHA || 'local',
+    nodeEnv: process.env.NODE_ENV || 'development',
     imageStorage: isCloudinaryConfigured() ? 'cloudinary' : 'local',
+    qpayConfigured: isQPayConfigured(),
+    features: {
+      forceProductDelete: true,
+      premiumSubscriptions: PREMIUM_SUBSCRIPTIONS_ENABLED,
+    },
   });
 });
 
@@ -3036,6 +3122,15 @@ async function processCallTimeReminders() {
 
 async function start() {
   await connectDb();
+  // Sparse unique indexes: remove empty phone/email so duplicates of '' don't collide
+  await User.updateMany(
+    { $or: [{ phone: '' }, { phone: null }] },
+    { $unset: { phone: 1 } },
+  );
+  await User.updateMany(
+    { $or: [{ email: '' }, { email: null }] },
+    { $unset: { email: 1 } },
+  );
   await ensureMonkCategories();
   setInterval(processCallTimeReminders, 60_000);
   processCallTimeReminders();

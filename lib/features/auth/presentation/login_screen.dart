@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,9 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/auth_phone.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/shared/widgets/auth_ambient_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
-import 'package:sacred_app/shared/widgets/sacred_divider.dart';
 import 'package:sacred_app/shared/widgets/sacred_input.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -22,11 +22,11 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailCtrl = TextEditingController();
+  final _loginCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _obscure = true;
   bool _loading = false;
-  String? _emailError;
+  String? _loginError;
   String? _passError;
   String? _formError;
 
@@ -38,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _loginCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
   }
@@ -46,16 +46,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _validate() {
     var ok = true;
     setState(() {
-      _emailError = null;
+      _loginError = null;
       _passError = null;
       _formError = null;
 
-      final email = _emailCtrl.text.trim();
-      if (email.isEmpty) {
-        _emailError = 'И-мэйл оруулна уу';
+      final login = _loginCtrl.text.trim();
+      if (login.isEmpty) {
+        _loginError = 'Утасны дугаар эсвэл и-мэйл оруулна уу';
         ok = false;
-      } else if (!email.contains('@')) {
-        _emailError = 'Зөв и-мэйл оруулна уу';
+      } else if (AuthPhone.looksLikeEmail(login)) {
+        if (!login.contains('@') || !login.contains('.')) {
+          _loginError = 'Зөв и-мэйл оруулна уу';
+          ok = false;
+        }
+      } else if (!AuthPhone.isValid(login)) {
+        _loginError = 'Зөв утасны дугаар оруулна уу';
         ok = false;
       }
 
@@ -80,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     await ref.read(authStateProvider.notifier).login(
-          _emailCtrl.text.trim(),
+          _loginCtrl.text.trim(),
           _passCtrl.text,
         );
 
@@ -91,7 +96,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (authAsync.hasError) {
       setState(() {
-        _formError = _formatAuthError(authAsync.error);
+        _formError = formatUserError(
+          authAsync.error,
+          fallback: 'Нэвтрэхэд алдаа гарлаа. Дахин оролдоно уу.',
+        );
       });
       return;
     }
@@ -107,25 +115,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
-  String _formatAuthError(Object? error) {
-    if (error is DioException) {
-      if (error.type == DioExceptionType.connectionError ||
-          error.type == DioExceptionType.connectionTimeout) {
-        return shouldUseDevAuth
-            ? 'Серверт холбогдож чадсангүй. Dev нэвтрэлт ашиглана уу.'
-            : 'Серверт холбогдож чадсангүй. Backend асаасан эсэхээ шалгана уу.';
-      }
-      final msg = error.response?.data;
-      if (msg is Map) {
-        final text = msg['error'] ?? msg['message'];
-        if (text != null) return text.toString();
-      }
-    }
-    return error.toString().replaceFirst('Exception: ', '');
-  }
-
   void _showForgotPassword(BuildContext context) {
-    final forgotEmailCtrl = TextEditingController();
+    final forgotCtrl = TextEditingController();
     var sending = false;
     String? forgotError;
 
@@ -163,16 +154,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Text('Нууц үг сэргээх', style: AppText.displaySerif(size: 22)),
                   const SizedBox(height: 8),
                   Text(
-                    'Бүртгэлтэй и-мэйл хаягаа оруулна уу',
+                    'Бүртгэлтэй утасны дугаар эсвэл и-мэйлээ оруулна уу',
                     style: AppText.bodySmall,
                   ),
                   const SizedBox(height: 20),
                   SacredInput(
-                    label: 'И-мэйл',
-                    hint: 'name@example.com',
-                    controller: forgotEmailCtrl,
+                    label: 'Утасны дугаар / И-мэйл',
+                    hint: '',
+                    controller: forgotCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.mail_outline_rounded,
+                    prefixIcon: Icons.person_outline_rounded,
                     errorText: forgotError,
                   ),
                   const SizedBox(height: 16),
@@ -180,10 +171,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: 'Илгээх',
                     isLoading: sending,
                     onTap: () async {
-                      final email = forgotEmailCtrl.text.trim();
-                      if (email.isEmpty || !email.contains('@')) {
+                      final value = forgotCtrl.text.trim();
+                      if (value.isEmpty) {
                         setSheetState(() {
-                          forgotError = 'Зөв и-мэйл оруулна уу';
+                          forgotError = 'Утасны дугаар эсвэл и-мэйл оруулна уу';
                         });
                         return;
                       }
@@ -198,7 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
-                            'Нууц үг сэргээх: support@gevabal.mn хаяг руу и-мэйл илгээнэ үү',
+                            'Нууц үг сэргээх: support@gevabal.mn хаяг руу холбогдоно уу',
                           ),
                           backgroundColor: AppColors.inkDeep,
                         ),
@@ -211,7 +202,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           },
         );
       },
-    ).whenComplete(forgotEmailCtrl.dispose);
+    ).whenComplete(forgotCtrl.dispose);
   }
 
   @override
@@ -235,7 +226,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Expanded(
                 child: AuthFormSheet(
                   title: 'Нэвтрэх',
-                  subtitle: 'Өөрийн бүртгэлээр орно уу',
+                  subtitle: 'Утасны дугаар эсвэл и-мэйлээр нэвтрэнэ үү',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -265,7 +256,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Text(
                                 isApiConfigured
                                     ? '${ApiConfig.seedClientEmail} / ${ApiConfig.seedClientPassword}'
-                                    : '${DevAuthStore.defaultEmail} / ${DevAuthStore.defaultPassword}',
+                                    : '${DevAuthStore.defaultPhone} эсвэл ${DevAuthStore.defaultEmail} / ${DevAuthStore.defaultPassword}',
                                 style: AppText.caption.copyWith(
                                   color: AppColors.inkDeep,
                                 ),
@@ -276,12 +267,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 16),
                       ],
                       SacredInput(
-                        label: 'И-мэйл',
-                        hint: 'name@example.com',
+                        label: 'Утасны дугаар эсвэл и-мэйл',
+                        hint: '99112233 эсвэл name@example.com',
                         keyboardType: TextInputType.emailAddress,
-                        controller: _emailCtrl,
-                        prefixIcon: Icons.mail_outline_rounded,
-                        errorText: _emailError,
+                        controller: _loginCtrl,
+                        prefixIcon: Icons.phone_outlined,
+                        errorText: _loginError,
                         textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: 16),

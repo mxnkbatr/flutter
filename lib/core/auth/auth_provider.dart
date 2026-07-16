@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/api/api_config.dart';
+import 'package:sacred_app/core/auth/auth_profile_cache.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
 import 'package:sacred_app/core/auth/session_clear.dart';
 import 'package:sacred_app/core/auth/tier_cache.dart';
@@ -60,7 +61,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
   bool _isConnectionError(DioException e) =>
       e.type == DioExceptionType.connectionError ||
-      e.type == DioExceptionType.connectionTimeout;
+      e.type == DioExceptionType.connectionTimeout ||
+      e.type == DioExceptionType.sendTimeout ||
+      e.type == DioExceptionType.receiveTimeout;
 
   @override
   Future<AuthState> build() async {
@@ -99,7 +102,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
         await _storage.delete(key: _tokenKey);
-        await TierCache.clear();
+        await _clearSessionCache();
         return const AuthState();
       }
       return await _offlineAuthState(token);
@@ -109,44 +112,48 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   }
 
   Future<AuthState> _offlineAuthState(String token) async {
-    final cached = await TierCache.load();
+    final tier = await TierCache.load();
+    final profile = await AuthProfileCache.load();
     return AuthState(
       isAuthenticated: true,
       token: token,
-      tier: cached?.tier ?? 'free',
-      tierExpiresAt: cached?.expiresAt,
+      role: profile?.role,
+      userId: profile?.userId,
+      userName: profile?.userName,
+      tier: tier?.tier ?? 'free',
+      tierExpiresAt: tier?.expiresAt,
     );
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String loginId, String password) async {
     final previous = state;
     state = const AsyncLoading<AuthState>().copyWithPrevious(previous);
     try {
       if (isApiConfigured) {
         try {
-          await _loginViaApi(email, password);
+          await _loginViaApi(loginId, password);
           return;
         } on DioException catch (e) {
           if (ApiConfig.preferDevAuth &&
               kDebugMode &&
               _isConnectionError(e)) {
-            await _loginViaDevAuth(email, password);
+            await _loginViaDevAuth(loginId, password);
             return;
           }
           rethrow;
         }
       }
 
-      await _loginViaDevAuth(email, password);
+      await _loginViaDevAuth(loginId, password);
     } catch (e, st) {
       state = AsyncError<AuthState>(e, st).copyWithPrevious(previous);
     }
   }
 
-  Future<void> _loginViaApi(String email, String password) async {
+  Future<void> _loginViaApi(String loginId, String password) async {
     final res = await ref.read(apiClientProvider).post(
           '/auth/login',
-          data: {'email': email, 'password': password},
+          data: {'login': loginId, 'password': password},
         );
     final data = res.data as Map<String, dynamic>;
     final token = data['token'] as String;
@@ -158,14 +165,14 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     scheduleSessionClear(ref);
   }
 
-  Future<void> _loginViaDevAuth(String email, String password) async {
+  Future<void> _loginViaDevAuth(String loginId, String password) async {
     if (!kDebugMode) {
       throw Exception('Серверт холбогдож чадсангүй');
     }
     await _devAuth.ensureSeeded();
-    final user = await _devAuth.login(email, password);
+    final user = await _devAuth.login(loginId, password);
     if (user == null) {
-      throw Exception('Имэйл эсвэл нууц үг буруу');
+      throw Exception('Утас/и-мэйл эсвэл нууц үг буруу');
     }
     final token = _devAuth.tokenFor(user);
     await _storage.write(key: _tokenKey, value: token);
@@ -175,7 +182,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     scheduleSessionClear(ref);
   }
 
-  Future<void> signup(String email, String password, String name) async {
+  Future<void> signup({
+    required String name,
+    required String phone,
+    required String password,
+    String? email,
+  }) async {
     final previous = state;
     state = const AsyncLoading<AuthState>().copyWithPrevious(previous);
     try {
@@ -183,7 +195,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         try {
           final res = await ref.read(apiClientProvider).post(
                 '/auth/signup',
-                data: {'email': email, 'password': password, 'name': name},
+                data: {
+                  'name': name,
+                  'phone': phone,
+                  'password': password,
+                  if (email != null && email.isNotEmpty) 'email': email,
+                },
               );
           final data = res.data as Map<String, dynamic>;
           final token = data['token'] as String;
@@ -205,7 +222,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         }
       }
 
-      final user = await _devAuth.signup(email, password, name);
+      final user = await _devAuth.signup(
+        name: name,
+        phone: phone,
+        password: password,
+        email: email,
+      );
       final token = _devAuth.tokenFor(user);
       await _storage.write(key: _tokenKey, value: token);
       final authState = _authStateFromDevUser(user, token);
@@ -253,6 +275,16 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
   Future<void> _persistTier(AuthState authState) async {
     await TierCache.save(authState.tier, authState.tierExpiresAt);
+    await AuthProfileCache.save(
+      role: authState.role,
+      userId: authState.userId,
+      userName: authState.userName,
+    );
+  }
+
+  Future<void> _clearSessionCache() async {
+    await TierCache.clear();
+    await AuthProfileCache.clear();
   }
 
   Future<void> logout() async {
@@ -270,7 +302,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       }
     } finally {
       await _storage.delete(key: _tokenKey);
-      await TierCache.clear();
+      await _clearSessionCache();
       state = const AsyncData(AuthState());
       scheduleSessionClear(ref);
       _loggingOut = false;

@@ -12,11 +12,18 @@ String formatUserError(
         error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
-      return 'Серверт холбогдож чадсангүй.\nИнтернэт холболтоо шалгана уу.';
+      return 'Серверт холбогдож чадсангүй.\nИнтернэт холболтоо шалгаад дахин оролдоно уу.';
     }
 
     final code = error.response?.statusCode;
+    final path = error.requestOptions.path;
+    final isAuthCredentialRoute =
+        path.contains('/auth/login') || path.contains('/auth/signup');
+
     if (code == 401) {
+      if (isAuthCredentialRoute) {
+        return 'Утас/и-мэйл эсвэл нууц үг буруу байна.';
+      }
       return 'Нэвтрэлт хүчинтэй биш байна.\nДахин нэвтэрнэ үү.';
     }
     if (code == 403) {
@@ -33,6 +40,8 @@ String formatUserError(
     if (data is Map) {
       final text = data['error'] ?? data['message'];
       if (text is String && text.isNotEmpty && !_isTechnical(text)) {
+        final localized = _localizeKnownApiMessage(text);
+        if (localized != null) return localized;
         if (text.contains('Нэхэмжлэлийн мөр') ||
             text.contains('INVOICE_LINE')) {
           return 'QPay тохиргоо дутуу байна.\nАдминтай холбогдоно уу.';
@@ -54,9 +63,22 @@ String formatUserError(
   return raw.replaceFirst('Exception: ', '');
 }
 
+String? _localizeKnownApiMessage(String text) {
+  final lower = text.toLowerCase();
+  if (lower.contains('invalid credentials')) {
+    return 'Утас/и-мэйл эсвэл нууц үг буруу байна.';
+  }
+  if (lower.contains('account disabled')) {
+    return 'Бүртгэл идэвхгүй байна.';
+  }
+  return null;
+}
+
 bool _isTechnical(String text) {
   return text.contains('DioException') ||
       text.contains('SocketException') ||
       text.contains('HttpException') ||
-      text.contains('FormatException');
+      text.contains('FormatException') ||
+      text.contains('receive timeout') ||
+      text.contains('RequestOptions');
 }

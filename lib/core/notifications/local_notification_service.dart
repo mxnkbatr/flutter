@@ -64,7 +64,7 @@ class LocalNotificationService {
     );
 
     await _plugin.initialize(
-      const InitializationSettings(android: android, iOS: ios),
+      settings: const InitializationSettings(android: android, iOS: ios),
       onDidReceiveNotificationResponse: _onTap,
     );
 
@@ -203,16 +203,16 @@ class LocalNotificationService {
     );
 
     await _plugin.show(
-      bookingId.hashCode,
-      'Дуудлага ирж байна',
-      callerName,
-      const NotificationDetails(android: android, iOS: ios),
+      id: bookingId.hashCode,
+      title: 'Дуудлага ирж байна',
+      body: callerName,
+      notificationDetails: const NotificationDetails(android: android, iOS: ios),
       payload: payload,
     );
   }
 
   static Future<void> cancelIncomingCall(String bookingId) async {
-    await _plugin.cancel(bookingId.hashCode);
+    await _plugin.cancel(id: bookingId.hashCode);
   }
 
   static Future<void> showFromRemoteData(Map<String, dynamic> data) async {
@@ -278,10 +278,10 @@ class LocalNotificationService {
     );
 
     await _plugin.show(
-      id,
-      title,
-      body,
-      const NotificationDetails(android: android, iOS: ios),
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(android: android, iOS: ios),
       payload: payload.isEmpty ? null : payload,
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/utils/auth_phone.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/constants/app_branding.dart';
@@ -19,10 +20,12 @@ class SignupScreen extends ConsumerStatefulWidget {
 
 class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _nameError;
+  String? _phoneError;
   String? _emailError;
   String? _passError;
 
@@ -35,6 +38,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -44,6 +48,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     var ok = true;
     setState(() {
       _nameError = null;
+      _phoneError = null;
       _emailError = null;
       _passError = null;
 
@@ -51,14 +56,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         _nameError = 'Нэр оруулна уу';
         ok = false;
       }
-      final email = _emailController.text.trim();
-      if (email.isEmpty) {
-        _emailError = 'Имэйл оруулна уу';
+
+      final phone = _phoneController.text.trim();
+      if (phone.isEmpty) {
+        _phoneError = 'Утасны дугаар оруулна уу';
         ok = false;
-      } else if (!email.contains('@')) {
-        _emailError = 'Зөв имэйл оруулна уу';
+      } else if (!AuthPhone.isValid(phone)) {
+        _phoneError = 'Зөв утасны дугаар оруулна уу (жишээ: 99112233)';
         ok = false;
       }
+
+      final email = _emailController.text.trim();
+      if (email.isNotEmpty && !email.contains('@')) {
+        _emailError = 'Зөв и-мэйл оруулна уу';
+        ok = false;
+      }
+
       final pass = _passwordController.text;
       if (pass.isEmpty) {
         _passError = 'Нууц үг оруулна уу';
@@ -74,10 +87,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   Future<void> _submit() async {
     if (!_validate()) return;
 
+    final email = _emailController.text.trim();
     await ref.read(authStateProvider.notifier).signup(
-          _emailController.text.trim(),
-          _passwordController.text,
-          _nameController.text.trim(),
+          name: _nameController.text.trim(),
+          phone: AuthPhone.normalize(_phoneController.text.trim()),
+          password: _passwordController.text,
+          email: email.isEmpty ? null : email,
         );
 
     if (!mounted) return;
@@ -89,6 +104,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           backgroundColor: AppColors.danger,
         ),
       );
+      return;
+    }
+
+    final auth = authAsync.valueOrNull;
+    if (auth?.isAuthenticated == true) {
+      final dest = switch (auth!.role) {
+        'monk' => '/monk/calls',
+        'admin' => '/admin/dashboard',
+        _ => '/home',
+      };
+      context.go(dest);
     }
   }
 
@@ -123,7 +149,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 ),
               ),
               SizedBox(
-                height: MediaQuery.of(context).size.height * 0.18,
+                height: MediaQuery.of(context).size.height * 0.16,
                 child: const Center(
                   child: AuthBrandHero(logoHeight: 72, compact: true),
                 ),
@@ -145,7 +171,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ),
                       const SizedBox(height: 16),
                       SacredInput(
-                        label: 'Имэйл',
+                        label: 'Утасны дугаар',
+                        hint: '99112233',
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        prefixIcon: Icons.phone_outlined,
+                        errorText: _phoneError,
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 16),
+                      SacredInput(
+                        label: 'И-мэйл (заавал биш)',
                         hint: 'name@example.com',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,

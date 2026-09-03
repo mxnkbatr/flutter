@@ -53,10 +53,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _init() async {
-    final minAnimation = Future.delayed(const Duration(milliseconds: 1600));
-    final authReady = ref.read(authStateProvider.future).catchError(
-          (_) => const AuthState(),
-        );
+    final minAnimation = Future.delayed(const Duration(milliseconds: 450));
+    final authReady = ref.read(authStateProvider.future).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () =>
+              ref.read(authStateProvider).valueOrNull ?? const AuthState(),
+        ).catchError((_) => const AuthState());
     await Future.wait([minAnimation, authReady]);
     if (!mounted || _navigated) return;
 
@@ -118,10 +120,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(999),
-                          child: const LinearProgressIndicator(
+                          child: LinearProgressIndicator(
                             backgroundColor: AppColors.orangeLight,
-                            valueColor: AlwaysStoppedAnimation(AppColors.orange),
-                            minHeight: 4,
+                            valueColor: const AlwaysStoppedAnimation(AppColors.orange),
+                            minHeight: 3,
+                            borderRadius: BorderRadius.circular(999),
                           ),
                         ),
                         const SizedBox(height: 16),

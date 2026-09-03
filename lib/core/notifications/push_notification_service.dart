@@ -61,7 +61,11 @@ class PushNotificationService {
       final auth = ref.read(authStateProvider).valueOrNull;
       if (auth == null || !auth.isAuthenticated) return false;
 
-      await requestNotificationPermission();
+      final allowed = await requestNotificationPermission();
+      if (!allowed) {
+        debugPrint('FCM sync skipped: notification permission denied');
+        return false;
+      }
       await _waitForApnsIfNeeded();
 
       var token = await FirebaseMessaging.instance.getToken();
@@ -81,8 +85,10 @@ class PushNotificationService {
       debugPrint('FCM token saved: ${token.substring(0, 12)}...');
       return true;
     } catch (e) {
+      final blocked = e.toString().contains('permission-blocked') ||
+          e.toString().contains('permission-denied');
       debugPrint('FCM token upload failed (attempt ${attempt + 1}): $e');
-      if (attempt < 3) {
+      if (!blocked && attempt < 3) {
         await Future<void>.delayed(Duration(seconds: 2 + attempt));
         return syncFcmToken(ref, attempt: attempt + 1);
       }

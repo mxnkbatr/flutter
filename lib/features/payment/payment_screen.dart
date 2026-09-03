@@ -48,6 +48,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   bool _checkingPayment = false;
   QPayData? _qpayData;
   bool _creatingQpay = false;
+  int _pollFailures = 0;
 
   @override
   void initState() {
@@ -66,20 +67,30 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   void _startPolling(String invoiceId) {
     _pollTimer?.cancel();
+    _pollFailures = 0;
     _pollTimer = Timer.periodic(
       const Duration(seconds: 3),
-      (_) => _checkPayment(invoiceId),
+      (_) {
+        if (_expired || _paid) {
+          _pollTimer?.cancel();
+          return;
+        }
+        _checkPayment(invoiceId);
+      },
     );
+    // Immediate first check so UX feels responsive
+    _checkPayment(invoiceId);
   }
 
   Future<void> _checkPayment(String invoiceId) async {
-    if (_paid || _checkingPayment) return;
+    if (_paid || _checkingPayment || _expired) return;
     _checkingPayment = true;
     try {
       final res = await ref.read(apiClientProvider).get(
             '/payment/qpay/check/$invoiceId',
           );
       final body = res.data as Map<String, dynamic>;
+      _pollFailures = 0;
       if (body['paid'] == true) {
         _pollTimer?.cancel();
         if (!mounted) return;
@@ -87,7 +98,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         _invalidateBookings();
         _navigateToSuccess();
       }
-    } catch (_) {} finally {
+    } catch (_) {
+      _pollFailures += 1;
+      if (_pollFailures == 3 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Төлбөр шалгах амжилтгүй. Сүлжээгээ шалгаад «Дахин шалгах» дарна уу.',
+            ),
+            backgroundColor: AppColors.danger,
+            action: SnackBarAction(
+              label: 'Дахин',
+              textColor: Colors.white,
+              onPressed: () => _checkPayment(invoiceId),
+            ),
+          ),
+        );
+      }
+    } finally {
       _checkingPayment = false;
     }
   }
@@ -357,9 +385,26 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 ),
                 const SizedBox(height: 8),
               ] else ...[
-                const Text('Банкны апп-аар уншуулна уу', style: AppText.bodySmall),
+                Text(
+                  'QPay QR кодыг банкны апп-аар уншуулна уу',
+                  style: AppText.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
                 const SizedBox(height: 8),
                 const PulsingDot(),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: _checkingPayment
+                      ? null
+                      : () => _checkPayment(data.invoiceId),
+                  child: Text(
+                    _checkingPayment ? 'Шалгаж байна...' : 'Төлсөн эсэхийг шалгах',
+                    style: AppText.bodySmall.copyWith(
+                      color: AppColors.orangeDeep,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
@@ -370,29 +415,36 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             const Expanded(child: SacredDivider()),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('эсвэл банкаар нэвтрэх', style: AppText.caption),
+              child: Text('банкны апп нээх', style: AppText.caption),
             ),
             const Expanded(child: SacredDivider()),
           ],
         ),
         const SizedBox(height: 16),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 2.8,
-          children: data.urls.map((bank) {
-            return BankButton(
-              bank: bank,
-              onTap: () => launchUrl(
-                Uri.parse(bank.link),
-                mode: LaunchMode.externalApplication,
-              ),
-            );
-          }).toList(),
-        ),
+        if (data.urls.isEmpty)
+          Text(
+            'QR кодыг банкны апп-ын QPay уншигчаар уншуулна уу',
+            style: AppText.caption.copyWith(color: AppColors.textSec),
+            textAlign: TextAlign.center,
+          )
+        else
+          GridView.count(
+            crossAxisCount: 2,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 2.8,
+            children: data.urls.map((bank) {
+              return BankButton(
+                bank: bank,
+                onTap: () => launchUrl(
+                  Uri.parse(bank.link),
+                  mode: LaunchMode.externalApplication,
+                ),
+              );
+            }).toList(),
+          ),
       ],
     );
   }

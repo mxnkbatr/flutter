@@ -36,8 +36,10 @@ class _SubscriptionPaymentSheetState
   bool _loading = false;
   bool _paid = false;
   bool _expired = false;
+  bool _checkingPayment = false;
   Timer? _pollTimer;
   String? _error;
+  int _pollFailures = 0;
 
   int get _total => widget.monthlyPrice * _months;
 
@@ -58,6 +60,7 @@ class _SubscriptionPaymentSheetState
     setState(() {
       _loading = true;
       _error = null;
+      _pollFailures = 0;
     });
     try {
       final data = await createSubscriptionInvoice(
@@ -93,23 +96,38 @@ class _SubscriptionPaymentSheetState
   }
 
   Future<void> _checkPayment() async {
-    if (_paid || _qpayData == null) return;
+    if (_paid || _qpayData == null || _checkingPayment || _expired) return;
+    _checkingPayment = true;
     try {
       final res = await ref.read(apiClientProvider).get(
             '/payment/qpay/check/${_qpayData!.invoiceId}',
           );
       final data = res.data as Map<String, dynamic>;
+      _pollFailures = 0;
       if (data['paid'] == true) {
         _pollTimer?.cancel();
-        await activateSubscription(
-          ref,
-          tier: widget.tier,
-          invoiceId: _qpayData!.invoiceId,
-        );
+        try {
+          await activateSubscription(
+            ref,
+            tier: widget.tier,
+            invoiceId: _qpayData!.invoiceId,
+          );
+        } catch (_) {
+          // Tier already activated by completePaymentRecord on server
+        }
         if (!mounted) return;
         setState(() => _paid = true);
       }
-    } catch (_) {}
+    } catch (_) {
+      _pollFailures += 1;
+      if (_pollFailures == 3 && mounted) {
+        setState(() {
+          _error = 'Төлбөр шалгах амжилтгүй. Сүлжээгээ шалгана уу.';
+        });
+      }
+    } finally {
+      _checkingPayment = false;
+    }
   }
 
   Widget _buildQrImage(String base64Str) {

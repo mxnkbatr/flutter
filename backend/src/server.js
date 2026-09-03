@@ -805,14 +805,22 @@ async function completePaymentRecord(payment) {
   }
 }
 
+/** Dev-only shortcuts (fake QR / auto-pay). Never in production. */
+function allowDevPaymentShortcuts() {
+  return !isQPayConfigured() && process.env.NODE_ENV !== 'production';
+}
+
 async function syncQPayPaymentStatus(payment) {
   if (!payment || payment.paid) return true;
 
   if (!isQPayConfigured()) {
-    const age = Date.now() - payment.createdAt.getTime();
-    if (age > 15000) {
-      await completePaymentRecord(payment);
-      return true;
+    // Local/dev only: auto-complete after 15s so QA can test without QPay
+    if (allowDevPaymentShortcuts()) {
+      const age = Date.now() - payment.createdAt.getTime();
+      if (age > 15000) {
+        await completePaymentRecord(payment);
+        return true;
+      }
     }
     return false;
   }
@@ -829,8 +837,14 @@ async function syncQPayPaymentStatus(payment) {
 
 async function issueQPayForPayment(payment, description) {
   if (!isQPayConfigured()) {
+    if (!allowDevPaymentShortcuts()) {
+      const err = new Error('QPay тохируулаагүй — төлбөр үүсгэх боломжгүй');
+      err.status = 503;
+      throw err;
+    }
     const qrImage = fakeQrBase64(payment.amount);
     payment.qrImage = qrImage;
+    payment.method = payment.method || 'qpay';
     payment.qpayUrls = mapQPayUrls([
       { name: 'Khan Bank', link: 'https://qpay.mn' },
       { name: 'Golomt', link: 'https://qpay.mn' },
@@ -849,6 +863,7 @@ async function issueQPayForPayment(payment, description) {
   payment.qpayInvoiceId = invoice.invoice_id;
   payment.qrImage = invoice.qr_image || fakeQrBase64(payment.amount);
   payment.qpayUrls = mapQPayUrls(invoice.urls);
+  payment.method = 'qpay';
   await payment.save();
 
   return paymentQPayPayload(payment);
@@ -1006,7 +1021,7 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
 
     res.json(paymentQPayPayload(payment));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
@@ -1050,6 +1065,16 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
           payment = await Payment.findById(payment._id);
         } catch (e) {
           console.error('QPay invoice error:', e.message);
+          return res.status(e.status || 502).json({
+            error: e.message || 'QPay нэхэмжлэх үүсгэж чадсангүй',
+            canPay,
+            booking: {
+              ...bookingJson(booking),
+              monkName,
+              monkImage: monk?.image ?? '',
+              clientName: client?.name ?? '',
+            },
+          });
         }
       }
     } else {
@@ -1093,78 +1118,91 @@ app.get('/api/payment/order/:orderId', authRequired, async (req, res) => {
       return res.status(403).json({ error: 'Эрх байхгүй' });
     }
 
-    const payment = await Payment.findOne({
+    const canPay = isOwner && !order.paid;
+    let payment = await Payment.findOne({
       orderId: order._id,
       type: 'shop_order',
       paid: false,
     }).sort({ createdAt: -1 });
 
+    if (canPay) {
+      if (!payment) {
+        const invoiceId = `SHOP-${uuidv4().slice(0, 8)}`;
+        order.invoiceId = invoiceId;
+        await order.save();
+        payment = await Payment.create({
+          userId: req.user._id,
+          invoiceId,
+          amount: order.totalAmount,
+          type: 'shop_order',
+          orderId: order._id,
+          paid: false,
+          method: 'qpay',
+        });
+      }
+      if (!payment.qpayInvoiceId || !payment.qrImage) {
+        try {
+          const description = `Gevabal дэлгүүр — ${order.items?.length || 0} бараа`;
+          await issueQPayForPayment(payment, description);
+          payment = await Payment.findById(payment._id);
+        } catch (e) {
+          console.error('Shop QPay invoice error:', e.message);
+          return res.status(e.status || 502).json({
+            error: e.message || 'QPay нэхэмжлэх үүсгэж чадсангүй',
+            order: orderJson(order),
+            canPay,
+          });
+        }
+      }
+    }
+
     res.json({
       order: orderJson(order),
-      canPay: isOwner && !order.paid,
-      qpay: payment ? paymentQPayPayload(payment) : null,
+      canPay,
+      qpay: payment?.qrImage ? paymentQPayPayload(payment) : null,
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.post('/api/payment/bank-transfer/:bookingId', authRequired, async (req, res) => {
-  try {
-    const access = await bookingAccess(req.params.bookingId, req.user);
-    if (access.error) return res.status(access.status).json({ error: access.error });
-    const { booking, isClient } = access;
-    if (!isClient) {
-      return res.status(403).json({ error: 'Only client can submit bank transfer' });
-    }
-    if (booking.status !== 'approved' || booking.paid) {
-      return res.status(400).json({ error: 'Payment not available' });
-    }
-
-    await Booking.findByIdAndUpdate(booking._id, { bankTransferPending: true });
-    const invoiceId = `BNK-${uuidv4().slice(0, 8)}`;
-    await Payment.create({
-      invoiceId,
-      type: 'booking',
-      bookingId: booking._id,
-      userId: req.user._id,
-      amount: booking.amount,
-      method: 'bank',
-      paid: false,
-    });
-
-    if (!process.env.QPAY_USERNAME) {
-      await Booking.findByIdAndUpdate(booking._id, {
-        paid: true,
-        status: 'confirmed',
-        bankTransferPending: false,
-      });
-      await Payment.updateOne({ invoiceId }, { paid: true, paidAt: new Date() });
-      return res.json({ ok: true, paid: true, dev: true });
-    }
-
-    res.json({ ok: true, paid: false, message: 'Админ баталгаажуулах хүлээнэ' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+// Bank transfer disabled — all payments must go through QPay.
+app.post('/api/payment/bank-transfer/:bookingId', authRequired, async (_req, res) => {
+  return res.status(400).json({
+    error: 'Төлбөрийг зөвхөн QPay-ээр төлнө үү',
+  });
 });
 
 app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => {
   try {
-  const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
+    const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
     const access = await paymentAccess(payment, req.user);
     if (access.error) return res.status(access.status).json({ error: access.error });
 
+    if (!isQPayConfigured() && !allowDevPaymentShortcuts()) {
+      return res.status(503).json({
+        paid: false,
+        error: 'QPay тохируулаагүй',
+      });
+    }
+
     await syncQPayPaymentStatus(payment);
     const fresh = await Payment.findOne({ invoiceId: req.params.invoiceId });
-    res.json({ paid: fresh?.paid === true });
+    res.json({
+      paid: fresh?.paid === true,
+      invoiceId: fresh?.invoiceId,
+      amount: fresh?.amount,
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: e.message, paid: false });
   }
 });
 
 app.post('/api/payment/qpay/callback', async (req, res) => {
   try {
+    if (!isQPayConfigured()) {
+      return res.status(503).json({ error: 'QPay not configured' });
+    }
     const qpayInvoiceId = req.body?.invoice_id || req.body?.invoiceId;
     if (!qpayInvoiceId) {
       return res.status(400).json({ error: 'invoice_id required' });
@@ -1180,9 +1218,9 @@ app.post('/api/payment/qpay/callback', async (req, res) => {
   }
 });
 
-// Dev: manually mark paid (owner or admin only)
+// Dev: manually mark paid (owner or admin only) — never when QPay is live
 app.post('/api/payment/qpay/simulate/:invoiceId', authRequired, async (req, res) => {
-  if (process.env.QPAY_USERNAME) {
+  if (!allowDevPaymentShortcuts()) {
     return res.status(403).json({ error: 'Not available in production' });
   }
   const payment = await Payment.findOne({ invoiceId: req.params.invoiceId });
@@ -1289,26 +1327,33 @@ app.get('/api/subscription/status', authRequired, (req, res) => {
 });
 
 app.post('/api/subscription/subscribe', authRequired, async (req, res) => {
-  const { tier, months } = req.body;
-  const monthly = TIER_PRICES[tier];
-  if (!monthly) return res.status(400).json({ error: 'Invalid tier' });
-  const amount = monthly * (months || 1);
-  const invoiceId = `SUB-${uuidv4().slice(0, 8)}`;
-  await Payment.create({
-    invoiceId,
-    type: 'subscription',
-    userId: req.user._id,
-    tier,
-    months: months || 1,
-    amount,
-    paid: false,
-  });
-  res.json({
-    invoiceId,
-    amount,
-    qrImage: fakeQrBase64(amount),
-    urls: [{ name: 'QPay', link: 'https://qpay.mn' }],
-  });
+  try {
+    if (!PREMIUM_SUBSCRIPTIONS_ENABLED) {
+      return res.status(403).json({ error: 'Premium subscription түр хаагдсан' });
+    }
+    const { tier, months } = req.body;
+    const monthly = TIER_PRICES[tier];
+    if (!monthly) return res.status(400).json({ error: 'Invalid tier' });
+    const amount = monthly * (months || 1);
+    const invoiceId = `SUB-${uuidv4().slice(0, 8)}`;
+    const payment = await Payment.create({
+      invoiceId,
+      type: 'subscription',
+      userId: req.user._id,
+      tier,
+      months: months || 1,
+      amount,
+      method: 'qpay',
+      paid: false,
+    });
+    const payload = await issueQPayForPayment(
+      payment,
+      `Gevabal Premium — ${months || 1} сар`,
+    );
+    res.json(payload);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
 });
 
 app.post('/api/subscription/activate', authRequired, async (req, res) => {
@@ -2639,19 +2684,25 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
       phone: phone || '',
     });
 
-    if (!process.env.QPAY_USERNAME) {
-      order.paid = true;
-      order.status = 'paid';
-      await order.save();
+    // Dev without QPay: mark paid immediately (stock decremented via markShopOrderPaid)
+    if (allowDevPaymentShortcuts()) {
       await markShopOrderPaid(order._id);
-      return res.status(201).json({ order: orderJson(order), dev: true });
+      const paidOrder = await Order.findById(order._id);
+      return res.status(201).json({ order: orderJson(paidOrder), dev: true });
+    }
+
+    if (!isQPayConfigured()) {
+      await Order.deleteOne({ _id: order._id });
+      return res.status(503).json({
+        error: 'QPay тохируулаагүй — захиалга үүсгэх боломжгүй',
+      });
     }
 
     const invoiceId = `SHOP-${uuidv4().slice(0, 8)}`;
     order.invoiceId = invoiceId;
     await order.save();
 
-    await Payment.create({
+    const payment = await Payment.create({
       userId: req.user._id,
       invoiceId,
       amount: totalAmount,
@@ -2661,12 +2712,6 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
       method: 'qpay',
     });
 
-    const payment = await Payment.findOne({
-      orderId: order._id,
-      type: 'shop_order',
-      paid: false,
-    }).sort({ createdAt: -1 });
-
     const description = `Gevabal дэлгүүр — ${orderItems.length} бараа`;
     const qpayPayload = await issueQPayForPayment(payment, description);
 
@@ -2675,7 +2720,7 @@ app.post('/api/shop/orders', authRequired, async (req, res) => {
       ...qpayPayload,
     });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
@@ -2733,7 +2778,7 @@ app.post('/api/shop/orders/:id/qpay', authRequired, async (req, res) => {
 
     res.json(paymentQPayPayload(payment));
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(e.status || 500).json({ error: e.message });
   }
 });
 
@@ -2828,9 +2873,11 @@ app.get('/api/health', (_, res) => {
     nodeEnv: process.env.NODE_ENV || 'development',
     imageStorage: isCloudinaryConfigured() ? 'cloudinary' : 'local',
     qpayConfigured: isQPayConfigured(),
+    paymentMethod: 'qpay_only',
     features: {
       forceProductDelete: true,
       premiumSubscriptions: PREMIUM_SUBSCRIPTIONS_ENABLED,
+      bankTransfer: false,
     },
   });
 });

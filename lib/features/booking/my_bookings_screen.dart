@@ -10,6 +10,7 @@ import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/booking/widgets/bookings_page_scaffold.dart';
 import 'package:sacred_app/features/booking/widgets/review_sheet.dart';
 import 'package:sacred_app/features/monk_dash/widgets/status_badge.dart';
+import 'package:sacred_app/shared/widgets/empty_state.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
 
 import 'package:sacred_app/features/profile/utils/booking_summary.dart';
@@ -28,55 +29,13 @@ class MyBookingsScreen extends ConsumerWidget {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: AppColors.goldLight,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_today_outlined,
-                        size: 32,
-                        color: AppColors.goldPrime,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('Захиалга байхгүй', style: AppText.h3),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Лам нараас цаг захиалж\nоюун санааны замаа эхлүүлээрэй',
-                      style: AppText.bodySmall,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 20),
-                    GestureDetector(
-                      onTap: () => context.go('/home'),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: AppGradients.sun,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Лам хайх',
-                          style: AppText.bodySmall.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            child: EmptyState(
+              icon: Icons.calendar_today_outlined,
+              title: 'Захиалга байхгүй',
+              message:
+                  'Лам нараас цаг захиалж оюун санааны замаа эхлүүлээрэй',
+              actionLabel: 'Лам хайх',
+              onAction: () => context.go('/home'),
             ),
           ),
         );

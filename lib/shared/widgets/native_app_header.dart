@@ -41,11 +41,11 @@ class NativeHeaderIconButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.surfaceEl,
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.borderSub, width: 1.5),
+              border: Border.all(color: AppColors.borderSub),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.04),
-                  blurRadius: 6,
+                  blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -53,7 +53,7 @@ class NativeHeaderIconButton extends StatelessWidget {
             child: Icon(
               icon,
               size: size * 0.48,
-              color: iconColor ?? AppColors.orange,
+              color: iconColor ?? AppColors.inkDeep,
             ),
           ),
           if (badgeCount != null && badgeCount! > 0)

@@ -8,16 +8,37 @@ function baseUrl() {
   return (process.env.QPAY_URL || DEFAULT_BASE_URL).replace(/\/$/, '');
 }
 
-export function isQPayConfigured() {
-  return Boolean(
-    process.env.QPAY_USERNAME &&
-      process.env.QPAY_PASSWORD &&
-      process.env.QPAY_INVOICE_CODE,
-  );
+/** Basic-auth username: QPAY_CLIENT_NAME or legacy QPAY_USERNAME */
+function qpayClientId() {
+  return (
+    process.env.QPAY_CLIENT_NAME ||
+    process.env.QPAY_USERNAME ||
+    ''
+  ).trim();
 }
 
-async function fetchJson(path, options = {}) {
-  const res = await fetch(`${baseUrl()}${path}`, options);
+/** Basic-auth password: QPAY_CLIENT_SECRET or legacy QPAY_PASSWORD */
+function qpayClientSecret() {
+  return (
+    process.env.QPAY_CLIENT_SECRET ||
+    process.env.QPAY_PASSWORD ||
+    ''
+  ).trim();
+}
+
+function qpayInvoiceCode() {
+  return (process.env.QPAY_INVOICE_CODE || '').trim();
+}
+
+export function isQPayConfigured() {
+  return Boolean(qpayClientId() && qpayClientSecret() && qpayInvoiceCode());
+}
+
+async function fetchJson(pathOrUrl, options = {}) {
+  const url = pathOrUrl.startsWith('http')
+    ? pathOrUrl
+    : `${baseUrl()}${pathOrUrl}`;
+  const res = await fetch(url, options);
   const text = await res.text();
   let body = {};
   if (text) {
@@ -33,7 +54,7 @@ async function fetchJson(path, options = {}) {
       body.error ||
       body.error_code ||
       `QPay HTTP ${res.status}`;
-    throw new Error(msg);
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
   }
   return body;
 }
@@ -67,10 +88,13 @@ async function getAccessToken() {
   }
 
   const basic = Buffer.from(
-    `${process.env.QPAY_USERNAME}:${process.env.QPAY_PASSWORD}`,
+    `${qpayClientId()}:${qpayClientSecret()}`,
   ).toString('base64');
 
-  const auth = await fetchJson('/auth/token', {
+  const authUrl =
+    (process.env.QPAY_AUTH_URL || '').trim() || `${baseUrl()}/auth/token`;
+
+  const auth = await fetchJson(authUrl, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${basic}`,
@@ -123,7 +147,7 @@ export async function createInvoice({
   return authorizedRequest('/invoice', {
     method: 'POST',
     body: JSON.stringify({
-      invoice_code: process.env.QPAY_INVOICE_CODE,
+      invoice_code: qpayInvoiceCode(),
       sender_invoice_no: senderInvoiceNo,
       invoice_receiver_code: 'terminal',
       invoice_description: description,
@@ -160,7 +184,7 @@ export async function cancelInvoice(invoiceId) {
 }
 
 export function mapQPayUrls(urls = []) {
-  return urls.map((u) => ({
+  return (urls || []).map((u) => ({
     name: u.name || u.description || 'Bank',
     link: u.link || u.url || '',
     logo: u.logo || null,

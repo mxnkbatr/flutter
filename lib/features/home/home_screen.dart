@@ -12,6 +12,7 @@ import 'package:sacred_app/features/home/widgets/featured_discovery_card.dart';
 import 'package:sacred_app/features/home/widgets/home_error_view.dart';
 import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
+import 'package:sacred_app/shared/widgets/empty_state.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
 
 const _defaultCategories = ['Ерөөл', 'Зурхай', 'Тахилга', 'Номын тайлбар'];
@@ -116,12 +117,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   data: (monks) {
                     if (monks.isEmpty) {
-                      return SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.all(40),
-                          child: Center(
-                            child: Text('Лам олдсонгүй', style: AppText.bodySmall),
-                          ),
+                      return SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: EmptyState(
+                          icon: Icons.self_improvement_outlined,
+                          title: 'Лам олдсонгүй',
+                          message: 'Шүүлтийг цэвэрлээд дахин хайна уу.',
+                          actionLabel: selectedCategory == 'Бүгд'
+                              ? null
+                              : 'Бүгдийг харах',
+                          onAction: selectedCategory == 'Бүгд'
+                              ? null
+                              : () {
+                                  ref
+                                      .read(monkCategoryFilterProvider.notifier)
+                                      .state = 'Бүгд';
+                                },
                         ),
                       );
                     }

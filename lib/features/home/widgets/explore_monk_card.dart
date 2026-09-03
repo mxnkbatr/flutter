@@ -158,11 +158,24 @@ class _Avatar extends StatelessWidget {
         child: monk.image != null
             ? Hero(
                 tag: Monk.heroTag(monk.id),
-                child: CachedNetworkImage(
+                child:                 CachedNetworkImage(
                   imageUrl: monk.image!,
                   width: 52,
                   height: 52,
                   fit: BoxFit.cover,
+                  fadeInDuration: const Duration(milliseconds: 240),
+                  placeholder: (_, __) => ColoredBox(
+                    color: AppColors.orangeLight,
+                    child: Center(
+                      child: Text(
+                        initial,
+                        style: AppText.h3.copyWith(
+                          color: AppColors.orangeDeep,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                   errorWidget: (_, __, ___) => _Placeholder(initial: initial),
                 ),
               )

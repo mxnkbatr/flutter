@@ -40,6 +40,7 @@ class SacredInput extends StatelessWidget {
           style: AppText.bodySmall.copyWith(
             fontWeight: FontWeight.w600,
             color: AppColors.textPri,
+            letterSpacing: -0.1,
           ),
         ),
         const SizedBox(height: 8),
@@ -50,7 +51,8 @@ class SacredInput extends StatelessWidget {
           maxLines: obscureText ? 1 : (maxLines ?? 1),
           textInputAction: textInputAction,
           onFieldSubmitted: onFieldSubmitted,
-          style: AppText.body,
+          style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+          cursorColor: AppColors.orange,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppText.body.copyWith(color: AppColors.textHint),
@@ -60,6 +62,7 @@ class SacredInput extends StatelessWidget {
             suffixIcon: suffixIcon,
             errorText: errorText,
             errorStyle: AppText.caption.copyWith(color: AppColors.danger),
+            fillColor: AppColors.creamBg,
           ),
         ),
       ],

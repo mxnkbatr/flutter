@@ -56,14 +56,19 @@ class MonkShell extends StatelessWidget {
           child: Container(
             height: 68,
             decoration: BoxDecoration(
-              color: AppColors.surfaceEl.withOpacity(0.96),
+              color: AppColors.surfaceEl.withOpacity(0.92),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: AppColors.borderSub.withOpacity(0.9)),
+              border: Border.all(color: AppColors.borderSub.withOpacity(0.85)),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.orange.withOpacity(0.08),
-                  blurRadius: 24,
-                  offset: const Offset(0, 8),
+                  color: AppColors.orange.withOpacity(0.1),
+                  blurRadius: 28,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 18,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),

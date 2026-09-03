@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/shared/widgets/empty_state.dart';
 
 class ErrorState extends StatelessWidget {
   const ErrorState({
@@ -9,7 +8,7 @@ class ErrorState extends StatelessWidget {
     required this.error,
     this.fallback,
     this.onRetry,
-    this.icon = Icons.error_outline_rounded,
+    this.icon = Icons.cloud_off_outlined,
   });
 
   final Object error;
@@ -19,29 +18,12 @@ class ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: AppColors.danger),
-            const SizedBox(height: 12),
-            Text(
-              formatUserError(error, fallback: fallback ?? 'Алдаа гарлаа.'),
-              style: AppText.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: onRetry,
-                child: const Text('Дахин оролдох'),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return EmptyState(
+      icon: icon,
+      title: 'Ачаалахад алдаа гарлаа',
+      message: formatUserError(error, fallback: fallback ?? 'Дахин оролдоно уу.'),
+      actionLabel: onRetry != null ? 'Дахин оролдох' : null,
+      onAction: onRetry,
     );
   }
 }

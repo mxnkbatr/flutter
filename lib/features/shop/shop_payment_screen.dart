@@ -76,7 +76,10 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
   bool _expired = false;
   bool _regenerating = false;
   bool _checkingPayment = false;
+  bool _ensuringQpay = false;
   QPayData? _qpayData;
+  int _pollFailures = 0;
+  String? _pollError;
 
   @override
   void initState() {
@@ -95,23 +98,42 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
 
   void _startPolling(String invoiceId) {
     _pollTimer?.cancel();
+    _pollFailures = 0;
     _pollTimer = Timer.periodic(
       const Duration(seconds: 3),
-      (_) => _checkPayment(invoiceId),
+      (_) {
+        if (_expired || _paid) {
+          _pollTimer?.cancel();
+          return;
+        }
+        _checkPayment(invoiceId);
+      },
     );
+    _checkPayment(invoiceId);
   }
 
   Future<void> _checkPayment(String invoiceId) async {
-    if (_paid || _checkingPayment) return;
+    if (_paid || _checkingPayment || _expired) return;
     _checkingPayment = true;
     try {
       final res = await ref.read(apiClientProvider).get(
             '/payment/qpay/check/$invoiceId',
           );
+      _pollFailures = 0;
+      if (mounted && _pollError != null) {
+        setState(() => _pollError = null);
+      }
       if ((res.data as Map<String, dynamic>)['paid'] == true) {
         await _onPaid();
       }
-    } catch (_) {} finally {
+    } catch (_) {
+      _pollFailures += 1;
+      if (_pollFailures >= 3 && mounted) {
+        setState(() {
+          _pollError = 'Төлбөр шалгах амжилтгүй. «Дахин шалгах» дарна уу.';
+        });
+      }
+    } finally {
       _checkingPayment = false;
     }
   }
@@ -126,11 +148,38 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
     if (mounted) context.go('/shop/orders');
   }
 
+  Future<void> _ensureQPay() async {
+    if (_qpayData != null || _ensuringQpay || _paid) return;
+    setState(() => _ensuringQpay = true);
+    try {
+      final res = await ref.read(apiClientProvider).post(
+            '/shop/orders/${widget.orderId}/qpay',
+          );
+      final qpay = QPayData.fromJson(res.data as Map<String, dynamic>);
+      if (!mounted) return;
+      setState(() => _qpayData = qpay);
+      _startPolling(qpay.invoiceId);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(formatUserError(e)),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _ensuringQpay = false);
+    }
+  }
+
   Future<void> _regenerateQPay() async {
     setState(() {
       _regenerating = true;
       _expired = false;
       _qpayData = null;
+      _pollFailures = 0;
+      _pollError = null;
     });
     _pollTimer?.cancel();
     try {
@@ -197,6 +246,10 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                 _startPolling(qpay.invoiceId);
               }
             });
+          } else if (qpay == null && payment.canPay && !_ensuringQpay) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _ensureQPay();
+            });
           }
 
           return ListView(
@@ -226,6 +279,14 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                     ],
                   ),
                 ),
+                if (_pollError != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    _pollError!,
+                    style: AppText.caption.copyWith(color: AppColors.danger),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
                 if (qpay != null) ...[
                   const SizedBox(height: 20),
                   SacredCard(
@@ -273,9 +334,28 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                             onTap: _regenerating ? null : _regenerateQPay,
                           ),
                         ] else ...[
-                          const Text('Банкны апп-аар уншуулна уу', style: AppText.bodySmall),
+                          const Text(
+                            'QPay QR кодыг банкны апп-аар уншуулна уу',
+                            style: AppText.bodySmall,
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: 8),
                           const PulsingDot(),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: _checkingPayment
+                                ? null
+                                : () => _checkPayment(qpay.invoiceId),
+                            child: Text(
+                              _checkingPayment
+                                  ? 'Шалгаж байна...'
+                                  : 'Төлсөн эсэхийг шалгах',
+                              style: AppText.bodySmall.copyWith(
+                                color: AppColors.orangeDeep,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
                         ],
                       ],
                     ),
@@ -299,9 +379,22 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                     }).toList(),
                   ),
                 ] else
-                  const Padding(
-                    padding: EdgeInsets.only(top: 24),
-                    child: Center(child: Text('Төлбөрийн мэдээлэл ачаалж байна...')),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Column(
+                      children: [
+                        if (_ensuringQpay)
+                          const CircularProgressIndicator(color: AppColors.goldPrime)
+                        else ...[
+                          const Text('QPay нэхэмжлэх үүсгэж байна...'),
+                          const SizedBox(height: 12),
+                          SacredButton(
+                            label: 'Дахин оролдох',
+                            onTap: _ensureQPay,
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
               ],
             );

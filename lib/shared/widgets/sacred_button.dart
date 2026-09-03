@@ -121,6 +121,8 @@ class SacredButton extends StatelessWidget {
                 fontSize: fontSize,
                 fontWeight: fontWeight,
                 color: textColor,
+                letterSpacing: 0.2,
+                height: 1.1,
               ),
             ),
           ],

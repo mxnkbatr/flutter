@@ -111,10 +111,12 @@ class AppTopHeader extends ConsumerWidget {
                   Text(
                     'Gevabal',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontFamily: AppText.serifFamily,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                       color: AppColors.inkDeep,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.4,
+                      height: 1,
                     ),
                   ),
                 ],

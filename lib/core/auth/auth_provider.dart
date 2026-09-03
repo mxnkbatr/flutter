@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,25 +92,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       return authState;
     }
 
-    try {
-      final user = await ref.read(apiClientProvider).get(
-            '/auth/me',
-            options: Options(headers: {'Authorization': 'Bearer $token'}),
-          );
-      final data = user.data as Map<String, dynamic>;
-      final authState = _authStateFromUser(data, token);
-      await _persistTier(authState);
-      return authState;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        await _storage.delete(key: _tokenKey);
-        await _clearSessionCache();
-        return const AuthState();
-      }
-      return await _offlineAuthState(token);
-    } catch (_) {
-      return await _offlineAuthState(token);
-    }
+    // Don't block splash on /auth/me (cold start / 60s timeout).
+    final cached = await _offlineAuthState(token);
+    Future.microtask(() => unawaited(refreshProfile()));
+    return cached;
   }
 
   Future<AuthState> _offlineAuthState(String token) async {
@@ -262,6 +249,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       final authState = _authStateFromUser(data, current.token!);
       await _persistTier(authState);
       state = AsyncData(authState);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await logout();
+      }
     } catch (_) {}
   }
 

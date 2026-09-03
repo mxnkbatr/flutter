@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -87,7 +88,9 @@ class _FeaturedHero extends StatelessWidget {
         children: [
           Hero(
             tag: Monk.heroTag(monk.id),
-            child: const _BrandLogoHero(),
+            child: monk.image != null && monk.image!.isNotEmpty
+                ? _MonkPhotoHero(url: monk.image!)
+                : const _BrandLogoHero(),
           ),
           Positioned(
             top: 0,
@@ -145,6 +148,26 @@ class _FeaturedHero extends StatelessWidget {
             top: 12,
             right: 12,
             child: _FavoriteBtn(isFavorite: isFavorite, onTap: onFavorite),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 140,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppColors.creamBg.withOpacity(0.15),
+                    AppColors.surfaceEl,
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
           ),
           Positioned(
             left: 20,
@@ -254,6 +277,23 @@ class _DetailCta extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MonkPhotoHero extends StatelessWidget {
+  const _MonkPhotoHero({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) {
+    return CachedNetworkImage(
+      imageUrl: url,
+      fit: BoxFit.cover,
+      fadeInDuration: const Duration(milliseconds: 280),
+      placeholder: (_, __) => const ColoredBox(color: Color(0xFFFFE8D6)),
+      errorWidget: (_, __, ___) => const _BrandLogoHero(),
     );
   }
 }

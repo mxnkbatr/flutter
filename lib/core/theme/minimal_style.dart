@@ -14,10 +14,16 @@ class MinimalStyle {
         border: Border.all(color: AppColors.borderSub, width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 16,
+            color: AppColors.orange.withOpacity(0.05),
+            blurRadius: 20,
             spreadRadius: 0,
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            spreadRadius: 0,
+            offset: const Offset(0, 3),
           ),
         ],
       );

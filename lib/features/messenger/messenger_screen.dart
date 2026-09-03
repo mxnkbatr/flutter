@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
-import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/features/messenger/widgets/chat_conversation_tile.dart';
 import 'package:sacred_app/features/messenger/widgets/messenger_page_scaffold.dart';
+import 'package:sacred_app/shared/widgets/empty_state.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
-import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
 class MessengerScreen extends ConsumerStatefulWidget {
   const MessengerScreen({super.key});
@@ -29,54 +28,12 @@ class _MessengerScreenState extends ConsumerState<MessengerScreen> {
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 48, 20, 32),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 88,
-                    height: 88,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.orangeLight,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 36,
-                      color: AppColors.orange.withOpacity(0.65),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Чат байхгүй',
-                    style: AppText.h3.copyWith(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: constraints.maxWidth * 0.88,
-                    child: Text(
-                      'Ламын профайлаас\nмессеж илгээнэ үү',
-                      style: AppText.bodySmall.copyWith(
-                        color: AppColors.textSec,
-                        height: 1.45,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  SacredButton(
-                    label: 'Лам олох',
-                    small: true,
-                    sunShadow: true,
-                    onTap: () => context.go('/home'),
-                  ),
-                ],
-              ),
+            child: EmptyState(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: 'Чат байхгүй',
+              message: 'Ламын профайлаас мессеж илгээнэ үү',
+              actionLabel: 'Лам олох',
+              onAction: () => context.go('/home'),
             ),
           ),
         );
@@ -88,28 +45,11 @@ class _MessengerScreenState extends ConsumerState<MessengerScreen> {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        const SizedBox(height: 80),
-        Center(
-          child: Column(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: AppColors.orangeLight,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.filter_list_off_rounded,
-                  color: AppColors.orange.withOpacity(0.5),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                message,
-                style: AppText.bodySmall.copyWith(color: AppColors.textSec),
-              ),
-            ],
+        SizedBox(
+          height: 320,
+          child: EmptyState(
+            icon: Icons.filter_list_off_rounded,
+            title: message,
           ),
         ),
       ],

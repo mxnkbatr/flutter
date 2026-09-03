@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/utils/app_feedback.dart';
-import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -12,6 +11,8 @@ import 'package:sacred_app/features/shop/models/product.dart';
 import 'package:sacred_app/features/home/widgets/category_chip.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
+import 'package:sacred_app/shared/widgets/empty_state.dart';
+import 'package:sacred_app/shared/widgets/error_state.dart';
 import 'package:sacred_app/shared/widgets/monk_card_shimmer.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
@@ -64,64 +65,17 @@ class ShopScreen extends ConsumerWidget {
             children: List.generate(6, (_) => const MonkCardShimmer()),
           ),
         ),
-        error: (e, _) => Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.danger.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.error_outline,
-                  size: 32,
-                  color: AppColors.danger,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(formatUserError(e), style: AppText.bodySmall),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => ref.invalidate(productsProvider),
-                child: const Text('Дахин оролдох'),
-              ),
-            ],
-          ),
+        error: (e, _) => ErrorState(
+          error: e,
+          fallback: 'Бараа ачаалахад алдаа гарлаа.',
+          onRetry: () => ref.invalidate(productsProvider),
         ),
         data: (products) {
           if (products.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.all(48),
-              child: Column(
-                children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    decoration: BoxDecoration(
-                      color: AppColors.orangeLight,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.storefront_outlined,
-                      size: 36,
-                      color: AppColors.orange.withOpacity(0.6),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Бараа байхгүй',
-                    style: AppText.h3.copyWith(color: AppColors.textSec),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Өөр ангилал сонгоно уу',
-                    style: AppText.bodySmall.copyWith(color: AppColors.textHint),
-                  ),
-                ],
-              ),
+            return EmptyState(
+              icon: Icons.storefront_outlined,
+              title: 'Бараа байхгүй',
+              message: 'Өөр ангилал сонгоно уу',
             );
           }
 

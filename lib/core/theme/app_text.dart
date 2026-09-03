@@ -41,6 +41,8 @@ class AppText {
     fontSize: 22,
     fontWeight: FontWeight.w600,
     color: AppColors.textPri,
+    letterSpacing: -0.4,
+    height: 1.2,
   );
 
   static const TextStyle h3 = TextStyle(
@@ -48,6 +50,8 @@ class AppText {
     fontSize: 17,
     fontWeight: FontWeight.w600,
     color: AppColors.textPri,
+    letterSpacing: -0.25,
+    height: 1.25,
   );
 
   static const TextStyle body = TextStyle(
@@ -63,6 +67,7 @@ class AppText {
     fontSize: 13,
     fontWeight: FontWeight.w400,
     color: AppColors.textSec,
+    height: 1.45,
   );
 
   static const TextStyle caption = TextStyle(
@@ -92,8 +97,8 @@ class AppText {
     fontFamily: serifFamily,
     fontSize: 32,
     fontWeight: FontWeight.w700,
-    color: AppColors.goldPrime,
-    letterSpacing: 1.5,
+    color: AppColors.inkDeep,
+    letterSpacing: 0.4,
   );
 
   static const TextStyle navTitle = TextStyle(

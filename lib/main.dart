@@ -23,8 +23,9 @@ Future<void> _initFirebase() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 3));
     isFirebaseReady = true;
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     if (kDebugMode) debugPrint('Firebase initialized');
   } catch (e) {
     isFirebaseReady = false;
@@ -50,14 +51,11 @@ void main() {
         await GoogleFonts.pendingFonts([
           GoogleFonts.dmSans(),
           GoogleFonts.playfairDisplay(),
-        ]);
+        ]).timeout(const Duration(milliseconds: 400));
       } catch (_) {
-        // Offline эсвэл font cache алдаа — апп үргэлжлүүлнэ
+        // Offline / slow network — use fallback fonts and start the app.
       }
-      await _initFirebase();
-      if (isFirebaseReady) {
-        FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      }
+      unawaited(_initFirebase());
       await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
       runApp(const ProviderScope(child: SacredApp()));
     },
@@ -125,7 +123,8 @@ class _SacredAppState extends ConsumerState<SacredApp>
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        return Stack(
+        final media = MediaQuery.of(context);
+        Widget content = Stack(
           children: [
             if (child != null) child,
             if (incoming != null)
@@ -142,6 +141,20 @@ class _SacredAppState extends ConsumerState<SacredApp>
                 ),
               ),
           ],
+        );
+        return MediaQuery(
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(
+              minScaleFactor: 0.9,
+              maxScaleFactor: 1.2,
+            ),
+          ),
+          child: DefaultTextHeightBehavior(
+            textHeightBehavior: const TextHeightBehavior(
+              applyHeightToFirstAscent: false,
+            ),
+            child: content,
+          ),
         );
       },
     );

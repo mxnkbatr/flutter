@@ -135,13 +135,22 @@ definitions:
       echo " Using codemagic.yaml workflow: ios-app-store"
       echo "=============================================="
       set -euo pipefail
+      ROOT="${CM_BUILD_DIR:-$PWD}"
+      cd "$ROOT"
       export FLUTTER_BUILD_MODE=release
+      # Avoid SPM migration rewriting ios/Flutter/*.xcconfig mid-build (plugins still use CocoaPods).
+      flutter config --no-enable-swift-package-manager || true
       flutter clean
       flutter pub get
-      cd ios && pod install && cd ..
+      # Ensure Release.xcconfig survives clean/upgrade (forces App Store release engine).
+      mkdir -p ios/Flutter
+      printf '%s\n' '#include "Generated.xcconfig"' 'FLUTTER_BUILD_MODE=release' > ios/Flutter/Release.xcconfig
+      (cd ios && pod install)
       flutter build ios --config-only --release \
         --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
         --dart-define=PREFER_DEV_AUTH=false
+      # Flutter may rewrite xcconfigs during --config-only; re-apply release pin.
+      printf '%s\n' '#include "Generated.xcconfig"' 'FLUTTER_BUILD_MODE=release' > ios/Flutter/Release.xcconfig
       if grep -q '^FLUTTER_BUILD_MODE=debug' ios/Flutter/Generated.xcconfig 2>/dev/null; then
         echo "ERROR: Generated.xcconfig is debug mode:"
         cat ios/Flutter/Generated.xcconfig
@@ -164,9 +173,9 @@ definitions:
       # Do not overwrite it with ios/export_options.plist (that breaks push export).
       xcode-project use-profiles --project ios/Runner.xcodeproj
       xcode-project build-ipa \
-        --workspace "${CM_BUILD_DIR:-$PWD}/ios/Runner.xcworkspace" \
+        --workspace "$ROOT/ios/Runner.xcworkspace" \
         --scheme "${XCODE_SCHEME:-Runner}"
-      IPA_PATH="$(find "${CM_BUILD_DIR:-$PWD}/build/ios/ipa" -name '*.ipa' -print -quit)"
+      IPA_PATH="$(find "$ROOT/build/ios/ipa" -name '*.ipa' -print -quit)"
       if [ -z "$IPA_PATH" ]; then
         echo "ERROR: IPA not found under build/ios/ipa"
         exit 1

@@ -36,6 +36,7 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "mn.gevabal.app"
     compileSdk = 36
+    // NDK r28+ produces/links with 16 KB page-size compatible ELF alignment.
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -55,6 +56,13 @@ android {
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
         multiDexEnabled true
+    }
+
+    packaging {
+        jniLibs {
+            // Required for Play Store 16 KB page-size devices (AGP 8.5.1+).
+            useLegacyPackaging = false
+        }
     }
 
     signingConfigs {

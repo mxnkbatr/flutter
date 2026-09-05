@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
@@ -47,7 +46,7 @@ class LocalVideoWidget extends StatelessWidget {
                   )
                 : VideoTrackRenderer(
                     track!,
-                    fit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    fit: VideoViewFit.cover,
                   ),
           ),
           Positioned(

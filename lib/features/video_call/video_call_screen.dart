@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:sacred_app/core/api/api_client.dart';
@@ -365,7 +364,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             child: remoteTrack != null
                 ? VideoTrackRenderer(
                     remoteTrack,
-                    fit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    fit: VideoViewFit.cover,
                   )
                 : WaitingView(
                     role: widget.role,

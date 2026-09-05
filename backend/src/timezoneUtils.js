@@ -43,11 +43,12 @@ export function weekdayIndexUlaanbaatar(dateStr) {
   return d.getUTCDay();
 }
 
+/** Add calendar days to a YYYY-MM-DD string (timezone-safe, no UTC midnight shift). */
 export function addDaysToDateStr(dateStr, days) {
-  const d = new Date(`${dateStr.slice(0, 10)}T00:00:00+08:00`);
-  d.setUTCDate(d.getUTCDate() + days);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  const [y, m, day] = dateStr.slice(0, 10).split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, day + Number(days) || 0));
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
 }

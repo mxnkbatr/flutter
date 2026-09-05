@@ -120,7 +120,7 @@ class _Placeholder extends StatelessWidget {
         alignment: Alignment.center,
         children: [
           Icon(
-            Icons.temple_buddhist_outlined,
+            Icons.person_outline_rounded,
             size: 120,
             color: AppColors.orange.withOpacity(0.07),
           ),

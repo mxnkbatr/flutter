@@ -31,7 +31,7 @@ class AvailabilityPreview extends StatelessWidget {
             onTap: displayDays[i].isAvailable && !displayDays[i].isBooked
                 ? () {
                     final date = DateFormat('yyyy-MM-dd').format(displayDays[i].date);
-                    context.go('/booking/$monkId?date=$date');
+                    context.push('/booking/$monkId?date=$date');
                   }
                 : null,
           ),

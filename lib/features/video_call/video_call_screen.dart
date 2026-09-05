@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
+import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
@@ -214,6 +215,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   Future<void> _cancelConnecting() async {
+    await CallLaunchService.markLeftCall(widget.bookingId);
     await _room?.disconnect();
     if (mounted) _leaveCallScreen();
   }
@@ -242,6 +244,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       }
     }
 
+    await CallLaunchService.markLeftCall(widget.bookingId);
     await _room?.disconnect();
     if (mounted) {
       if (widget.role == 'monk') {
@@ -277,7 +280,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               child: ListView(
                 controller: scrollController,
                 children: [
-                  const Text('Тэмдэглэл', style: AppText.h3),
+                  Text('Тэмдэглэл', style: AppText.h3),
                   const SizedBox(height: 12),
                   TextField(
                     controller: _noteController,
@@ -289,7 +292,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Хаах'),
+                    child: Text('Хаах'),
                   ),
                 ],
               ),

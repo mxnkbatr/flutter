@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-/// Warm premium palette — matches mockup (#FFFBF5 cream + maroon ink + orange).
+/// Warm cream premium palette — soft daylight surfaces + ink + orange accent.
 class AppColors {
   AppColors._();
 
-  // ── Primary accent — vibrant orange gradient endpoints ──
-  static const Color orange = Color(0xFFFF8C2A);
-  static const Color orangeDeep = Color(0xFFE8740F);
-  static const Color orangeLight = Color(0xFFFFF0E5);
-  static const Color orangeSoft = Color(0xFFFFF8F2);
-  static const Color orangeMuted = Color(0xFFD4823A);
-  static const Color orangePeach = Color(0xFFFFE8D6);
+  // ── Primary accent ──
+  static const Color orange = Color(0xFFFF8A1F);
+  static const Color orangeDeep = Color(0xFFE56F0A);
+  static const Color orangeLight = Color(0xFFFFF1E6);
+  static const Color orangeSoft = Color(0xFFFFF7F0);
+  static const Color orangeMuted = Color(0xFFC97A35);
+  static const Color orangePeach = Color(0xFFFFE6D2);
 
   /// @deprecated Use [orange] — kept for existing references.
   static const Color earthBrown = orange;
@@ -26,22 +26,24 @@ class AppColors {
   static const Color sunPale = Color(0xFFFFEACC);
   static const Color sunMuted = orangeMuted;
 
-  // ── Warm ink (maroon-brown headings) ──
-  static const Color inkDeep = Color(0xFF3E1F14);
-  static const Color inkMid = Color(0xFF5C3020);
-  static const Color inkLight = Color(0xFF7A4A38);
+  // ── Warm ink ──
+  static const Color inkDeep = Color(0xFF2F1A12);
+  static const Color inkMid = Color(0xFF5A3324);
+  static const Color inkLight = Color(0xFF7D5240);
 
-  // ── Surfaces ──
+  // ── Surfaces (cream stays) ──
   static const Color creamBg = Color(0xFFFFFBF5);
+  static const Color creamWash = Color(0xFFFFF6EC);
   static const Color surface = creamBg;
   static const Color surfaceEl = Color(0xFFFFFFFF);
-  static const Color border = Color(0xFFF0E6DA);
-  static const Color borderSub = Color(0xFFF5EDE4);
+  static const Color surfaceGlass = Color(0xF2FFFFFF);
+  static const Color border = Color(0xFFEDE3D6);
+  static const Color borderSub = Color(0xFFF3EBE1);
 
   // ── Text ──
   static const Color textPri = inkDeep;
-  static const Color textSec = Color(0xFF8E8E93);
-  static const Color textHint = Color(0xFFAEAEB2);
+  static const Color textSec = Color(0xFF8A7B72);
+  static const Color textHint = Color(0xFFB5A79D);
   static const Color onDark = Color(0xFFFFFFFF);
   static const Color onDarkMuted = Color(0xB3FFFFFF);
   static const Color onSun = inkDeep;

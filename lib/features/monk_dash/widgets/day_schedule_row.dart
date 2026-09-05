@@ -71,8 +71,8 @@ class DayScheduleRow extends StatelessWidget {
               child: _TimeChip(label: day.start, enabled: day.active),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: Text('—', style: AppText.bodySmall),
           ),
           Expanded(

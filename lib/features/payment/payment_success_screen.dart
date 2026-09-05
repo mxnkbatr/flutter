@@ -24,7 +24,11 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
     Future.delayed(delay, () {
       if (!mounted || _navigated) return;
       _navigated = true;
-      context.go('/bookings');
+      if (widget.args.canJoinCall) {
+        context.go('/call/${widget.args.bookingId}?role=client');
+      } else {
+        context.go('/bookings');
+      }
     });
   }
 
@@ -65,17 +69,19 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
             const SizedBox(height: 8),
             Text(
               args.canJoinCall
-                  ? 'Захиалга баталгаажлаа'
-                  : 'Төлбөр амжилттай төлөгдлөө',
+                  ? 'Захиалга баталгаажлаа — дуудлага руу орж байна'
+                  : 'Цаг тань баталгаажлаа',
               style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
+              textAlign: TextAlign.center,
             ),
             if (!args.canJoinCall) ...[
               const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
-                  'Лам таны захиалгыг баталгаажуулах хүртэл хүлээнэ үү. '
-                  'Баталгаажсаны дараа «Миний захиалга» хэсгээс видео дуудлага эхлүүлнэ.',
+                  'Уулзалтын цаг болоход мэдэгдэл ирнэ. '
+                  '«Захиалга» хэсгээс «Дуудлагад орох» товч дарж орно. '
+                  'Та болон лам хоёулаа ижил аргаар холбогдоно.',
                   textAlign: TextAlign.center,
                   style: AppText.caption.copyWith(
                     color: AppColors.goldMuted.withOpacity(0.9),
@@ -134,11 +140,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: SacredButton(
-                  label: 'Оруулах',
+                  label: 'Дуудлагад орох',
                   icon: Icons.videocam_rounded,
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    context.go('/call/${args.bookingId}');
+                    _navigated = true;
+                    context.go('/call/${args.bookingId}?role=client');
                   },
                 ),
               ),
@@ -150,6 +157,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
                 outline: true,
                 onTap: () {
                   HapticFeedback.lightImpact();
+                  _navigated = true;
                   context.go('/bookings');
                 },
               ),
@@ -158,6 +166,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen> {
             TextButton(
               onPressed: () {
                 HapticFeedback.lightImpact();
+                _navigated = true;
                 context.go('/home');
               },
               child: Text(

@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
+import 'package:sacred_app/shared/widgets/app_content_sheet.dart';
 
-/// Messenger tab — premium layered layout (matches home).
+/// Messenger tab — login ambient + white sheet (no page title).
 class MessengerPageScaffold extends StatelessWidget {
   const MessengerPageScaffold({
     super.key,
-    required this.segmentTabs,
     required this.body,
+    this.segmentTabs,
   });
 
-  final Widget segmentTabs;
+  final Widget? segmentTabs;
   final Widget body;
 
   @override
   Widget build(BuildContext context) {
-    return PremiumLayeredScaffold(
-      subtitle: 'Харилцаа',
-      title: 'Мессенжер',
-      expandBody: true,
-      sheetTopContent: segmentTabs,
-      body: body,
+    return AppTabSheetScaffold(
+      headerSlot: segmentTabs,
+      child: body,
     );
   }
 }

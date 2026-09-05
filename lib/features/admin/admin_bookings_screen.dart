@@ -66,8 +66,8 @@ class _AdminBookingsScreenState extends ConsumerState<AdminBookingsScreen> {
                     ref.refresh(adminBookingsProvider(filter).future),
                 child: bookings.isEmpty
                     ? ListView(
-                        children: const [
-                          SizedBox(height: 80),
+                        children: [
+                          const SizedBox(height: 80),
                           Center(
                             child: Text(
                               'Захиалга байхгүй',

@@ -27,7 +27,7 @@ class ServiceSelectionStep extends ConsumerWidget {
       ),
       data: (services) {
         if (services.isEmpty) {
-          return const Center(
+          return Center(
             child: Text('Үйлчилгээ байхгүй', style: AppText.bodySmall),
           );
         }

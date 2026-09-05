@@ -254,7 +254,7 @@ workflows:
           storePassword=${CM_KEYSTORE_PASSWORD}
           keyPassword=${CM_KEY_PASSWORD}
           keyAlias=${CM_KEY_ALIAS}
-          storeFile=app/upload-keystore.jks
+          storeFile=upload-keystore.jks
           EOF
           echo "Keystore written: android/app/upload-keystore.jks"
           echo "key.properties written: android/key.properties"

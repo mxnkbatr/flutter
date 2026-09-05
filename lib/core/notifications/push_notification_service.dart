@@ -244,7 +244,7 @@ class PushNotificationService {
     ref.read(notificationsProvider.notifier).refresh().catchError((_) {});
 
     if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
-      _showIncomingCall(data, ref);
+      unawaited(_showIncomingCall(data, ref));
       return;
     }
 
@@ -303,7 +303,7 @@ class PushNotificationService {
     final type = data['type'] as String?;
     if ((type == 'incoming_call' || type == 'call_time') &&
         data['bookingId'] != null) {
-      _openCallFromPush(data, ref);
+      unawaited(_openCallFromPush(data, ref));
       return;
     }
 
@@ -311,18 +311,24 @@ class PushNotificationService {
     _navigateFromData(data, ref);
   }
 
-  static void _openCallFromPush(Map<String, dynamic> data, WidgetRef ref) {
+  static String _resolveRole(WidgetRef ref, Map<String, dynamic> data) {
+    final authRole = ref.read(authStateProvider).valueOrNull?.role;
+    if (authRole == 'monk' || authRole == 'client') return authRole!;
+    final fromPush = data['recipientRole'] as String?;
+    if (fromPush == 'monk' || fromPush == 'client') return fromPush!;
+    return 'client';
+  }
+
+  static Future<void> _openCallFromPush(Map<String, dynamic> data, WidgetRef ref) async {
     final bookingId = data['bookingId'] as String? ?? '';
     if (bookingId.isEmpty) return;
 
-    final auth = ref.read(authStateProvider).valueOrNull;
-    final role = data['recipientRole'] as String? ??
-        auth?.role ??
-        'client';
-
-    LocalNotificationService.cancelIncomingCall(bookingId);
-    ref.read(incomingCallProvider.notifier).state = null;
-    ref.read(appRouterProvider).go('/call/$bookingId?role=$role');
+    await CallLaunchService.tryAutoJoin(
+      ref,
+      bookingId: bookingId,
+      role: _resolveRole(ref, data),
+      reason: 'push',
+    );
   }
 
   static void _markReadFromData(Map<String, dynamic> data, WidgetRef ref) {
@@ -371,37 +377,83 @@ class PushNotificationService {
     }
 
     if ((type == 'incoming_call' || type == 'call_time') && bookingId != null) {
-      final auth = ref.read(authStateProvider).valueOrNull;
-      final role = data['recipientRole'] as String? ??
-          auth?.role ??
-          'client';
-      LocalNotificationService.cancelIncomingCall(bookingId);
-      ref.read(incomingCallProvider.notifier).state = null;
-      router.go('/call/$bookingId?role=$role');
+      unawaited(_openCallFromPush(data, ref));
     }
   }
 
-  static void _showIncomingCall(
+  static bool _isAlreadyInCall(WidgetRef ref, String bookingId) {
+    if (bookingId.isEmpty) return false;
+    try {
+      final path =
+          ref.read(appRouterProvider).routerDelegate.currentConfiguration.uri.path;
+      return path.contains('/call/$bookingId');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _isInAnyCall(WidgetRef ref) {
+    try {
+      final path =
+          ref.read(appRouterProvider).routerDelegate.currentConfiguration.uri.path;
+      return path.contains('/call/');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> _showIncomingCall(
     Map<String, dynamic> data,
     WidgetRef ref,
-  ) {
+  ) async {
     final type = data['type'] as String?;
-    final auth = ref.read(authStateProvider).valueOrNull;
-    final recipientRole = data['recipientRole'] as String? ??
-        auth?.role ??
-        'client';
+    final recipientRole = _resolveRole(ref, data);
     final bookingId = data['bookingId'] as String? ?? '';
-    final isScheduled = type == 'call_time';
+    if (bookingId.isEmpty) return;
+
+    // Already on this call — ignore duplicate ring / schedule pushes.
+    if (_isAlreadyInCall(ref, bookingId)) {
+      LocalNotificationService.cancelIncomingCall(bookingId);
+      return;
+    }
+
+    // Appointment time: auto-join when safe; otherwise soft reminder only.
+    if (type == 'call_time') {
+      final joined = await CallLaunchService.tryAutoJoin(
+        ref,
+        bookingId: bookingId,
+        role: recipientRole,
+        reason: 'call_time',
+      );
+      if (!joined) {
+        await LocalNotificationService.showGeneral(
+          id: bookingId.hashCode ^ 0xc711,
+          title: 'Уулзалтын цаг боллоо',
+          body: 'Дуудлагад орох бол Захиалга хэсгээс орно уу',
+          payload: jsonEncode({
+            ...data,
+            'type': 'call_time',
+            'bookingId': bookingId,
+            'recipientRole': recipientRole,
+          }),
+        );
+      }
+      return;
+    }
+
+    // Don't interrupt an active different call.
+    if (_isInAnyCall(ref)) return;
 
     final existing = ref.read(incomingCallProvider);
     if (existing?.bookingId == bookingId) return;
 
+    // Monk joined LiveKit — always allow ring (even if user skipped auto-join).
     ref.read(incomingCallProvider.notifier).state = IncomingCallState(
       callerName: data['callerName'] as String? ?? 'Хэрэглэгч',
       callerImage: data['callerImage'] as String? ?? '',
       bookingId: bookingId,
       recipientRole: recipientRole,
-      isScheduledStart: isScheduled,
+      isScheduledStart: false,
     );
 
     LocalNotificationService.showIncomingCall(

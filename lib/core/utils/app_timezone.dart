@@ -1,15 +1,36 @@
 import 'package:intl/intl.dart';
 
 /// App clock — always Ulaanbaatar (UTC+8, no DST).
+///
+/// Important: never run [DateFormat] on a UTC [DateTime] for calendar dates —
+/// Flutter web converts to the device timezone and can shift the day.
 class AppTimezone {
   AppTimezone._();
 
   static const _offset = Duration(hours: 8);
   static const int slotIntervalMinutes = 30;
 
-  static DateTime now() => DateTime.now().toUtc().add(_offset);
+  /// Current wall-clock time in Ulaanbaatar as a naive local [DateTime].
+  static DateTime now() {
+    final ub = DateTime.now().toUtc().add(_offset);
+    return DateTime(
+      ub.year,
+      ub.month,
+      ub.day,
+      ub.hour,
+      ub.minute,
+      ub.second,
+      ub.millisecond,
+    );
+  }
 
-  static String todayDateStr() => DateFormat('yyyy-MM-dd').format(now());
+  static String todayDateStr() {
+    final n = now();
+    final y = n.year.toString().padLeft(4, '0');
+    final m = n.month.toString().padLeft(2, '0');
+    final d = n.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
 
   static DateTime parseDateOnly(String ymd) {
     final parts = ymd.split('-').map(int.parse).toList();
@@ -26,18 +47,17 @@ class AppTimezone {
     return n.hour * 60 + n.minute;
   }
 
+  static String _dateKey(String dateStr) =>
+      dateStr.length >= 10 ? dateStr.substring(0, 10) : dateStr;
+
   /// True when [slot] on [dateStr] (YYYY-MM-DD) has already started in UB.
   static bool isPastSlot(String dateStr, String slot) {
-    if (dateStr.length >= 10 && dateStr.substring(0, 10) != todayDateStr()) {
-      return false;
-    }
+    if (_dateKey(dateStr) != todayDateStr()) return false;
     return slotToMinutes(slot) < currentTimeMinutes;
   }
 
   static List<String> pastSlotsForDate(String dateStr, List<String> slots) {
-    if (dateStr.length >= 10 && dateStr.substring(0, 10) != todayDateStr()) {
-      return const [];
-    }
+    if (_dateKey(dateStr) != todayDateStr()) return const [];
     final nowMin = currentTimeMinutes;
     return slots.where((s) => slotToMinutes(s) < nowMin).toList();
   }
@@ -54,12 +74,16 @@ class AppTimezone {
     int durationMinutes = slotIntervalMinutes,
   }) {
     if (dateStr == null || dateStr.isEmpty || slot.isEmpty) return false;
-    final today = todayDateStr();
-    if (dateStr.length >= 10 && dateStr.substring(0, 10) != today) {
-      return false;
-    }
+    if (_dateKey(dateStr) != todayDateStr()) return false;
     final start = slotToMinutes(slot);
     final nowMin = currentTimeMinutes;
     return nowMin >= start && nowMin < start + durationMinutes;
+  }
+
+  /// Display helper — formats a naive UB date without shifting timezone.
+  static String formatDate(DateTime date, String pattern) {
+    return DateFormat(pattern).format(
+      DateTime(date.year, date.month, date.day, date.hour, date.minute),
+    );
   }
 }

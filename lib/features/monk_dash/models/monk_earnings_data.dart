@@ -38,6 +38,9 @@ class MonkEarningsData {
     required this.qpayFee,
     required this.netEarnings,
     required this.transactions,
+    this.monkSharePercent = 70,
+    this.platformSharePercent = 30,
+    this.note = '',
   });
 
   final String month;
@@ -46,6 +49,9 @@ class MonkEarningsData {
   final int platformFee;
   final int qpayFee;
   final int netEarnings;
+  final int monkSharePercent;
+  final int platformSharePercent;
+  final String note;
   final List<EarningTransaction> transactions;
 
   factory MonkEarningsData.fromJson(Map<String, dynamic> json) {
@@ -66,6 +72,10 @@ class MonkEarningsData {
       netEarnings: (json['netEarnings'] as num?)?.toInt() ??
           (json['net_earnings'] as num?)?.toInt() ??
           0,
+      monkSharePercent: (json['monkSharePercent'] as num?)?.toInt() ?? 70,
+      platformSharePercent:
+          (json['platformSharePercent'] as num?)?.toInt() ?? 30,
+      note: json['note'] as String? ?? '',
       transactions: txs
           .map((e) => EarningTransaction.fromJson(e as Map<String, dynamic>))
           .toList(),

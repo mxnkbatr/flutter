@@ -111,7 +111,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         data: (profile) {
           _load(profile);
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              20,
+              24,
+              20,
+              32 + MediaQuery.viewInsetsOf(context).bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

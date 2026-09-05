@@ -44,7 +44,7 @@ class NativeHeaderIconButton extends StatelessWidget {
               border: Border.all(color: AppColors.borderSub),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -58,23 +58,31 @@ class NativeHeaderIconButton extends StatelessWidget {
           ),
           if (badgeCount != null && badgeCount! > 0)
             Positioned(
-              top: -2,
-              right: -2,
+              top: -1,
+              right: -1,
               child: Container(
-                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: const BoxDecoration(
-                  color: AppColors.danger,
+                constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 3.5),
+                decoration: BoxDecoration(
+                  color: AppColors.orange,
                   shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.orange.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   badgeCount! > 9 ? '9+' : '$badgeCount',
-                  style: const TextStyle(
+                  style: AppText.caption.copyWith(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w700,
-                    height: 1,
+                    height: 1.1,
                   ),
                 ),
               ),
@@ -119,7 +127,7 @@ class NativeAvatarButton extends StatelessWidget {
             child: Text(
               initial,
               style: TextStyle(
-                color: AppColors.orange.withOpacity(0.8),
+                color: AppColors.orange.withValues(alpha: 0.8),
                 fontSize: size * 0.42,
                 fontWeight: FontWeight.w700,
               ),
@@ -145,7 +153,7 @@ class NativeAvatarButton extends StatelessWidget {
   }
 }
 
-/// iOS large-title block: small eyebrow + bold title + optional trailing.
+/// Clean page title — single line, no cheap eyebrow labels.
 class NativeLargeTitleHeader extends StatelessWidget {
   const NativeLargeTitleHeader({
     super.key,
@@ -156,16 +164,33 @@ class NativeLargeTitleHeader extends StatelessWidget {
     this.serifTitle = true,
   });
 
+  /// Optional supporting line under the title (service, hint) — not a filler label.
   final String? eyebrow;
   final String title;
   final Widget? trailing;
   final Widget? leading;
   final bool serifTitle;
 
+  static bool _isFillerEyebrow(String? value) {
+    if (value == null) return true;
+    final v = value.trim().toLowerCase();
+    if (v.isEmpty) return true;
+    const fillers = {
+      'миний',
+      'таны',
+      'харилцаа',
+      'дэлгүүр',
+      'буддийн бараа, бэлэг',
+    };
+    return fillers.contains(v);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final support = _isFillerEyebrow(eyebrow) ? null : eyebrow;
+
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (leading != null) ...[
           leading!,
@@ -175,21 +200,20 @@ class NativeLargeTitleHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (eyebrow != null && eyebrow!.isNotEmpty)
-                Text(
-                  eyebrow!,
-                  style: AppText.bodySmall.copyWith(
-                    color: AppColors.textSec,
-                    fontSize: 14,
-                    height: 1.2,
-                  ),
-                ),
               Text(
                 title,
-                style: serifTitle
-                    ? AppText.largeTitle
-                    : AppText.h1.copyWith(fontSize: 30),
+                style: AppText.pageTitle,
               ),
+              if (support != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  support,
+                  style: AppText.bodySmall.copyWith(
+                    color: AppColors.textSec,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -236,40 +260,29 @@ class NativeNavBar extends StatelessWidget {
                   ),
                 ),
               )
-            : const SizedBox(width: 40));
+            : null);
 
     return Container(
       decoration: showBorder
-          ? BoxDecoration(
+          ? const BoxDecoration(
               border: Border(
-                bottom: BorderSide(
-                  color: AppColors.borderSub.withOpacity(0.8),
-                ),
+                bottom: BorderSide(color: AppColors.borderSub),
               ),
             )
           : null,
-      child: SizedBox(
-        height: 44,
-        child: Row(
-          children: [
-            back,
-            Expanded(
-              child: Text(
-                title,
-                style: AppText.navTitle,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 48, child: back),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppText.navTitle,
             ),
-            SizedBox(
-              width: 40,
-              child: trailing != null
-                  ? Align(alignment: Alignment.centerRight, child: trailing)
-                  : null,
-            ),
-          ],
-        ),
+          ),
+          SizedBox(width: 48, child: trailing),
+        ],
       ),
     );
   }

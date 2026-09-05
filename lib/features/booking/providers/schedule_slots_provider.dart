@@ -21,7 +21,7 @@ class DaySchedule {
         (json['availableSlots'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
-        DaySchedule.defaultSlots();
+        const <String>[];
     final booked = (json['bookedSlots'] as List<dynamic>?)
             ?.map((e) => e.toString())
             .toList() ??
@@ -33,24 +33,13 @@ class DaySchedule {
         ?.map((e) => e.toString())
         .toList();
     final resolvedDate = date ?? json['date']?.toString() ?? '';
-    final past = pastFromApi ??
-        (resolvedDate.isNotEmpty
-            ? AppTimezone.pastSlotsForDate(resolvedDate, slots)
-            : const <String>[]);
+    // Always re-check on client so device/API timezone drift cannot re-open past slots.
+    final past = <String>{
+      ...?pastFromApi,
+      if (resolvedDate.isNotEmpty)
+        ...AppTimezone.pastSlotsForDate(resolvedDate, slots),
+    }.toList();
     return DaySchedule(slots: slots, bookedSlots: booked, pastSlots: past);
-  }
-
-  /// 30-minute slots, 09:00–17:30 (Mon–Fri default window).
-  static List<String> defaultSlots() {
-    final slots = <String>[];
-    for (var m = 9 * 60; m < 18 * 60; m += AppTimezone.slotIntervalMinutes) {
-      final h = m ~/ 60;
-      final min = m % 60;
-      slots.add(
-        '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}',
-      );
-    }
-    return slots;
   }
 
   bool isUnavailable(String slot, String dateStr) => SlotUtils.isUnavailable(
@@ -61,39 +50,26 @@ class DaySchedule {
       );
 }
 
-DaySchedule _withFallbackSlots(DaySchedule schedule) {
-  if (schedule.slots.isNotEmpty) return schedule;
-  return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: schedule.bookedSlots);
-}
-
 typedef ScheduleQuery = ({String monkId, String date});
 
 final dayScheduleProvider =
     FutureProvider.family<DaySchedule, ScheduleQuery>((ref, query) async {
-  try {
-    final res = await ref.read(apiClientProvider).get(
-          '/monks/${query.monkId}/schedule',
-          queryParameters: {'date': query.date},
-        );
-    final raw = res.data;
-    if (raw is Map<String, dynamic>) {
-      return _withFallbackSlots(
-        DaySchedule.fromJson(raw, date: query.date),
+  final res = await ref.read(apiClientProvider).get(
+        '/monks/${query.monkId}/schedule',
+        queryParameters: {'date': query.date},
       );
-    }
-    if (raw is List) {
-      for (final item in raw) {
-        final map = item as Map<String, dynamic>;
-        final date = map['date']?.toString() ?? '';
-        if (date.startsWith(query.date)) {
-          return _withFallbackSlots(
-            DaySchedule.fromJson(map, date: query.date),
-          );
-        }
+  final raw = res.data;
+  if (raw is Map<String, dynamic>) {
+    return DaySchedule.fromJson(raw, date: query.date);
+  }
+  if (raw is List) {
+    for (final item in raw) {
+      final map = item as Map<String, dynamic>;
+      final date = map['date']?.toString() ?? '';
+      if (date.startsWith(query.date)) {
+        return DaySchedule.fromJson(map, date: query.date);
       }
     }
-    return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: const []);
-  } catch (_) {
-    return DaySchedule(slots: DaySchedule.defaultSlots(), bookedSlots: const []);
   }
+  return const DaySchedule(slots: [], bookedSlots: []);
 });

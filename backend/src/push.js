@@ -130,7 +130,7 @@ export async function sendCallTimePush(
 ) {
   return sendPush(fcmToken, {
     title: 'Уулзалтын цаг боллоо',
-    body: `${peerName} — одоо видео дуудлагад орох боломжтой`,
+    body: `${peerName} — видео дуудлагад автоматаар орж байна`,
     data: {
       type: 'call_time',
       callerName: peerName || '',
@@ -152,7 +152,7 @@ export async function sendBookingStatusPush(fcmToken, { status, monkName, bookin
     },
     confirmed: {
       title: 'Захиалга баталгаажлаа',
-      body: 'Төлбөр амжилттай. Одоо үйлчилгээнд орох боломжтой',
+      body: 'Төлбөр амжилттай. Цаг тань баталгаажлаа',
     },
     cancelled: {
       title: 'Захиалга цуцлагдлаа',

@@ -52,13 +52,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       final login = _loginCtrl.text.trim();
       if (login.isEmpty) {
-        _loginError = 'Утасны дугаар эсвэл и-мэйл оруулна уу';
+        _loginError = 'Утасны дугаар оруулна уу';
         ok = false;
-      } else if (AuthPhone.looksLikeEmail(login)) {
-        if (!login.contains('@') || !login.contains('.')) {
-          _loginError = 'Зөв и-мэйл оруулна уу';
-          ok = false;
-        }
       } else if (!AuthPhone.isValid(login)) {
         _loginError = 'Зөв утасны дугаар оруулна уу';
         ok = false;
@@ -68,8 +63,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (pass.isEmpty) {
         _passError = 'Нууц үг оруулна уу';
         ok = false;
-      } else if (pass.length < 6) {
-        _passError = 'Хамгийн багадаа 6 тэмдэгт';
+      } else if (pass.length < 8) {
+        _passError = 'Хамгийн багадаа 8 тэмдэгт';
         ok = false;
       }
     });
@@ -154,16 +149,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Text('Нууц үг сэргээх', style: AppText.displaySerif(size: 22)),
                   const SizedBox(height: 8),
                   Text(
-                    'Бүртгэлтэй утасны дугаар эсвэл и-мэйлээ оруулна уу',
+                    'Бүртгэлтэй утасны дугаараа оруулна уу',
                     style: AppText.bodySmall,
                   ),
                   const SizedBox(height: 20),
                   SacredInput(
-                    label: 'Утасны дугаар / И-мэйл',
-                    hint: '',
+                    label: 'Утасны дугаар',
+                    hint: '99112233',
                     controller: forgotCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    prefixIcon: Icons.person_outline_rounded,
+                    keyboardType: TextInputType.phone,
+                    prefixIcon: Icons.phone_outlined,
                     errorText: forgotError,
                   ),
                   const SizedBox(height: 16),
@@ -172,9 +167,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     isLoading: sending,
                     onTap: () async {
                       final value = forgotCtrl.text.trim();
-                      if (value.isEmpty) {
+                      if (value.isEmpty || !AuthPhone.isValid(value)) {
                         setSheetState(() {
-                          forgotError = 'Утасны дугаар эсвэл и-мэйл оруулна уу';
+                          forgotError = 'Зөв утасны дугаар оруулна уу';
                         });
                         return;
                       }
@@ -209,152 +204,175 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.creamBg,
+      resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
           const AuthAmbientBackground(),
-          Column(
-            children: [
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.28,
-                child: SafeArea(
-                  bottom: false,
-                  child: Center(
-                    child: const AuthBrandHero(logoHeight: 80, compact: true),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final avail = constraints.maxHeight;
+              final compact = avail < MediaQuery.sizeOf(context).height * 0.72;
+              final heroHeight = compact
+                  ? (avail < 480 ? 56.0 : 72.0)
+                  : (avail * 0.26).clamp(120.0, 220.0);
+
+              return Column(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    height: heroHeight,
+                    alignment: Alignment.center,
+                    child: ClipRect(
+                      child: SafeArea(
+                        bottom: false,
+                        child: AuthBrandHero(
+                          logoHeight: compact ? 48 : 80,
+                          compact: true,
+                          logoOnly: compact,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                child: AuthFormSheet(
-                  title: 'Нэвтрэх',
-                  subtitle: 'Утасны дугаар эсвэл и-мэйлээр нэвтрэнэ үү',
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (kDebugMode) ...[
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.orangeSoft,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: AppColors.orange.withOpacity(0.25),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isApiConfigured
-                                    ? 'Local API нэвтрэлт'
-                                    : 'Dev нэвтрэлт',
-                                style: AppText.caption.copyWith(
-                                  color: AppColors.orangeDeep,
-                                  fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: AuthFormSheet(
+                      title: 'Нэвтрэх',
+                      subtitle: 'Утасны дугаараараа нэвтрэнэ үү',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (kDebugMode) ...[
+                            Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppColors.orangeSoft,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color:
+                                      AppColors.orange.withValues(alpha: 0.25),
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                isApiConfigured
-                                    ? '${ApiConfig.seedClientEmail} / ${ApiConfig.seedClientPassword}'
-                                    : '${DevAuthStore.defaultPhone} эсвэл ${DevAuthStore.defaultEmail} / ${DevAuthStore.defaultPassword}',
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    isApiConfigured
+                                        ? 'Local API нэвтрэлт'
+                                        : 'Dev нэвтрэлт',
+                                    style: AppText.caption.copyWith(
+                                      color: AppColors.orangeDeep,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    isApiConfigured
+                                        ? '${DevAuthStore.defaultPhone} / ${ApiConfig.seedClientPassword}'
+                                        : '${DevAuthStore.defaultPhone} / ${DevAuthStore.defaultPassword}',
+                                    style: AppText.caption.copyWith(
+                                      color: AppColors.inkDeep,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          SacredInput(
+                            label: 'Утасны дугаар',
+                            hint: '99112233',
+                            keyboardType: TextInputType.phone,
+                            controller: _loginCtrl,
+                            prefixIcon: Icons.phone_outlined,
+                            errorText: _loginError,
+                            textInputAction: TextInputAction.next,
+                          ),
+                          const SizedBox(height: 16),
+                          SacredInput(
+                            label: 'Нууц үг',
+                            hint: '••••••••',
+                            obscureText: _obscure,
+                            controller: _passCtrl,
+                            prefixIcon: Icons.lock_outline_rounded,
+                            errorText: _passError,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _login(),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                size: 20,
+                                color: AppColors.textSec,
+                              ),
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => _showForgotPassword(context),
+                              child: Text(
+                                'Нууц үг мартсан?',
+                                style: AppText.bodySmall.copyWith(
+                                  color: AppColors.orange,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (_formError != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.danger.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _formError!,
                                 style: AppText.caption.copyWith(
-                                  color: AppColors.inkDeep,
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          SacredButton(
+                            label: 'Нэвтрэх',
+                            isLoading: _loading,
+                            onTap: _login,
+                            sunShadow: true,
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Бүртгэл байхгүй юу? ',
+                                style: AppText.bodySmall,
+                              ),
+                              GestureDetector(
+                                onTap: () => context.go('/auth/signup'),
+                                child: Text(
+                                  'Бүртгүүлэх',
+                                  style: AppText.bodySmall.copyWith(
+                                    color: AppColors.orange,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                      SacredInput(
-                        label: 'Утасны дугаар эсвэл и-мэйл',
-                        hint: '99112233 эсвэл name@example.com',
-                        keyboardType: TextInputType.emailAddress,
-                        controller: _loginCtrl,
-                        prefixIcon: Icons.phone_outlined,
-                        errorText: _loginError,
-                        textInputAction: TextInputAction.next,
-                      ),
-                      const SizedBox(height: 16),
-                      SacredInput(
-                        label: 'Нууц үг',
-                        hint: '••••••••',
-                        obscureText: _obscure,
-                        controller: _passCtrl,
-                        prefixIcon: Icons.lock_outline_rounded,
-                        errorText: _passError,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _login(),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscure
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            size: 20,
-                            color: AppColors.textSec,
-                          ),
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => _showForgotPassword(context),
-                          child: Text(
-                            'Нууц үг мартсан?',
-                            style: AppText.bodySmall.copyWith(
-                              color: AppColors.orange,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_formError != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.danger.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _formError!,
-                            style: AppText.caption.copyWith(
-                              color: AppColors.danger,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                      SacredButton(
-                        label: 'Нэвтрэх',
-                        isLoading: _loading,
-                        onTap: _login,
-                        sunShadow: true,
-                      ),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('Бүртгэл байхгүй юу? ', style: AppText.bodySmall),
-                          GestureDetector(
-                            onTap: () => context.go('/auth/signup'),
-                            child: Text(
-                              'Бүртгүүлэх',
-                              style: AppText.bodySmall.copyWith(
-                                color: AppColors.orange,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),

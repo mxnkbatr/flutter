@@ -32,8 +32,8 @@ class ShopOrdersScreen extends ConsumerWidget {
         data: (orders) => orders.isEmpty
             ? ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 80),
+                children: [
+                  const SizedBox(height: 80),
                   Center(
                     child: Text('Захиалга байхгүй', style: AppText.bodySmall),
                   ),

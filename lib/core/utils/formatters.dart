@@ -9,10 +9,8 @@ class Formatters {
 
   static String currency(num amount) => _currency.format(amount);
 
-  /// Monk net earnings: (booking × 0.80) − QPay fee (1.5% of total)
+  /// Monk salary: 70% of booking amount (platform keeps 30%; QPay is platform cost).
   static double monkNetEarning(double bookingAmount) {
-    final monkShare = bookingAmount * 0.80;
-    final qpayFee = bookingAmount * 0.015;
-    return monkShare - qpayFee;
+    return bookingAmount * 0.70;
   }
 }

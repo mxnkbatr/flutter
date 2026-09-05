@@ -161,6 +161,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                     imageUrl: _imageUrl,
                     label: 'Профайл зураг',
                     onImageChanged: (url) => setState(() => _imageUrl = url),
+                    onPersist: (url) async {
+                      await saveMonkProfile(ref, {'image': url});
+                      if (mounted) setState(() => _imageUrl = url);
+                    },
                   ),
                   const SizedBox(height: 12),
                   Text(

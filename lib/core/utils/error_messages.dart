@@ -22,7 +22,7 @@ String formatUserError(
 
     if (code == 401) {
       if (isAuthCredentialRoute) {
-        return 'Утас/и-мэйл эсвэл нууц үг буруу байна.';
+        return 'Утасны дугаар эсвэл нууц үг буруу байна.';
       }
       return 'Нэвтрэлт хүчинтэй биш байна.\nДахин нэвтэрнэ үү.';
     }
@@ -66,7 +66,7 @@ String formatUserError(
 String? _localizeKnownApiMessage(String text) {
   final lower = text.toLowerCase();
   if (lower.contains('invalid credentials')) {
-    return 'Утас/и-мэйл эсвэл нууц үг буруу байна.';
+    return 'Утасны дугаар эсвэл нууц үг буруу байна.';
   }
   if (lower.contains('account disabled')) {
     return 'Бүртгэл идэвхгүй байна.';

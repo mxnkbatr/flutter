@@ -13,7 +13,7 @@ import 'package:sacred_app/core/auth/tier_provider.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/profile/widgets/profile_order_summary.dart';
 import 'package:sacred_app/features/profile/widgets/profile_settings_group.dart';
-import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
+import 'package:sacred_app/shared/widgets/app_content_sheet.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -64,29 +64,26 @@ class ProfileScreen extends ConsumerWidget {
     final auth = ref.watch(authStateProvider).valueOrNull;
     final tier = ref.watch(userTierProvider);
     final showPremium = FeatureFlags.premiumSubscriptionsEnabled;
-    final bottomPad = MediaQuery.of(context).padding.bottom + 80;
+    final bottomPad = MediaQuery.of(context).padding.bottom + 100;
     final initial =
         (auth?.userName?.isNotEmpty ?? false) ? auth!.userName![0].toUpperCase() : '?';
 
-    return PremiumLayeredScaffold(
-      subtitle: 'Миний',
-      title: 'Профайл',
-      expandBody: true,
+    return AppTabSheetScaffold(
       onRefresh: () async {
         ref.invalidate(myBookingsProvider);
         await ref.read(myBookingsProvider.future);
       },
-      body: ListView(
+      child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: EdgeInsets.fromLTRB(0, 8, 0, bottomPad),
+        padding: EdgeInsets.fromLTRB(0, 4, 0, bottomPad),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-              decoration: MinimalStyle.card(radius: MinimalStyle.cardRadiusLg),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              decoration: MinimalStyle.card(radius: 18),
               child: Column(
                 children: [
                   Container(
@@ -100,8 +97,7 @@ class ProfileScreen extends ConsumerWidget {
                     alignment: Alignment.center,
                     child: Text(
                       initial,
-                      style: const TextStyle(
-                        color: AppColors.inkDeep,
+                      style: AppText.h2.copyWith(
                         fontSize: 32,
                         fontWeight: FontWeight.w700,
                       ),
@@ -124,7 +120,7 @@ class ProfileScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(999),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.orange.withOpacity(0.22),
+                            color: AppColors.orange.withValues(alpha: 0.22),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -154,7 +150,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const ProfileOrderSummary(),
           ProfileSettingsGroup(
             title: 'Хувийн тохиргоо',
@@ -182,10 +178,17 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           ProfileSettingsGroup(
             title: 'Лавлах',
             children: [
+              ProfileSettingsTile(
+                icon: Icons.storefront_outlined,
+                iconBackground: const Color(0xFFFFF4E5),
+                iconColor: AppColors.orange,
+                title: 'Дэлгүүр',
+                onTap: () => context.push('/shop'),
+              ),
               ProfileSettingsTile(
                 icon: Icons.help_outline_rounded,
                 iconBackground: const Color(0xFFFFF4E5),
@@ -216,7 +219,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           ProfileSettingsGroup(
             title: 'Тохиргоо',
             children: [
@@ -237,7 +240,7 @@ class ProfileScreen extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(

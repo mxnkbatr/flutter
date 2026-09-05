@@ -174,11 +174,10 @@ class LocalNotificationService {
       ...pending.toJson(),
     });
 
-    if (!directJoin) {
-      await storeIncomingCallOverlay(pending);
-    }
+    // Always persist so cold-start / resume can join or show ring UI.
+    await _storePending(pending);
 
-    const android = AndroidNotificationDetails(
+    final android = AndroidNotificationDetails(
       'incoming_calls',
       'Дуудлага',
       channelDescription: 'Орж ирж буй видео дуудлага',
@@ -189,7 +188,7 @@ class LocalNotificationService {
       ongoing: true,
       autoCancel: false,
       visibility: NotificationVisibility.public,
-      ticker: 'Дуудлага ирж байна',
+      ticker: directJoin ? 'Уулзалтын цаг боллоо' : 'Дуудлага ирж байна',
       playSound: true,
       enableVibration: true,
       audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
@@ -204,9 +203,11 @@ class LocalNotificationService {
 
     await _plugin.show(
       id: bookingId.hashCode,
-      title: 'Дуудлага ирж байна',
-      body: callerName,
-      notificationDetails: const NotificationDetails(android: android, iOS: ios),
+      title: directJoin ? 'Уулзалтын цаг боллоо' : 'Дуудлага ирж байна',
+      body: directJoin
+          ? '$callerName — дуудлагад автоматаар орж байна'
+          : '$callerName видео дуудлага хийж байна',
+      notificationDetails: NotificationDetails(android: android, iOS: ios),
       payload: payload,
     );
   }

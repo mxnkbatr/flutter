@@ -120,6 +120,18 @@ const bookingSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+// One active booking per monk slot (cancelled rows free the slot).
+bookingSchema.index(
+  { monkId: 1, date: 1, slot: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $in: ['pending', 'approved', 'confirmed', 'completed'] },
+    },
+    name: 'unique_active_monk_slot',
+  },
+);
+
 const productSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -203,6 +215,18 @@ const reviewSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+/** One row per viewer per monk per calendar day (UB). */
+const profileViewSchema = new mongoose.Schema(
+  {
+    monkId: { type: mongoose.Schema.Types.ObjectId, ref: 'Monk', required: true, index: true },
+    viewerKey: { type: String, required: true },
+    day: { type: String, required: true, index: true },
+  },
+  { timestamps: true },
+);
+profileViewSchema.index({ monkId: 1, viewerKey: 1, day: 1 }, { unique: true });
+profileViewSchema.index({ day: 1 });
+
 const monkCategorySchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true, trim: true },
@@ -220,5 +244,6 @@ export const Message = mongoose.model('Message', messageSchema);
 export const Product = mongoose.model('Product', productSchema);
 export const Order = mongoose.model('Order', orderSchema);
 export const Review = mongoose.model('Review', reviewSchema);
+export const ProfileView = mongoose.model('ProfileView', profileViewSchema);
 export const MonkCategory = mongoose.model('MonkCategory', monkCategorySchema);
 export const Notification = mongoose.model('Notification', notificationSchema);

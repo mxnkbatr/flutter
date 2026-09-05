@@ -17,7 +17,7 @@ class EarningsBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (values.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('Өгөгдөл байхгүй', style: AppText.bodySmall),
       );
     }

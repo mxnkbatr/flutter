@@ -17,7 +17,7 @@ class ApiConfig {
     if (fromEnv.isNotEmpty) return fromEnv;
 
     if (kDebugMode) {
-      return 'http://${_debugHost()}:3000/api';
+      return 'http://${_debugHost()}:60397/api';
     }
 
     return productionBaseUrl;

@@ -165,6 +165,7 @@ class PremiumLayeredScaffold extends StatelessWidget {
         context,
         Scaffold(
         backgroundColor: AppColors.creamBg,
+        resizeToAvoidBottomInset: true,
         floatingActionButton: fab,
         bottomNavigationBar: bottomBar,
         body: Column(
@@ -224,6 +225,7 @@ class PremiumLayeredScaffold extends StatelessWidget {
       context,
       Scaffold(
         backgroundColor: AppColors.creamBg,
+        resizeToAvoidBottomInset: true,
         floatingActionButton: fab,
         bottomNavigationBar: bottomBar,
         body: onRefresh == null

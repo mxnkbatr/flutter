@@ -45,6 +45,8 @@ class MonkGridCard extends StatelessWidget {
                       child: CachedNetworkImage(
                         imageUrl: monk.image!,
                         fit: BoxFit.cover,
+                        memCacheWidth: (180 * MediaQuery.devicePixelRatioOf(context)).round(),
+                        memCacheHeight: (110 * MediaQuery.devicePixelRatioOf(context)).round(),
                         placeholder: (_, __) => Container(
                           decoration: const BoxDecoration(
                             gradient: AppGradients.monkCardBg,

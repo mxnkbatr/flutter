@@ -146,34 +146,6 @@ class _BookingCardWithActionsState
     extends ConsumerState<_BookingCardWithActions> {
   bool _loading = false;
 
-  Future<void> _confirm() async {
-    setState(() => _loading = true);
-    try {
-      await confirmBooking(ref, widget.booking.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Захиалга хүлээн авлаа. Хэрэглэгч төлбөр төлнө.',
-            ),
-            backgroundColor: AppColors.success,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(formatUserError(e)),
-            backgroundColor: AppColors.danger,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   Future<void> _cancel() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -251,18 +223,42 @@ class _BookingCardWithActionsState
   @override
   Widget build(BuildContext context) {
     final booking = widget.booking;
-    final isPending = booking.status == 'pending';
+    final awaitingPay = !booking.paid &&
+        (booking.status == 'pending' || booking.status == 'approved');
     final canComplete = booking.status == 'confirmed' && booking.paid;
 
     return Column(
       children: [
         MonkBookingCard(booking: booking),
-        if (isPending)
+        if (awaitingPay)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(
               children: [
                 Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 10,
+                      horizontal: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.orangeSoft,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.borderSub),
+                    ),
+                    child: Text(
+                      'Төлбөр хүлээж байна — төлөгдсөн бол автоматаар баталгаажна',
+                      style: AppText.caption.copyWith(
+                        color: AppColors.orangeDeep,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 100,
                   child: _loading
                       ? const Center(
                           child: SizedBox(
@@ -274,58 +270,29 @@ class _BookingCardWithActionsState
                             ),
                           ),
                         )
-                      : Row(children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: _confirm,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success,
-                                  borderRadius:
-                                      BorderRadius.circular(10),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Батлах',
-                                    style: AppText.bodySmall.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                      : GestureDetector(
+                          onTap: _cancel,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceEl,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppColors.danger,
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Цуцлах',
+                                style: AppText.bodySmall.copyWith(
+                                  color: AppColors.danger,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: _cancel,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceEl,
-                                  borderRadius:
-                                      BorderRadius.circular(10),
-                                  border: Border.all(
-                                      color: AppColors.danger,
-                                      width: 0.5),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Цуцлах',
-                                    style: AppText.bodySmall.copyWith(
-                                      color: AppColors.danger,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ]),
+                        ),
                 ),
               ],
             ),

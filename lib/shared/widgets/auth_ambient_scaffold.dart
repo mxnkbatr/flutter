@@ -5,7 +5,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/shared/widgets/gevabal_logo.dart';
 
-/// Cream ambient background — matches home screen aesthetic.
+/// Cream ambient background — login & main tabs.
 class AuthAmbientBackground extends StatelessWidget {
   const AuthAmbientBackground({super.key});
 
@@ -24,8 +24,8 @@ class AuthAmbientBackground extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.orange.withOpacity(0.16),
-                    AppColors.orange.withOpacity(0),
+                    AppColors.orange.withValues(alpha: 0.16),
+                    AppColors.orange.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -41,8 +41,8 @@ class AuthAmbientBackground extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.orangePeach.withOpacity(0.55),
-                    AppColors.orangePeach.withOpacity(0),
+                    AppColors.orangePeach.withValues(alpha: 0.55),
+                    AppColors.orangePeach.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -58,8 +58,8 @@ class AuthAmbientBackground extends StatelessWidget {
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.orangeSoft.withOpacity(0.8),
-                    AppColors.orangeSoft.withOpacity(0),
+                    AppColors.orangeSoft.withValues(alpha: 0.8),
+                    AppColors.orangeSoft.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -77,10 +77,13 @@ class AuthBrandHero extends StatelessWidget {
     super.key,
     this.logoHeight = 112,
     this.compact = false,
+    this.logoOnly = false,
   });
 
   final double logoHeight;
   final bool compact;
+  /// When true, show logo only (avoids overflow in tight / keyboard layouts).
+  final bool logoOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -88,23 +91,27 @@ class AuthBrandHero extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         GevabalLogo(height: logoHeight, glow: true),
-        SizedBox(height: compact ? 14 : 22),
-        Text(
-          AppBranding.name,
-          style: AppText.displaySerif(
-            size: compact ? 28 : 34,
-            color: AppColors.inkDeep,
+        if (!logoOnly) ...[
+          SizedBox(height: compact ? 14 : 22),
+          Text(
+            AppBranding.name,
+            style: AppText.displaySerif(
+              size: compact ? 28 : 34,
+              color: AppColors.inkDeep,
+            ),
           ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          AppBranding.tagline,
-          style: AppText.bodySmall.copyWith(
-            color: AppColors.textSec,
-            fontSize: compact ? 13 : 14,
-            letterSpacing: 0.2,
-          ),
-        ),
+          if (!compact) ...[
+            const SizedBox(height: 6),
+            Text(
+              AppBranding.tagline,
+              style: AppText.bodySmall.copyWith(
+                color: AppColors.textSec,
+                fontSize: 14,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ],
       ],
     );
   }
@@ -130,15 +137,15 @@ class AuthFormSheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceEl,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        border: Border.all(color: AppColors.borderSub.withOpacity(0.9)),
+        border: Border.all(color: AppColors.borderSub.withValues(alpha: 0.9)),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withOpacity(0.06),
+            color: AppColors.orange.withValues(alpha: 0.06),
             blurRadius: 32,
             offset: const Offset(0, -8),
           ),
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 24,
             offset: const Offset(0, -4),
           ),
@@ -146,11 +153,12 @@ class AuthFormSheet extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         padding: EdgeInsets.fromLTRB(
           24,
           title != null ? 28 : 32,
           24,
-          MediaQuery.of(context).padding.bottom + 24,
+          MediaQuery.paddingOf(context).bottom + 40,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

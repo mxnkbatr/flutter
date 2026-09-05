@@ -75,8 +75,8 @@ class AdminShopOrdersTab extends ConsumerWidget {
                 onRefresh: () => ref.refresh(adminOrdersProvider.future),
                 child: filtered.isEmpty
                     ? ListView(
-                        children: const [
-                          SizedBox(height: 80),
+                        children: [
+                          const SizedBox(height: 80),
                           Center(
                             child: Text(
                               'Дэлгүүрийн захиалга байхгүй',

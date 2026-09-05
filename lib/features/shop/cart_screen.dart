@@ -146,7 +146,9 @@ class _CartScreenState extends ConsumerState<CartScreen> {
               children: [
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.all(16),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     children: [
                       ...cart.map((item) => _CartItemRow(item: item)),
                       const SizedBox(height: 16),
@@ -163,15 +165,23 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                         prefixIcon: Icons.location_on_outlined,
                         maxLines: 2,
                       ),
+                      // Extra space so last fields clear sticky checkout + keyboard.
+                      const SizedBox(height: 120),
                     ],
                   ),
                 ),
-                Container(
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: Container(
                   padding: EdgeInsets.fromLTRB(
                     20,
                     16,
                     20,
-                    MediaQuery.of(context).padding.bottom + 16,
+                    MediaQuery.paddingOf(context).bottom + 16,
                   ),
                   decoration: const BoxDecoration(
                     color: AppColors.surfaceEl,
@@ -201,6 +211,7 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),

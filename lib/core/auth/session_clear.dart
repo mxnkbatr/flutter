@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/auth/tier_provider.dart';
+import 'package:sacred_app/core/notifications/call_join_guard.dart';
 import 'package:sacred_app/core/providers/monk_categories_provider.dart';
 import 'package:sacred_app/features/admin/providers/admin_providers.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
@@ -23,6 +26,7 @@ import 'package:sacred_app/features/video_call/providers/incoming_call_provider.
 /// Drop cached user data when logging out or switching accounts.
 void clearSessionState(ProviderContainer container) {
   container.read(incomingCallProvider.notifier).state = null;
+  unawaited(CallJoinGuard.clearAll());
 
   container.read(bookingDraftProvider.notifier).reset('');
   container.read(bookingStepProvider.notifier).state = 0;
@@ -53,6 +57,7 @@ void clearSessionState(ProviderContainer container) {
   container.invalidate(monkEarningsProvider);
   container.invalidate(monkScheduleManagerProvider);
   container.invalidate(notificationsProvider);
+  container.invalidate(unreadNotificationsCountProvider);
   container.invalidate(tierCacheProvider);
   container.invalidate(monksNotifierProvider);
   container.invalidate(recommendedMonksProvider);

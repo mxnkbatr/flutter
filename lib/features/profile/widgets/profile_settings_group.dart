@@ -34,7 +34,7 @@ class ProfileSettingsGroup extends StatelessWidget {
           ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: MinimalStyle.card(),
+          decoration: MinimalStyle.card(radius: 18),
           clipBehavior: Clip.antiAlias,
           child: Column(children: _withDividers(children)),
         ),

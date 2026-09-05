@@ -6,22 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:go_router/go_router.dart';
 
+import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
-
 import 'package:sacred_app/core/theme/app_gradients.dart';
-
 import 'package:sacred_app/core/theme/app_text.dart';
-
-import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
-import 'package:sacred_app/features/home/models/monk.dart';
-
 import 'package:sacred_app/core/utils/formatters.dart';
-
 import 'package:sacred_app/features/home/models/monk.dart';
-
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
-
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
 
 import 'package:sacred_app/features/monk_profile/widgets/expandable_text.dart';
@@ -71,12 +63,23 @@ class MonkProfileScreen extends ConsumerStatefulWidget {
 
 
 class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
-
   bool _bookmarked = false;
-
   int _sectionTab = 0;
+  bool _viewRecorded = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _recordView());
+  }
 
+  Future<void> _recordView() async {
+    if (_viewRecorded) return;
+    _viewRecorded = true;
+    try {
+      await ref.read(apiClientProvider).post('/monks/${widget.monkId}/view');
+    } catch (_) {}
+  }
 
   Future<void> _shareProfile(String name) async {
 
@@ -115,7 +118,7 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
     final ok = await TierGating.checkMonkAccess(context, ref, monk);
     if (ok && mounted) {
-      context.go('/booking/${widget.monkId}');
+      context.push('/booking/${widget.monkId}');
     }
   }
 
@@ -131,13 +134,12 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
     }
 
     final ok = await TierGating.checkMonkAccess(context, ref, monk);
-
     if (ok && mounted) {
-
-      context.go('/booking/${widget.monkId}?serviceId=$serviceId');
-
+      final q = serviceId.isNotEmpty
+          ? '?serviceId=${Uri.encodeComponent(serviceId)}'
+          : '';
+      context.push('/booking/${widget.monkId}$q');
     }
-
   }
 
 
@@ -623,18 +625,12 @@ class _MonkProfileScreenState extends ConsumerState<MonkProfileScreen> {
 
                               if (reviews.isEmpty)
 
-                                const Padding(
-
-                                  padding: EdgeInsets.symmetric(horizontal: 24),
-
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
                                   child: Text(
-
                                     'Сэтгэгдэл байхгүй',
-
                                     style: AppText.bodySmall,
-
                                   ),
-
                                 )
 
                               else

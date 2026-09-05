@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,7 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/utils/formatters.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
 import 'package:sacred_app/features/payment/models/booking_payment_data.dart';
@@ -96,6 +96,12 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         if (!mounted) return;
         setState(() => _paid = true);
         _invalidateBookings();
+        final canJoinNow = body['canJoinCall'] == true;
+        if (canJoinNow) {
+          // QPay paid + slot window open → go straight to call.
+          context.go('/call/${widget.bookingId}?role=client');
+          return;
+        }
         _navigateToSuccess();
       }
     } catch (_) {
@@ -103,7 +109,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       if (_pollFailures == 3 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
+            content: Text(
               'Төлбөр шалгах амжилтгүй. Сүлжээгээ шалгаад «Дахин шалгах» дарна уу.',
             ),
             backgroundColor: AppColors.danger,
@@ -148,8 +154,19 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
 
     if (mounted) {
-      final status = info?.status ?? 'pending';
-      final canJoin = info != null && info.paid && status == 'confirmed';
+      final status = info?.status ?? 'confirmed';
+      final paid = info?.paid == true || _paid;
+      // After QPay, booking is always confirmed server-side.
+      final confirmed = paid && (status == 'confirmed' || status == 'pending' || status == 'approved');
+      final canJoin = confirmed &&
+          AppTimezone.isInCallWindow(
+            data?.dateStr ?? info?.date,
+            data?.timeSlot ?? info?.slot ?? '',
+          );
+      if (canJoin) {
+        context.go('/call/${widget.bookingId}?role=client');
+        return;
+      }
       context.go(
         '/payment/${widget.bookingId}/success',
         extra: PaymentSuccessArgs(
@@ -158,8 +175,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           dateStr: data?.dateStr ?? info?.date ?? '',
           timeSlot: data?.timeSlot ?? info?.slot ?? '',
           amount: amount,
-          bookingStatus: status,
-          canJoinCall: canJoin,
+          bookingStatus: paid ? 'confirmed' : status,
+          canJoinCall: false,
         ),
       );
     }
@@ -237,79 +254,42 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   Widget _summaryCard(BookingPaymentData payment) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: AppColors.inkDeep,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.goldPrime.withOpacity(0.3),
-          width: 0.5,
-        ),
+        color: AppColors.surfaceEl,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSub),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            'Нийт дүн',
-            style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            Formatters.currency(payment.amount),
-            style: AppText.h1.copyWith(color: AppColors.goldPrime, fontSize: 36),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.inkMid,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (payment.monkImage != null && payment.monkImage!.isNotEmpty)
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundImage: CachedNetworkImageProvider(payment.monkImage!),
-                  )
-                else
-                  const CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.inkLight,
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      size: 18,
-                      color: AppColors.goldMuted,
-                    ),
+                Text(
+                  payment.monkName,
+                  style: AppText.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                   ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        payment.monkName,
-                        style: AppText.bodySmall.copyWith(
-                          color: AppColors.onDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        payment.serviceName,
-                        style: AppText.caption.copyWith(color: AppColors.goldMuted),
-                      ),
-                    ],
-                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                Flexible(
-                  child: Text(
-                    payment.slot,
-                    style: AppText.caption.copyWith(color: AppColors.goldMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                  ),
+                const SizedBox(height: 2),
+                Text(
+                  '${payment.serviceName} · ${payment.date} ${payment.slot}',
+                  style: AppText.caption.copyWith(color: AppColors.textSec),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
+            ),
+          ),
+          Text(
+            Formatters.currency(payment.amount),
+            style: AppText.h3.copyWith(
+              color: AppColors.orangeDeep,
+              fontSize: 18,
             ),
           ),
         ],
@@ -345,7 +325,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('QPay QR код', style: AppText.h3),
+                  Text('QPay QR код', style: AppText.h3),
                   CountdownTimer(
                     seconds: 600,
                     onExpired: () => setState(() => _expired = true),
@@ -449,6 +429,91 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     );
   }
 
+  Future<void> _leavePaymentScreen() async {
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
+    }
+  }
+
+  Future<void> _closePayment([BookingPaymentData? payment]) async {
+    _pollTimer?.cancel();
+    final unpaid = payment != null && !payment.paid && payment.canPay;
+    if (!unpaid) {
+      await _leavePaymentScreen();
+      return;
+    }
+
+    if (!mounted) return;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surfaceEl,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.borderSub,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              Text('Төлбөр хаах', style: AppText.h3),
+              const SizedBox(height: 8),
+              Text(
+                'Төлбөр төлөөгүй байна. Цагийг бусдад нээхийн тулд захиалгыг цуцлана уу, эсвэл үлдээж төлнө үү.',
+                style: AppText.bodySmall.copyWith(color: AppColors.textSec),
+              ),
+              const SizedBox(height: 20),
+              SacredButton(
+                label: 'Захиалга цуцлах',
+                onTap: () => Navigator.pop(ctx, 'cancel'),
+              ),
+              const SizedBox(height: 10),
+              SacredButton(
+                label: 'Үргэлжлүүлж төлөх',
+                outline: true,
+                onTap: () => Navigator.pop(ctx, 'stay'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || action == null || action == 'stay') {
+      if (action == 'stay' && payment.qpay != null) {
+        _startPolling(payment.qpay!.invoiceId);
+      }
+      return;
+    }
+
+    if (action == 'cancel') {
+      try {
+        await ref.read(apiClientProvider).put(
+              '/bookings/${widget.bookingId}/cancel',
+            );
+        _invalidateBookings();
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    await _leavePaymentScreen();
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = ref.watch(authStateProvider).valueOrNull?.role ?? 'client';
@@ -459,6 +524,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       showBackButton: true,
       backIcon: Icons.close_rounded,
       expandBody: true,
+      canPop: () => false,
+      onBack: () => _closePayment(paymentAsync.valueOrNull),
       body: paymentAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.saffron),
@@ -482,16 +549,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                     Text('Төлбөр төлөгдсөн', style: AppText.h3),
                     const SizedBox(height: 8),
                     Text(
-                      payment.status == 'confirmed'
+                      payment.status == 'confirmed' || payment.paid
                           ? 'Одоо үйлчилгээнд орох боломжтой'
-                          : 'Баталгаажуулалт хүлээгдэж байна',
+                          : 'Төлбөр амжилттай',
                       style: AppText.bodySmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    if (payment.status == 'confirmed') ...[
+                    if (payment.status == 'confirmed' || payment.paid) ...[
                       SacredButton(
-                        label: 'Оруулах',
+                        label: 'Дуудлагад орох',
                         icon: Icons.videocam_rounded,
                         onTap: () => context.go('/call/${widget.bookingId}'),
                       ),
@@ -513,12 +580,24 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  payment.status == 'pending'
-                      ? 'Лам баталгаажуулах хүлээгдэж байна'
-                      : 'Төлбөр төлөх боломжгүй',
-                  style: AppText.body,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      payment.paid
+                          ? 'Төлбөр төлөгдсөн — захиалга баталгаажсан'
+                          : 'Төлбөр төлөх боломжгүй',
+                      style: AppText.body,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    SacredButton(
+                      label: 'Захиалга харах',
+                      outline: true,
+                      small: true,
+                      onTap: () => context.go('/bookings'),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -534,9 +613,9 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 12,
+              left: 16,
+              right: 16,
+              top: 8,
               bottom: MediaQuery.of(context).padding.bottom + 24,
             ),
             child: Column(
@@ -544,10 +623,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                 if (role == 'monk')
                   Container(
                     width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
+                    margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.info.withOpacity(0.1),
+                      color: AppColors.info.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -555,9 +634,10 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
                       style: AppText.bodySmall.copyWith(color: AppColors.info),
                     ),
                   ),
-                _summaryCard(payment),
-                const SizedBox(height: 16),
+                // QR first — payment is the job of this screen.
                 _qpaySection(payment, canPay),
+                const SizedBox(height: 14),
+                _summaryCard(payment),
               ],
             ),
           );

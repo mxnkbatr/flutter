@@ -16,7 +16,13 @@ Future<String?> exportFinanceExcel(AdminFinanceData finance) async {
     TextCellValue('₮${fmtAdmin(finance.totalRevenue)}'),
   ]);
   sheet.appendRow([
-    TextCellValue('Платформын хураамж'),
+    TextCellValue('Үзмэрчдийн цалин (${finance.monkSharePercent}%)'),
+    TextCellValue(
+      '₮${fmtAdmin(finance.monkPayoutTotal > 0 ? finance.monkPayoutTotal : (finance.totalRevenue * finance.monkSharePercent / 100).round())}',
+    ),
+  ]);
+  sheet.appendRow([
+    TextCellValue('Платформын хувь (${finance.platformSharePercent}%)'),
     TextCellValue('₮${fmtAdmin(finance.platformFees)}'),
   ]);
   sheet.appendRow([
@@ -24,7 +30,7 @@ Future<String?> exportFinanceExcel(AdminFinanceData finance) async {
     TextCellValue('₮${fmtAdmin(finance.qpayFees)}'),
   ]);
   sheet.appendRow([
-    TextCellValue('Цэвэр ашиг'),
+    TextCellValue('Платформын цэвэр ашиг'),
     TextCellValue('₮${fmtAdmin(finance.netProfit)}'),
   ]);
   sheet.appendRow([TextCellValue('')]);

@@ -113,8 +113,8 @@ export async function notifyBookingStatus(user, { status, monkName, bookingId })
     },
     confirmed: {
       title: 'Захиалга баталгаажлаа',
-      body: 'Төлбөр амжилттай. Одоо үйлчилгээнд орох боломжтой',
-      actionPath: '/bookings',
+      body: 'Төлбөр амжилттай. Цаг тань баталгаажлаа',
+      actionPath: `/bookings`,
     },
     cancelled: {
       title: 'Захиалга цуцлагдлаа',
@@ -145,7 +145,7 @@ export async function notifyMessage(user, { senderName, text, conversationId }) 
   return notifyUser(user, {
     category: 'message',
     title: senderName || 'Шинэ мессеж',
-    body: text?.slice(0, 100) || '',
+    body: text?.slice(0, 40) || 'Шинэ мессеж',
     type: 'message',
     actionPath: `/messenger/${conversationId}`,
     refId: conversationId,
@@ -176,7 +176,7 @@ export async function notifyCallTime(user, { peerName, peerImage, bookingId, rec
   return notifyUser(user, {
     category: 'booking_reminder',
     title: 'Уулзалтын цаг боллоо',
-    body: `${peerName} — одоо видео дуудлагад орох боломжтой`,
+    body: `${peerName} — видео дуудлагад автоматаар орж байна`,
     type: 'booking',
     actionPath: `/call/${bookingId}?role=${recipientRole || 'client'}`,
     refId: bookingId,

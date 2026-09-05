@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
 import 'package:sacred_app/core/utils/app_feedback.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/home/widgets/category_chip.dart';
+import 'package:sacred_app/features/payment/models/qpay_data.dart';
 import 'package:sacred_app/features/shop/models/product.dart';
 import 'package:sacred_app/features/shop/providers/shop_providers.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
@@ -66,14 +68,11 @@ class ShopProductDetailScreen extends ConsumerWidget {
                       Expanded(
                         flex: 2,
                         child: SacredButton(
-                          label: '₮${_fmt(product.price)} · Авах',
+                          label: '₮${_fmt(product.price)} · Шууд авах',
                           small: true,
                           sunShadow: true,
-                          icon: Icons.shopping_bag_outlined,
-                          onTap: () {
-                            _addToCart(context, ref, product);
-                            context.push('/shop/cart');
-                          },
+                          icon: Icons.flash_on_rounded,
+                          onTap: () => _buyNow(context, ref, product),
                         ),
                       ),
                     ],
@@ -201,6 +200,110 @@ class ShopProductDetailScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
+  }
+
+  Future<void> _buyNow(
+    BuildContext context,
+    WidgetRef ref,
+    Product product,
+  ) async {
+    HapticFeedback.lightImpact();
+    final phoneCtrl = TextEditingController();
+    final addressCtrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Шууд авах'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'Утас',
+                hintText: '99112233',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: addressCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Хүргэлтийн хаяг',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Болих'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Төлөх'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) {
+      phoneCtrl.dispose();
+      addressCtrl.dispose();
+      return;
+    }
+    final phone = phoneCtrl.text.trim();
+    final address = addressCtrl.text.trim();
+    phoneCtrl.dispose();
+    addressCtrl.dispose();
+    if (phone.isEmpty || address.isEmpty) {
+      showAppSnackBar(
+        context,
+        const SnackBar(
+          content: Text('Утас болон хаяг заавал'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final res = await ref.read(apiClientProvider).post(
+            '/shop/orders',
+            data: {
+              'items': [
+                {'productId': product.id, 'quantity': 1},
+              ],
+              'phone': phone,
+              'address': address,
+            },
+          );
+      final data = res.data as Map<String, dynamic>;
+      if (data['dev'] == true) {
+        ref.invalidate(myOrdersProvider);
+        if (context.mounted) context.go('/shop/orders');
+        return;
+      }
+      final orderId = (data['order'] as Map<String, dynamic>)['id'] as String;
+      final qpayData = QPayData.fromJson(data)
+          .copyWithAmount(product.price)
+          .copyWithSummary(
+            monkName: 'Gevabal Дэлгүүр',
+            serviceName: product.name,
+          );
+      if (context.mounted) {
+        context.go('/shop/payment/$orderId', extra: qpayData);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showAppSnackBar(
+          context,
+          SnackBar(
+            content: Text(formatUserError(e, fallback: 'Захиалга үүсгэхэд алдаа.')),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
   }
 }
 

@@ -25,7 +25,7 @@ class _ScheduleAccordionState extends ConsumerState<ScheduleAccordion> {
   void _bookSlot(DateTime date, String slot) {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final encodedSlot = Uri.encodeComponent(slot);
-    context.go('/booking/${widget.monkId}?date=$dateStr&slot=$encodedSlot');
+    context.push('/booking/${widget.monkId}?date=$dateStr&slot=$encodedSlot');
   }
 
   @override
@@ -39,8 +39,8 @@ class _ScheduleAccordionState extends ConsumerState<ScheduleAccordion> {
           child: CircularProgressIndicator(color: AppColors.sunGold),
         ),
       ),
-      error: (_, __) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Text('Хуваарь ачаалахад алдаа гарлаа', style: AppText.bodySmall),
       ),
       data: (days) {
@@ -50,8 +50,8 @@ class _ScheduleAccordionState extends ConsumerState<ScheduleAccordion> {
             .toList();
 
         if (available.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
               'Ойрын хугацаанд боломжит цаг байхгүй',
               style: AppText.bodySmall,
@@ -205,14 +205,14 @@ class _DayAccordionTile extends ConsumerWidget {
                   child: CircularProgressIndicator(color: AppColors.sunGold),
                 ),
               ),
-              error: (_, __) => const Padding(
-                padding: EdgeInsets.fromLTRB(14, 0, 14, 16),
+              error: (_, __) => Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
                 child: Text('Цаг ачаалахад алдаа гарлаа', style: AppText.bodySmall),
               ),
               data: (schedule) {
                 if (schedule.slots.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.fromLTRB(14, 0, 14, 16),
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
                     child: Text(
                       'Энэ өдөр боломжит цаг байхгүй',
                       style: AppText.bodySmall,

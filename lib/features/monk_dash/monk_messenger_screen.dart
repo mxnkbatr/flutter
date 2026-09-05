@@ -19,8 +19,7 @@ class MonkMessengerScreen extends ConsumerWidget {
     final bottomPad = MediaQuery.of(context).padding.bottom + 80;
 
     return PremiumLayeredScaffold(
-      subtitle: 'Харилцаа',
-      title: 'Мессенжер',
+      title: 'Чат',
       expandBody: true,
       body: RefreshIndicator(
         color: AppColors.orange,

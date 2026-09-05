@@ -52,7 +52,7 @@ class ChatConversationTile extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: MinimalStyle.card(radius: MinimalStyle.cardRadiusLg),
+        decoration: MinimalStyle.card(radius: 18),
         child: Row(
           children: [
             Stack(

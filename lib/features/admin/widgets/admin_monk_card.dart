@@ -219,9 +219,9 @@ class AdminMonkCard extends ConsumerWidget {
 
   Widget _cardBody() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: AdminSurfaceCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
         child: Row(
           children: [
             if (showReorderHandle)
@@ -232,14 +232,24 @@ class AdminMonkCard extends ConsumerWidget {
                   child: Icon(Icons.drag_handle, color: AppColors.textSec),
                 ),
               ),
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: AppColors.borderSub,
-              backgroundImage: monk.image != null && monk.image!.isNotEmpty
-                  ? CachedNetworkImageProvider(monk.image!)
-                  : null,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: AppColors.orange.withOpacity(0.08),
+                image: monk.image != null && monk.image!.isNotEmpty
+                    ? DecorationImage(
+                        image: CachedNetworkImageProvider(monk.image!),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
               child: monk.image == null || monk.image!.isEmpty
-                  ? const Icon(Icons.person)
+                  ? const Icon(
+                      Icons.temple_buddhist_outlined,
+                      color: AppColors.orange,
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
@@ -249,15 +259,26 @@ class AdminMonkCard extends ConsumerWidget {
                 children: [
                   Text(
                     monk.displayName,
-                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                    style: AppText.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                  if (monk.temple != null)
-                    Text(monk.temple!, style: AppText.bodySmall),
-                  Row(
+                  if (monk.temple != null && monk.temple!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      monk.temple!,
+                      style: AppText.bodySmall.copyWith(color: AppColors.textSec),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       StatusBadge(status: monk.status),
-                      if (monk.isSpecial) ...[
-                        const SizedBox(width: 8),
+                      if (monk.isSpecial)
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -275,11 +296,12 @@ class AdminMonkCard extends ConsumerWidget {
                             ),
                           ),
                         ),
-                      ],
-                      const SizedBox(width: 8),
                       Text(
                         '★ ${monk.rating.toStringAsFixed(1)}',
-                        style: AppText.caption,
+                        style: AppText.caption.copyWith(
+                          color: AppColors.inkDeep,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -287,7 +309,10 @@ class AdminMonkCard extends ConsumerWidget {
               ),
             ),
             if (!showReorderHandle)
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textSec),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSec.withOpacity(0.7),
+              ),
           ],
         ),
       ),

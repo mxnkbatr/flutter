@@ -7,14 +7,15 @@ import 'app_text.dart';
 
 class AppTheme {
   static ThemeData get light {
-    final sans = GoogleFonts.dmSansTextTheme();
-    final serif = GoogleFonts.playfairDisplayTextTheme();
+    final sans = GoogleFonts.manropeTextTheme();
+    // Ensure display/brand faces are registered for TextStyle(fontFamily: …).
+    GoogleFonts.playfairDisplay();
 
     return ThemeData(
       useMaterial3: true,
       visualDensity: VisualDensity.standard,
       splashFactory: InkRipple.splashFactory,
-      fontFamily: AppText.sansFamily,
+      fontFamily: GoogleFonts.manrope().fontFamily,
       scaffoldBackgroundColor: AppColors.creamBg,
       colorScheme: const ColorScheme.light(
         primary: AppColors.orange,
@@ -26,22 +27,31 @@ class AppTheme {
         outline: AppColors.border,
       ),
       textTheme: sans.copyWith(
-        displayLarge: serif.displayLarge?.copyWith(
+        displayLarge: sans.displayLarge?.copyWith(
           color: AppColors.textPri,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.4,
+          letterSpacing: -0.8,
         ),
-        headlineLarge: serif.headlineLarge?.copyWith(
+        headlineLarge: sans.headlineLarge?.copyWith(
           color: AppColors.textPri,
           fontWeight: FontWeight.w700,
+          letterSpacing: -0.6,
         ),
         titleLarge: sans.titleLarge?.copyWith(
           color: AppColors.textPri,
           fontWeight: FontWeight.w700,
           letterSpacing: -0.3,
         ),
-        bodyLarge: sans.bodyLarge?.copyWith(color: AppColors.textPri, height: 1.5),
-        bodyMedium: sans.bodyMedium?.copyWith(color: AppColors.textSec, height: 1.45),
+        bodyLarge: sans.bodyLarge?.copyWith(
+          color: AppColors.textPri,
+          fontWeight: FontWeight.w500,
+          height: 1.45,
+        ),
+        bodyMedium: sans.bodyMedium?.copyWith(
+          color: AppColors.textSec,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.creamBg,
@@ -59,17 +69,20 @@ class AppTheme {
           systemNavigationBarIconBrightness: Brightness.dark,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: AppColors.surfaceEl,
         selectedItemColor: AppColors.orange,
         unselectedItemColor: AppColors.textHint,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: TextStyle(
+        selectedLabelStyle: GoogleFonts.manrope(
           fontSize: 10,
           fontWeight: FontWeight.w700,
         ),
-        unselectedLabelStyle: TextStyle(fontSize: 10),
+        unselectedLabelStyle: GoogleFonts.manrope(
+          fontSize: 10,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.surfaceEl,
@@ -89,7 +102,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          textStyle: GoogleFonts.dmSans(
+          textStyle:           GoogleFonts.manrope(
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -108,7 +121,7 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.orangeDeep,
-          textStyle: GoogleFonts.dmSans(
+          textStyle:           GoogleFonts.manrope(
             fontWeight: FontWeight.w600,
             fontSize: 14,
           ),
@@ -145,7 +158,7 @@ class AppTheme {
         behavior: SnackBarBehavior.floating,
         elevation: 0,
         backgroundColor: AppColors.inkDeep,
-        contentTextStyle: GoogleFonts.dmSans(
+        contentTextStyle: GoogleFonts.manrope(
           color: Colors.white,
           fontSize: 14,
           fontWeight: FontWeight.w500,

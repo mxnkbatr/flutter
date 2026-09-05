@@ -42,8 +42,8 @@ class MonthPicker extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text('Сар сонгох', style: AppText.h3),
               ),
               ConstrainedBox(

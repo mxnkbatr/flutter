@@ -5,20 +5,23 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
+import 'package:sacred_app/features/home/utils/monk_rating_label.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
-/// Compact list card for "Бусад ламнар" — soft surface + accent avatar ring.
+/// Compact list card — clean white surface, clear hierarchy.
 class ExploreMonkCard extends StatelessWidget {
   const ExploreMonkCard({
     super.key,
     required this.monk,
     required this.onTap,
+    this.onBook,
     this.onFavorite,
     this.isFavorite = false,
   });
 
   final Monk monk;
   final VoidCallback onTap;
+  final VoidCallback? onBook;
   final VoidCallback? onFavorite;
   final bool isFavorite;
 
@@ -28,18 +31,12 @@ class ExploreMonkCard extends StatelessWidget {
       pressedScale: 0.985,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
         decoration: BoxDecoration(
           color: AppColors.surfaceEl,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderSub.withOpacity(0.9)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.035),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(color: AppColors.borderSub),
+          boxShadow: AppGradients.softCardShadow,
         ),
         child: Row(
           children: [
@@ -54,18 +51,19 @@ class ExploreMonkCard extends StatelessWidget {
                     style: AppText.body.copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
-                      letterSpacing: -0.2,
+                      letterSpacing: -0.25,
+                      color: AppColors.inkDeep,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (monk.displayTitle != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       monk.displayTitle!,
                       style: AppText.caption.copyWith(
                         color: AppColors.textSec,
-                        fontSize: 12,
+                        fontSize: 12.5,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -74,18 +72,24 @@ class ExploreMonkCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.star_rounded, size: 14, color: AppColors.orange),
-                      const SizedBox(width: 4),
+                      Icon(
+                        monkHasReviews(monk.reviewCount)
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        size: 14,
+                        color: monkHasReviews(monk.reviewCount)
+                            ? AppColors.orange
+                            : AppColors.textHint,
+                      ),
+                      const SizedBox(width: 3),
                       Text(
-                        monk.rating.toStringAsFixed(1),
+                        monkRatingLabel(monk.rating, monk.reviewCount),
                         style: AppText.caption.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: AppColors.inkDeep,
+                          color: monkHasReviews(monk.reviewCount)
+                              ? AppColors.inkDeep
+                              : AppColors.textSec,
                         ),
-                      ),
-                      Text(
-                        ' · ${monk.reviewCount} үнэлгээ',
-                        style: AppText.caption.copyWith(color: AppColors.textHint),
                       ),
                     ],
                   ),
@@ -100,7 +104,7 @@ class ExploreMonkCard extends StatelessWidget {
                       onFavorite!();
                     },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Icon(
                   isFavorite
                       ? Icons.favorite_rounded
@@ -110,26 +114,59 @@ class ExploreMonkCard extends StatelessWidget {
                 ),
               ),
             ),
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                gradient: AppGradients.primary,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.orange.withOpacity(0.28),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
+            const SizedBox(width: 4),
+            if (onBook != null)
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onBook!();
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.primary,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.orange.withValues(alpha: 0.22),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                ],
+                  child: Text(
+                    'Захиалах',
+                    style: AppText.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11.5,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.orange.withValues(alpha: 0.24),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 17,
+                  color: Colors.white,
+                ),
               ),
-              child: const Icon(
-                Icons.arrow_forward_rounded,
-                size: 17,
-                color: Colors.white,
-              ),
-            ),
           ],
         ),
       ),
@@ -144,66 +181,59 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = monk.displayName.isNotEmpty
-        ? monk.displayName[0].toUpperCase()
-        : '?';
-
     return Container(
-      padding: const EdgeInsets.all(2.5),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.all(2),
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: AppGradients.primary,
       ),
       child: ClipOval(
-        child: monk.image != null
+        child: monk.image != null && monk.image!.isNotEmpty
             ? Hero(
                 tag: Monk.heroTag(monk.id),
-                child:                 CachedNetworkImage(
+                child: CachedNetworkImage(
                   imageUrl: monk.image!,
-                  width: 52,
-                  height: 52,
+                  width: 54,
+                  height: 54,
                   fit: BoxFit.cover,
+                  memCacheWidth:
+                      (54 * MediaQuery.devicePixelRatioOf(context)).round(),
+                  memCacheHeight:
+                      (54 * MediaQuery.devicePixelRatioOf(context)).round(),
                   fadeInDuration: const Duration(milliseconds: 240),
-                  placeholder: (_, __) => ColoredBox(
-                    color: AppColors.orangeLight,
-                    child: Center(
-                      child: Text(
-                        initial,
-                        style: AppText.h3.copyWith(
-                          color: AppColors.orangeDeep,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
-                  errorWidget: (_, __, ___) => _Placeholder(initial: initial),
+                  placeholder: (_, __) => const _MonkPlaceholder(),
+                  errorWidget: (_, __, ___) => const _MonkPlaceholder(),
                 ),
               )
-            : _Placeholder(initial: initial),
+            : const _MonkPlaceholder(),
       ),
     );
   }
 }
 
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.initial});
-
-  final String initial;
+class _MonkPlaceholder extends StatelessWidget {
+  const _MonkPlaceholder();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 52,
-      height: 52,
-      color: AppColors.orangeLight,
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: AppText.h3.copyWith(
-          color: AppColors.orangeDeep,
-          fontWeight: FontWeight.w700,
-          fontSize: 20,
+      width: 54,
+      height: 54,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFF1E6),
+            Color(0xFFFFE0C8),
+          ],
         ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(
+        Icons.self_improvement_rounded,
+        size: 28,
+        color: AppColors.orange.withValues(alpha: 0.72),
       ),
     );
   }

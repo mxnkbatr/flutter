@@ -45,13 +45,19 @@ class AdminFinanceData {
     required this.qpayFees,
     required this.netProfit,
     required this.monkSalaries,
+    this.monkPayoutTotal = 0,
+    this.monkSharePercent = 70,
+    this.platformSharePercent = 30,
   });
 
   final String month;
   final int totalRevenue;
   final int platformFees;
+  final int monkPayoutTotal;
   final int qpayFees;
   final int netProfit;
+  final int monkSharePercent;
+  final int platformSharePercent;
   final List<MonkSalarySummary> monkSalaries;
 
   factory AdminFinanceData.fromJson(Map<String, dynamic> json) {
@@ -66,11 +72,15 @@ class AdminFinanceData {
       platformFees: (json['platformFees'] as num?)?.toInt() ??
           (json['platform_fees'] as num?)?.toInt() ??
           0,
+      monkPayoutTotal: (json['monkPayoutTotal'] as num?)?.toInt() ?? 0,
       qpayFees:
           (json['qpayFees'] as num?)?.toInt() ?? (json['qpay_fees'] as num?)?.toInt() ?? 0,
       netProfit: (json['netProfit'] as num?)?.toInt() ??
           (json['net_profit'] as num?)?.toInt() ??
           0,
+      monkSharePercent: (json['monkSharePercent'] as num?)?.toInt() ?? 70,
+      platformSharePercent:
+          (json['platformSharePercent'] as num?)?.toInt() ?? 30,
       monkSalaries: salaries
           .map((e) => MonkSalarySummary.fromJson(e as Map<String, dynamic>))
           .toList(),

@@ -53,6 +53,8 @@ class SacredInput extends StatelessWidget {
           onFieldSubmitted: onFieldSubmitted,
           style: AppText.body.copyWith(fontWeight: FontWeight.w500),
           cursorColor: AppColors.orange,
+          // Keep focused field above keyboard / sticky footers.
+          scrollPadding: const EdgeInsets.fromLTRB(20, 40, 20, 140),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: AppText.body.copyWith(color: AppColors.textHint),

@@ -48,15 +48,18 @@ void main() {
         }
       };
       try {
-        await GoogleFonts.pendingFonts([
-          GoogleFonts.dmSans(),
-          GoogleFonts.playfairDisplay(),
-        ]).timeout(const Duration(milliseconds: 400));
-      } catch (_) {
-        // Offline / slow network — use fallback fonts and start the app.
-      }
+        // Prefetch in background — never block first frame.
+        unawaited(
+          GoogleFonts.pendingFonts([
+            GoogleFonts.manrope(),
+            GoogleFonts.playfairDisplay(),
+          ]),
+        );
+      } catch (_) {}
       unawaited(_initFirebase());
-      await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+      unawaited(
+        SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+      );
       runApp(const ProviderScope(child: SacredApp()));
     },
     (error, stack) {

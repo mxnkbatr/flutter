@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/shared/widgets/app_top_header.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
@@ -13,9 +14,19 @@ class ClientShell extends StatelessWidget {
 
   static const _tabs = [
     _Tab('/home', Icons.home_outlined, Icons.home_rounded, 'Нүүр'),
-    _Tab('/bookings', Icons.calendar_today_outlined, Icons.calendar_today_rounded, 'Захиалга'),
+    _Tab(
+      '/bookings',
+      Icons.calendar_today_outlined,
+      Icons.calendar_today_rounded,
+      'Захиалга',
+    ),
     _Tab('/shop', Icons.storefront_outlined, Icons.storefront_rounded, 'Дэлгүүр'),
-    _Tab('/messenger', Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Чат'),
+    _Tab(
+      '/messenger',
+      Icons.chat_bubble_outline_rounded,
+      Icons.chat_bubble_rounded,
+      'Чат',
+    ),
     _Tab('/profile', Icons.person_outline_rounded, Icons.person_rounded, 'Профайл'),
   ];
 
@@ -29,13 +40,22 @@ class ClientShell extends StatelessWidget {
     return 0;
   }
 
+  /// Same Gevabal header as home on main tabs (not nested push pages).
+  bool _showBrandHeader(String path) {
+    return path == '/home' ||
+        path == '/bookings' ||
+        path == '/shop' ||
+        path == '/messenger' ||
+        path == '/profile';
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     final path = GoRouterState.of(context).uri.path;
     final index = _indexFromLocation(location);
     final bottom = MediaQuery.of(context).padding.bottom;
-    final showTopHeader = path == '/home';
+    final showTopHeader = _showBrandHeader(path);
 
     return Scaffold(
       backgroundColor: AppColors.creamBg,
@@ -47,23 +67,23 @@ class ClientShell extends StatelessWidget {
         ],
       ),
       bottomNavigationBar: Padding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom > 0 ? bottom : 12),
+        padding: EdgeInsets.fromLTRB(12, 0, 12, bottom > 0 ? bottom : 12),
         child: Container(
           height: 68,
           decoration: BoxDecoration(
-            color: AppColors.surfaceEl.withOpacity(0.92),
+            color: AppColors.surfaceEl.withValues(alpha: 0.92),
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: AppColors.borderSub.withOpacity(0.85),
+              color: AppColors.borderSub.withValues(alpha: 0.85),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.orange.withOpacity(0.1),
+                color: AppColors.orange.withValues(alpha: 0.1),
                 blurRadius: 28,
                 offset: const Offset(0, 10),
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withValues(alpha: 0.06),
                 blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
@@ -112,15 +132,15 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        width: 56,
+        width: 58,
         padding: const EdgeInsets.symmetric(vertical: 6),
         decoration: selected
             ? BoxDecoration(
                 gradient: AppGradients.primary,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.orange.withOpacity(0.3),
+                    color: AppColors.orange.withValues(alpha: 0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -133,17 +153,19 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 21,
+              size: 20,
               color: selected ? Colors.white : AppColors.textHint,
             ),
             const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.caption.copyWith(
                 color: selected ? Colors.white : AppColors.textHint,
-                fontSize: 9.5,
+                fontSize: 9,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: -0.2,
+                letterSpacing: -0.3,
               ),
             ),
           ],

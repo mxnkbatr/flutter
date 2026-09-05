@@ -13,7 +13,9 @@ class QPayBankUrl {
     return QPayBankUrl(
       name: json['name'] as String? ?? json['description'] as String? ?? '',
       link: json['link'] as String? ?? json['url'] as String? ?? '',
-      logo: json['logo'] as String? ?? json['logoUrl'] as String?,
+      logo: json['logo'] as String? ??
+          json['logoUrl'] as String? ??
+          json['logo_url'] as String?,
     );
   }
 }

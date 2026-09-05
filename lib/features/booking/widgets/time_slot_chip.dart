@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
-import 'package:sacred_app/core/theme/app_text.dart';
 
+/// Large, easy-to-tap time slot.
 class TimeSlotChip extends StatelessWidget {
   const TimeSlotChip({
     super.key,
@@ -20,54 +20,61 @@ class TimeSlotChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isBooked
-          ? null
-          : () {
-              HapticFeedback.selectionClick();
-              onTap?.call();
-            },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 72,
-        height: 40,
-        decoration: BoxDecoration(
-          gradient: isSelected && !isBooked ? AppGradients.sun : null,
-          color: isBooked
-              ? AppColors.surface
-              : isSelected
-                  ? null
-                  : AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
+    final enabled = !isBooked && onTap != null;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled
+            ? () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              }
+            : null,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 52,
+          decoration: BoxDecoration(
+            gradient: isSelected && enabled ? AppGradients.primary : null,
             color: isBooked
-                ? AppColors.border
+                ? AppColors.borderSub
                 : isSelected
-                    ? Colors.transparent
-                    : AppColors.sunGold.withOpacity(0.35),
-            width: isSelected ? 0 : 0.5,
+                    ? null
+                    : AppColors.surfaceEl,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isBooked
+                  ? AppColors.border
+                  : isSelected
+                      ? Colors.transparent
+                      : AppColors.border,
+              width: 1.2,
+            ),
+            boxShadow: isSelected && enabled
+                ? [
+                    BoxShadow(
+                      color: AppColors.orange.withValues(alpha: 0.22),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-          boxShadow: isSelected && !isBooked
-              ? [
-                  BoxShadow(
-                    color: AppColors.sunGold.withOpacity(0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          time,
-          style: AppText.bodySmall.copyWith(
-            color: isBooked
-                ? AppColors.textHint
-                : isSelected
-                    ? AppColors.surfaceEl
-                    : AppColors.textPri,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            decoration: isBooked ? TextDecoration.lineThrough : null,
+          alignment: Alignment.center,
+          child: Text(
+            time,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              color: isBooked
+                  ? AppColors.textHint
+                  : isSelected
+                      ? Colors.white
+                      : AppColors.inkDeep,
+              decoration: isBooked ? TextDecoration.lineThrough : null,
+            ),
           ),
         ),
       ),

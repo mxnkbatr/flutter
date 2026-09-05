@@ -33,7 +33,7 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
     if (_selectedDate == null) return;
     final date = DateFormat('yyyy-MM-dd').format(_selectedDate!);
     final encodedSlot = Uri.encodeComponent(slot);
-    context.go('/booking/${widget.monkId}?date=$date&slot=$encodedSlot');
+    context.push('/booking/${widget.monkId}?date=$date&slot=$encodedSlot');
   }
 
   @override
@@ -56,8 +56,8 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
           child: CircularProgressIndicator(color: AppColors.sunGold),
         ),
       ),
-      error: (_, __) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
+      error: (_, __) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Text('Хуваарь ачаалахад алдаа гарлаа', style: AppText.bodySmall),
       ),
       data: (days) {
@@ -158,13 +158,13 @@ class _WeeklyAvailabilityState extends ConsumerState<WeeklyAvailability> {
                       ),
                     ),
                   ),
-                  error: (_, __) => const Text(
+                  error: (_, __) => Text(
                     'Цаг ачаалахад алдаа гарлаа',
                     style: AppText.bodySmall,
                   ),
                   data: (schedule) {
                     if (schedule.slots.isEmpty) {
-                      return const Text(
+                      return Text(
                         'Энэ өдөр боломжит цаг байхгүй',
                         style: AppText.bodySmall,
                       );

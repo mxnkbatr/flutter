@@ -51,6 +51,14 @@ class AppTopHeader extends ConsumerWidget {
               },
             ),
             _MenuTile(
+              icon: Icons.storefront_outlined,
+              label: 'Дэлгүүр',
+              onTap: () {
+                Navigator.pop(ctx);
+                context.push('/shop');
+              },
+            ),
+            _MenuTile(
               icon: Icons.receipt_long_outlined,
               label: 'Дэлгүүрийн захиалга',
               onTap: () {
@@ -75,26 +83,20 @@ class AppTopHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final unread = ref.watch(unreadNotificationsCountProvider);
+    final unread =
+        ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
     final cartCount = ref.watch(cartCountProvider);
     final top = MediaQuery.of(context).padding.top;
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.creamBg.withOpacity(0.94),
+        color: AppColors.creamBg.withValues(alpha: 0.96),
         border: Border(
-          bottom: BorderSide(color: AppColors.borderSub.withOpacity(0.75)),
+          bottom: BorderSide(color: AppColors.borderSub.withValues(alpha: 0.7)),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.orange.withOpacity(0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, top + 10, 16, 14),
+        padding: EdgeInsets.fromLTRB(20, top + 10, 16, 12),
         child: Row(
           children: [
             ScaleTap(
@@ -103,21 +105,14 @@ class AppTopHeader extends ConsumerWidget {
                 HapticFeedback.lightImpact();
                 context.go('/home');
               },
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  GevabalLogo(height: 34, glow: false),
-                  SizedBox(width: 10),
+                  const GevabalLogo(height: 32, glow: false),
+                  const SizedBox(width: 10),
                   Text(
                     'Gevabal',
-                    style: TextStyle(
-                      fontFamily: AppText.serifFamily,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkDeep,
-                      letterSpacing: -0.4,
-                      height: 1,
-                    ),
+                    style: AppText.brandTitle,
                   ),
                 ],
               ),
@@ -126,20 +121,20 @@ class AppTopHeader extends ConsumerWidget {
             NativeHeaderIconButton(
               icon: Icons.notifications_outlined,
               badgeCount: unread > 0 ? unread : null,
-              size: 42,
+              size: 40,
               onTap: () => context.push('/notifications'),
             ),
             const SizedBox(width: 8),
             NativeHeaderIconButton(
               icon: Icons.shopping_bag_outlined,
               badgeCount: cartCount > 0 ? cartCount : null,
-              size: 42,
+              size: 40,
               onTap: () => context.push('/shop/cart'),
             ),
             const SizedBox(width: 8),
             NativeHeaderIconButton(
               icon: Icons.menu_rounded,
-              size: 42,
+              size: 40,
               iconColor: AppColors.inkDeep,
               onTap: () => _openMenu(context),
             ),

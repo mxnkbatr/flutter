@@ -41,6 +41,8 @@ class RecommendedMonkCard extends StatelessWidget {
                   ? CachedNetworkImage(
                       imageUrl: monk.image!,
                       fit: BoxFit.cover,
+                      memCacheWidth: (100 * MediaQuery.devicePixelRatioOf(context)).round(),
+                      memCacheHeight: (160 * MediaQuery.devicePixelRatioOf(context)).round(),
                       placeholder: (_, __) => const ColoredBox(
                         color: AppColors.inkLight,
                       ),
@@ -128,7 +130,7 @@ class RecommendedMonkCard extends StatelessWidget {
                       GestureDetector(
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          context.go('/monks/${monk.id}');
+                          context.push('/monks/${monk.id}');
                         },
                         child: Container(
                           padding: const EdgeInsets.symmetric(

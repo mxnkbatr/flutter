@@ -95,17 +95,27 @@ class AdminFinanceScreen extends ConsumerWidget {
                         color: AppColors.goldPrime,
                       ),
                       FinanceRow(
-                        label: 'Платформын хураамж (20%)',
+                        label: 'Үзмэрчдийн цалин (${finance.monkSharePercent}%)',
+                        value: finance.monkPayoutTotal > 0
+                            ? finance.monkPayoutTotal
+                            : (finance.totalRevenue *
+                                    finance.monkSharePercent /
+                                    100)
+                                .round(),
+                        color: AppColors.orangeDeep,
+                      ),
+                      FinanceRow(
+                        label: 'Платформын хувь (${finance.platformSharePercent}%)',
                         value: finance.platformFees,
                       ),
                       FinanceRow(
-                        label: 'QPay шимтгэл',
+                        label: 'QPay шимтгэл (платформ)',
                         value: -finance.qpayFees,
                         color: AppColors.danger,
                       ),
                       const Divider(color: AppColors.inkLight),
                       FinanceRow(
-                        label: 'Цэвэр ашиг',
+                        label: 'Платформын цэвэр ашиг',
                         value: finance.netProfit,
                         color: AppColors.goldPrime,
                         bold: true,
@@ -115,7 +125,15 @@ class AdminFinanceScreen extends ConsumerWidget {
                 ),
                 if (finance.monkSalaries.isNotEmpty) ...[
                   const SizedBox(height: 24),
-                  const Text('Ламуудын цалин тооцоо', style: AppText.h3),
+                  Text(
+                    'Үзмэрчдийн цалин (${finance.monkSharePercent}%)',
+                    style: AppText.h3,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Захиалгын дүнгээс ${finance.monkSharePercent}% нь тухайн үзмэрчийн цалин',
+                    style: AppText.caption.copyWith(color: AppColors.textSec),
+                  ),
                   const SizedBox(height: 12),
                   ...finance.monkSalaries.map(
                     (s) => Padding(
@@ -151,7 +169,7 @@ class AdminFinanceScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   Text(
-                                    '${s.bookingCount} захиалга',
+                                    '${s.bookingCount} захиалга · нийт ₮${fmtAdmin(s.grossAmount)}',
                                     style: AppText.bodySmall,
                                   ),
                                 ],
@@ -167,7 +185,10 @@ class AdminFinanceScreen extends ConsumerWidget {
                                     fontSize: 15,
                                   ),
                                 ),
-                                const Text('цэвэр орлого', style: AppText.caption),
+                                Text(
+                                  'цалин ${finance.monkSharePercent}%',
+                                  style: AppText.caption,
+                                ),
                               ],
                             ),
                           ],

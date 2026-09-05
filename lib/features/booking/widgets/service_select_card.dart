@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/formatters.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
@@ -36,45 +37,63 @@ class ServiceSelectCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(14),
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? AppColors.goldPrime : AppColors.border,
-            width: isSelected ? 1.5 : 0.5,
+            color: isSelected ? AppColors.orange : AppColors.borderSub,
+            width: isSelected ? 1.6 : 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.orange.withValues(alpha: 0.14),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : AppGradients.softCardShadow,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 46,
+              height: 46,
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.goldLight : AppColors.borderSub,
-                borderRadius: BorderRadius.circular(12),
+                color: isSelected ? AppColors.orangeSoft : AppColors.creamWash,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(
                 _iconForCategory(service.category),
-                color: AppColors.goldDark,
+                color: AppColors.orangeDeep,
+                size: 22,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(service.displayName, style: AppText.h3),
+                  Text(
+                    service.displayName,
+                    style: AppText.h3.copyWith(letterSpacing: -0.2),
+                  ),
                   if (service.description != null) ...[
                     const SizedBox(height: 4),
                     Text(service.description!, style: AppText.bodySmall),
                   ],
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Icon(Icons.schedule, size: 14, color: AppColors.textHint),
+                      const Icon(
+                        Icons.schedule_rounded,
+                        size: 14,
+                        color: AppColors.textHint,
+                      ),
                       Text(
                         ' ${service.durationMinutes} мин',
                         style: AppText.caption,
@@ -82,7 +101,10 @@ class ServiceSelectCard extends StatelessWidget {
                       const Spacer(),
                       Text(
                         Formatters.currency(service.price),
-                        style: AppText.price.copyWith(fontSize: 14),
+                        style: AppText.price.copyWith(
+                          fontSize: 15,
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ],
                   ),
@@ -91,10 +113,10 @@ class ServiceSelectCard extends StatelessWidget {
             ),
             if (isSelected)
               const Padding(
-                padding: EdgeInsets.only(left: 8, top: 4),
+                padding: EdgeInsets.only(left: 8, top: 2),
                 child: Icon(
                   Icons.check_circle_rounded,
-                  color: AppColors.goldPrime,
+                  color: AppColors.orange,
                   size: 22,
                 ),
               ),

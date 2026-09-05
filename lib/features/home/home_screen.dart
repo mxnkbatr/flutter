@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/features/home/providers/monks_provider.dart';
@@ -30,7 +31,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _openMonk(BuildContext context, Monk monk) async {
     final ok = await TierGating.checkMonkAccess(context, ref, monk);
     if (ok && context.mounted) {
-      context.go('/monks/${monk.id}');
+      context.push('/monks/${monk.id}');
+    }
+  }
+
+  Future<void> _bookMonk(BuildContext context, Monk monk) async {
+    final ok = await TierGating.checkMonkAccess(context, ref, monk);
+    if (ok && context.mounted) {
+      context.push('/booking/${monk.id}');
     }
   }
 
@@ -72,22 +80,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                     child: ExploreSearchBar(
                       hint: 'Лам хайх...',
-                      minimal: true,
                       onTap: () => context.push('/search'),
+                      onFilterTap: () => context.push('/search'),
                     ),
                   ),
                 ),
                 SliverToBoxAdapter(
                   child: SizedBox(
-                    height: 56,
+                    height: 44,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                       itemCount: categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
                       itemBuilder: (_, i) => CategoryChip(
                         label: categories[i],
                         isSelected: selectedCategory == categories[i],
@@ -142,33 +150,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         specialMonks.isNotEmpty ? specialMonks.first : monks.first;
                     final rest = monks.where((m) => m.id != featured.id).toList();
 
+                    // Lazy build: featured + header + rest (only visible cards).
+                    final childCount = rest.isEmpty ? 1 : 2 + rest.length;
                     return SliverPadding(
                       padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
                       sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          FeaturedDiscoveryCard(
-                            monk: featured,
-                            isFavorite: favorites.contains(featured.id),
-                            onFavorite: () => _toggleFavorite(featured.id),
-                            onTap: () => _openMonk(context, featured),
-                          ),
-                          if (rest.isNotEmpty) ...[
-                            const SizedBox(height: 32),
-                            _SectionHeader(count: monks.length),
-                            const SizedBox(height: 16),
-                            ...rest.map(
-                              (monk) => Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: ExploreMonkCard(
-                                  monk: monk,
-                                  isFavorite: favorites.contains(monk.id),
-                                  onFavorite: () => _toggleFavorite(monk.id),
-                                  onTap: () => _openMonk(context, monk),
-                                ),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            if (index == 0) {
+                              return FeaturedDiscoveryCard(
+                                monk: featured,
+                                isFavorite: favorites.contains(featured.id),
+                                onFavorite: () => _toggleFavorite(featured.id),
+                                onTap: () => _openMonk(context, featured),
+                                onBook: () => _bookMonk(context, featured),
+                              );
+                            }
+                            if (index == 1) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 32, bottom: 16),
+                                child: _SectionHeader(count: monks.length),
+                              );
+                            }
+                            final monk = rest[index - 2];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: ExploreMonkCard(
+                                monk: monk,
+                                isFavorite: favorites.contains(monk.id),
+                                onFavorite: () => _toggleFavorite(monk.id),
+                                onTap: () => _openMonk(context, monk),
+                                onBook: () => _bookMonk(context, monk),
                               ),
-                            ),
-                          ],
-                        ]),
+                            );
+                          },
+                          childCount: childCount,
+                          addAutomaticKeepAlives: false,
+                        ),
                       ),
                     );
                   },
@@ -190,35 +208,40 @@ class _AmbientBackground extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
+          const Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: AppGradients.ambientCream),
+            ),
+          ),
           Positioned(
-            top: -60,
-            right: -40,
+            top: -80,
+            right: -50,
             child: Container(
-              width: 220,
-              height: 220,
+              width: 260,
+              height: 260,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.orange.withOpacity(0.14),
-                    AppColors.orange.withOpacity(0),
+                    AppColors.orange.withValues(alpha: 0.12),
+                    AppColors.orange.withValues(alpha: 0),
                   ],
                 ),
               ),
             ),
           ),
           Positioned(
-            top: 180,
-            left: -80,
+            top: 220,
+            left: -90,
             child: Container(
-              width: 180,
-              height: 180,
+              width: 200,
+              height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    AppColors.orangePeach.withOpacity(0.5),
-                    AppColors.orangePeach.withOpacity(0),
+                    AppColors.orangePeach.withValues(alpha: 0.45),
+                    AppColors.orangePeach.withValues(alpha: 0),
                   ],
                 ),
               ),
@@ -239,35 +262,24 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 4,
-          height: 22,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [AppColors.orange, AppColors.orangeDeep],
-            ),
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        const SizedBox(width: 10),
         Text(
           'Бусад ламнар',
-          style: AppText.displaySerif(size: 20),
+          style: AppText.displaySerif(size: 22),
         ),
         const Spacer(),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: AppColors.orangeSoft,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderSub),
           ),
           child: Text(
-            '$count лам',
+            '$count',
             style: AppText.caption.copyWith(
               color: AppColors.orangeDeep,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
             ),
           ),
         ),

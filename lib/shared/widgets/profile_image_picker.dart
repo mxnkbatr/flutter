@@ -16,6 +16,7 @@ class ProfileImagePicker extends ConsumerStatefulWidget {
     super.key,
     this.imageUrl,
     required this.onImageChanged,
+    this.onPersist,
     this.size = 108,
     this.label = 'Зураг сонгох',
     this.folder = 'monks',
@@ -23,6 +24,8 @@ class ProfileImagePicker extends ConsumerStatefulWidget {
 
   final String? imageUrl;
   final ValueChanged<String> onImageChanged;
+  /// Optional: persist URL to backend immediately after upload.
+  final Future<void> Function(String url)? onPersist;
   final double size;
   final String label;
   final String folder;
@@ -54,11 +57,26 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
     final file = await picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1200,
+      maxHeight: 1200,
       imageQuality: 85,
+      requestFullMetadata: false,
     );
     if (file == null) return;
 
     final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          const SnackBar(
+            content: Text('Зураг уншигдаагүй. Өөр зураг сонгоно уу.'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _localPreview = bytes;
       _uploading = true;
@@ -68,15 +86,23 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
       final url = await uploadImageBytes(
         ref,
         bytes,
+        mimeType: detectImageMime(bytes),
         folder: widget.folder,
       );
       widget.onImageChanged(url);
+      if (widget.onPersist != null) {
+        await widget.onPersist!(url);
+      }
       if (mounted) {
         showAppSnackBar(
           context,
-          const SnackBar(
-            content: Text('Зураг амжилттай орууллаа. Хадгалах товч дарна уу.'),
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: Text(
+              widget.onPersist != null
+                  ? 'Зураг амжилттай хадгаллаа'
+                  : 'Зураг амжилттай орууллаа',
+            ),
+            duration: const Duration(seconds: 2),
             backgroundColor: AppColors.success,
           ),
         );
@@ -87,7 +113,9 @@ class _ProfileImagePickerState extends ConsumerState<ProfileImagePicker> {
         showAppSnackBar(
           context,
           SnackBar(
-            content: Text(formatUserError(e, fallback: 'Зураг оруулахад алдаа гарлаа')),
+            content: Text(
+              formatUserError(e, fallback: 'Зураг оруулахад алдаа гарлаа'),
+            ),
             backgroundColor: AppColors.danger,
           ),
         );

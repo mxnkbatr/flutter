@@ -3,6 +3,7 @@ import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/utils/date_helpers.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
+import 'package:sacred_app/features/payment/models/qpay_data.dart';
 
 class BookingDraft {
   const BookingDraft({
@@ -24,11 +25,10 @@ class BookingDraft {
     return (servicePrice * (100 - discountPercent) / 100).round();
   }
 
-  int platformFeeFor(int discountPercent) =>
-      (discountedServicePrice(discountPercent) * 0.1).round();
+  int platformFeeFor(int discountPercent) => 0;
 
   int totalAmountFor(int discountPercent) =>
-      discountedServicePrice(discountPercent) + platformFeeFor(discountPercent);
+      discountedServicePrice(discountPercent);
 
   int get platformFee => platformFeeFor(0);
   int get totalAmount => totalAmountFor(0);
@@ -79,7 +79,7 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
 
   void setSlot(String slot) => state = state.copyWith(slot: slot);
 
-  Future<String> createBooking() async {
+  Future<({String bookingId, QPayData? qpay})> createBooking() async {
     if (!state.isComplete) {
       throw StateError('Booking draft is incomplete');
     }
@@ -94,9 +94,22 @@ class BookingDraftNotifier extends Notifier<BookingDraft> {
     );
     final data = res.data as Map<String, dynamic>;
     ref.invalidate(myBookingsProvider);
-    return data['bookingId'] as String? ??
+    final bookingId = data['bookingId'] as String? ??
         data['id'] as String? ??
         data['_id'] as String;
+    QPayData? qpay;
+    final qpayRaw = data['qpay'];
+    if (qpayRaw is Map<String, dynamic>) {
+      qpay = QPayData.fromJson(qpayRaw).copyWithSummary(
+        monkName: qpayRaw['monkName'] as String?,
+        monkImage: qpayRaw['monkImage'] as String?,
+        serviceName: qpayRaw['serviceName'] as String? ?? state.service?.displayName,
+        timeSlot: qpayRaw['timeSlot'] as String? ?? state.slot,
+        dateStr: qpayRaw['dateStr'] as String? ??
+            DateHelpers.toApiDate(state.date!),
+      );
+    }
+    return (bookingId: bookingId, qpay: qpay);
   }
 }
 

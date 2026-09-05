@@ -32,10 +32,9 @@ bool get shouldUseDevAuth {
 bool isDevAuthToken(String? token) =>
     token != null && token.startsWith('dev_');
 
-/// Render free-tier cold starts often take 30–60s. Allow enough time and
-/// retry once on transient timeouts so login does not look "broken".
-const Duration kApiConnectTimeout = Duration(seconds: 60);
-const Duration kApiReceiveTimeout = Duration(seconds: 90);
+/// Keep timeouts tight for snappy UX. Cold Render wakes via /health on write retry.
+const Duration kApiConnectTimeout = Duration(seconds: 12);
+const Duration kApiReceiveTimeout = Duration(seconds: 20);
 
 bool _isTransientNetworkError(DioException error) {
   switch (error.type) {
@@ -106,8 +105,12 @@ final apiClientProvider = Provider<Dio>((ref) {
           final path = error.requestOptions.path;
           final isAuthRoute = path.contains('/auth/login') ||
               path.contains('/auth/signup');
+          // Only wipe session on identity check — random 401s must not log users out.
+          final isIdentityCheck =
+              error.requestOptions.extra['authIdentityCheck'] == true ||
+                  path.contains('/auth/me');
 
-          if (!skipLogout && !isAuthRoute) {
+          if (!skipLogout && !isAuthRoute && isIdentityCheck) {
             final auth = ref.read(authStateProvider).valueOrNull;
             final notifier = ref.read(authStateProvider.notifier);
 

@@ -13,7 +13,7 @@ class RevenueChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (monthlyData.isEmpty) {
-      return const Center(
+      return Center(
         child: Text('Өгөгдөл байхгүй', style: AppText.bodySmall),
       );
     }

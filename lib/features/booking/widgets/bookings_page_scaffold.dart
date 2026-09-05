@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
+import 'package:sacred_app/shared/widgets/app_content_sheet.dart';
 
-/// Bookings tab — premium layered layout (matches home).
+/// Bookings tab — login ambient + white sheet (no page title).
 class BookingsPageScaffold extends StatelessWidget {
   const BookingsPageScaffold({
     super.key,
@@ -14,12 +14,9 @@ class BookingsPageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PremiumLayeredScaffold(
-      subtitle: 'Миний',
-      title: 'Захиалга',
-      expandBody: true,
+    return AppTabSheetScaffold(
       onRefresh: onRefresh,
-      body: body,
+      child: body,
     );
   }
 }

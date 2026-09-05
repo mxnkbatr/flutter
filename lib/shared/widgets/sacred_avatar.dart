@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/theme/app_text.dart';
 
 class SacredAvatar extends StatelessWidget {
   const SacredAvatar({
@@ -25,7 +26,7 @@ class SacredAvatar extends StatelessWidget {
       child: url == null || url!.isEmpty
           ? Text(
               initials ?? '?',
-              style: TextStyle(
+              style: AppText.body.copyWith(
                 color: AppColors.goldMuted,
                 fontWeight: FontWeight.w600,
                 fontSize: radius * 0.55,

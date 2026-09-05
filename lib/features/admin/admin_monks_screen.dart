@@ -65,9 +65,54 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
   Widget _buildList(List<AdminMonk> monks, String filter) {
     if (monks.isEmpty) {
       return ListView(
-        children: const [
-          SizedBox(height: 80),
-          Center(child: Text('Лам олдсонгүй', style: AppText.bodySmall)),
+        padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceEl,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.borderSub),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: AppColors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Icon(
+                    Icons.temple_buddhist_outlined,
+                    color: AppColors.orange,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Лам олдсонгүй',
+                  style: AppText.h3.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Шинэ лам бүртгэж утасны дугаараар нэвтрэх эрх үүсгэнэ.',
+                  textAlign: TextAlign.center,
+                  style: AppText.caption.copyWith(
+                    color: AppColors.textSec,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                TextButton.icon(
+                  onPressed: () => context.push('/admin/monks/add'),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Лам нэмэх'),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.orange),
+                ),
+              ],
+            ),
+          ),
         ],
       );
     }
@@ -103,6 +148,13 @@ class _AdminMonksScreenState extends ConsumerState<AdminMonksScreen>
 
     return AdminPageScaffold(
       title: 'Лам нар',
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/admin/monks/add'),
+        backgroundColor: AppColors.orange,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.person_add_alt_1_rounded),
+        label: const Text('Лам нэмэх'),
+      ),
       actions: [
         IconButton(
           tooltip: 'Ангилал',

@@ -40,7 +40,7 @@ class MonkCallsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              'Баталгаажсан дуудлага',
+              'Ажил',
               style: AppText.h2.copyWith(
                 color: AppColors.inkDeep,
                 fontWeight: FontWeight.w800,
@@ -49,8 +49,45 @@ class MonkCallsScreen extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _QuickLink(
+                    icon: Icons.calendar_month_outlined,
+                    label: 'Хуваарь',
+                    onTap: () => context.go('/monk/dashboard?tab=1'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _QuickLink(
+                    icon: Icons.list_alt_rounded,
+                    label: 'Захиалга',
+                    onTap: () => context.go('/monk/dashboard?tab=2'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _QuickLink(
+                    icon: Icons.payments_outlined,
+                    label: 'Орлого',
+                    onTap: () => context.go('/monk/dashboard?tab=3'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: Text(
-              '30 минутын цагийн интервал · ${AppTimezone.slotIntervalMinutes} мин',
+              'Өнөөдрийн дуудлага',
+              style: AppText.h3.copyWith(color: AppColors.inkDeep),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Text(
+              '30 минутын цагийн интервал',
               style: AppText.caption.copyWith(color: AppColors.textSec),
             ),
           ),
@@ -215,8 +252,8 @@ class MonkCallsScreen extends ConsumerWidget {
                       if (approved.isNotEmpty)
                         MonkSectionCard(
                           icon: Icons.verified_rounded,
-                          title: 'Баталгаажсан — төлбөр хүлээгдэж буй',
-                          subtitle: '${approved.length} захиалга',
+                          title: 'Төлбөр хүлээгдэж буй',
+                          subtitle: '${approved.length} захиалга — төлөгдсөн бол автоматаар баталгаажна',
                           accent: AppColors.warning,
                           children: approved
                               .map((b) => MonkBookingCard(booking: b))
@@ -395,6 +432,46 @@ class _UpcomingCallRow extends StatelessWidget {
               color: AppColors.orange.withOpacity(0.7),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickLink extends StatelessWidget {
+  const _QuickLink({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceEl,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            children: [
+              Icon(icon, size: 20, color: AppColors.orange),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppText.caption.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkDeep,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -59,7 +59,7 @@ class EarningsTab extends ConsumerWidget {
               child: Column(
                 children: [
                   Text(
-                    'Нийт орлого',
+                    'Миний цалин (${earnings.monkSharePercent}%)',
                     style: AppText.bodySmall.copyWith(color: AppColors.goldMuted),
                   ),
                   const SizedBox(height: 8),
@@ -72,7 +72,7 @@ class EarningsTab extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${earnings.completedCount} захиалга дууссан',
+                    '${earnings.completedCount} төлөгдсөн захиалга',
                     style: AppText.caption.copyWith(color: AppColors.goldMuted),
                   ),
                 ],
@@ -92,30 +92,31 @@ class EarningsTab extends ConsumerWidget {
                     value: earnings.grossAmount,
                   ),
                   EarningRow(
-                    label: 'Платформын хураамж (20%)',
+                    label: 'Миний цалин (${earnings.monkSharePercent}%)',
+                    value: earnings.netEarnings,
+                    color: AppColors.goldPrime,
+                    bold: true,
+                  ),
+                  EarningRow(
+                    label: 'Платформ (${earnings.platformSharePercent}%)',
                     value: -earnings.platformFee,
                     color: AppColors.danger,
                   ),
-                  EarningRow(
-                    label: 'QPay шимтгэл (1.5%)',
-                    value: -earnings.qpayFee,
-                    color: AppColors.danger,
-                  ),
-                  const Divider(),
-                  EarningRow(
-                    label: 'Цэвэр орлого',
-                    value: earnings.netEarnings,
-                    bold: true,
-                    color: AppColors.goldPrime,
-                  ),
+                  if (earnings.note.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      earnings.note,
+                      style: AppText.caption.copyWith(color: AppColors.textSec),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Захиалгуудын дэлгэрэнгүй', style: AppText.h3),
+            Text('Захиалгуудын дэлгэрэнгүй', style: AppText.h3),
             const SizedBox(height: 12),
             if (earnings.transactions.isEmpty)
-              const Text('Гүйлгээ байхгүй', style: AppText.bodySmall)
+              Text('Гүйлгээ байхгүй', style: AppText.bodySmall)
             else
               ...earnings.transactions.map(
                 (t) => TransactionRow(transaction: t),
@@ -124,7 +125,7 @@ class EarningsTab extends ConsumerWidget {
             OutlinedButton.icon(
               onPressed: () => exportEarningsPdf(earnings),
               icon: const Icon(Icons.download_outlined),
-              label: const Text('PDF тайлан татах'),
+              label: Text('PDF тайлан татах'),
             ),
           ],
         ),

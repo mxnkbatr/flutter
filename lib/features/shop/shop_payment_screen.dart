@@ -295,7 +295,7 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('QPay QR код', style: AppText.h3),
+                            Text('QPay QR код', style: AppText.h3),
                             CountdownTimer(
                               seconds: 600,
                               onExpired: () => setState(() => _expired = true),
@@ -334,7 +334,7 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                             onTap: _regenerating ? null : _regenerateQPay,
                           ),
                         ] else ...[
-                          const Text(
+                          Text(
                             'QPay QR кодыг банкны апп-аар уншуулна уу',
                             style: AppText.bodySmall,
                             textAlign: TextAlign.center,
@@ -386,7 +386,7 @@ class _ShopPaymentScreenState extends ConsumerState<ShopPaymentScreen> {
                         if (_ensuringQpay)
                           const CircularProgressIndicator(color: AppColors.goldPrime)
                         else ...[
-                          const Text('QPay нэхэмжлэх үүсгэж байна...'),
+                          Text('QPay нэхэмжлэх үүсгэж байна...'),
                           const SizedBox(height: 12),
                           SacredButton(
                             label: 'Дахин оролдох',

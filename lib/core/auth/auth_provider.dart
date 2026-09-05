@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/api/api_config.dart';
 import 'package:sacred_app/core/auth/auth_profile_cache.dart';
+import 'package:sacred_app/core/auth/auth_token_store.dart';
 import 'package:sacred_app/core/auth/dev_auth_store.dart';
 import 'package:sacred_app/core/auth/session_clear.dart';
 import 'package:sacred_app/core/auth/tier_cache.dart';
@@ -53,8 +53,6 @@ class AuthState {
 }
 
 class AuthNotifier extends AsyncNotifier<AuthState> {
-  static const _storage = FlutterSecureStorage();
-  static const _tokenKey = 'sacred_jwt_token';
   final _devAuth = DevAuthStore();
   bool _loggingOut = false;
 
@@ -73,18 +71,18 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       await _devAuth.ensureSeeded();
     }
 
-    final token = await _storage.read(key: _tokenKey);
-    if (token == null) return const AuthState();
+    final token = await AuthTokenStore.read();
+    if (token == null || token.isEmpty) return const AuthState();
 
     if (isDevAuthToken(token) && !_useDevAuth) {
-      await _storage.delete(key: _tokenKey);
+      await AuthTokenStore.delete();
       return const AuthState();
     }
 
     if (_useDevAuth && isDevAuthToken(token)) {
       final user = await _devAuth.findByToken(token);
       if (user == null) {
-        await _storage.delete(key: _tokenKey);
+        await AuthTokenStore.delete();
         return const AuthState();
       }
       final authState = _authStateFromDevUser(user, token);
@@ -92,7 +90,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       return authState;
     }
 
-    // Don't block splash on /auth/me (cold start / 60s timeout).
+    // Don't block splash on /auth/me (cold start / timeout).
     final cached = await _offlineAuthState(token);
     Future.microtask(() => unawaited(refreshProfile()));
     return cached;
@@ -145,7 +143,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     final data = res.data as Map<String, dynamic>;
     final token = data['token'] as String;
     final user = data['user'] as Map<String, dynamic>;
-    await _storage.write(key: _tokenKey, value: token);
+    await AuthTokenStore.write(token);
     final authState = _authStateFromUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
@@ -159,10 +157,10 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     await _devAuth.ensureSeeded();
     final user = await _devAuth.login(loginId, password);
     if (user == null) {
-      throw Exception('Утас/и-мэйл эсвэл нууц үг буруу');
+      throw Exception('Утасны дугаар эсвэл нууц үг буруу');
     }
     final token = _devAuth.tokenFor(user);
-    await _storage.write(key: _tokenKey, value: token);
+    await AuthTokenStore.write(token);
     final authState = _authStateFromDevUser(user, token);
     await _persistTier(authState);
     state = AsyncData(authState);
@@ -192,7 +190,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
           final data = res.data as Map<String, dynamic>;
           final token = data['token'] as String;
           final user = data['user'] as Map<String, dynamic>;
-          await _storage.write(key: _tokenKey, value: token);
+          await AuthTokenStore.write(token);
           final authState = _authStateFromUser(user, token);
           await _persistTier(authState);
           state = AsyncData(authState);
@@ -216,7 +214,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         email: email,
       );
       final token = _devAuth.tokenFor(user);
-      await _storage.write(key: _tokenKey, value: token);
+      await AuthTokenStore.write(token);
       final authState = _authStateFromDevUser(user, token);
       await _persistTier(authState);
       state = AsyncData(authState);
@@ -235,6 +233,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
             '/auth/me',
             options: Options(
               headers: {'Authorization': 'Bearer ${current!.token}'},
+              extra: {'authIdentityCheck': true},
             ),
           );
       var data = userRes.data as Map<String, dynamic>;
@@ -250,6 +249,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
       await _persistTier(authState);
       state = AsyncData(authState);
     } on DioException catch (e) {
+      // Only force logout when the identity endpoint rejects the token.
       if (e.response?.statusCode == 401) {
         await logout();
       }
@@ -292,7 +292,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         } catch (_) {}
       }
     } finally {
-      await _storage.delete(key: _tokenKey);
+      await AuthTokenStore.delete();
       await _clearSessionCache();
       state = const AsyncData(AuthState());
       scheduleSessionClear(ref);

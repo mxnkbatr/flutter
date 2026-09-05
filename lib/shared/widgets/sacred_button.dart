@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
+import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class SacredButton extends StatelessWidget {
@@ -37,7 +38,7 @@ class SacredButton extends StatelessWidget {
     final height = _isSmall ? (prominent ? 48.0 : 44.0) : 54.0;
     final fontSize = _isSmall ? 14.0 : 16.0;
     final fontWeight = prominent ? FontWeight.w800 : FontWeight.w700;
-    final radius = _isSmall ? 14.0 : 16.0;
+    final radius = _isSmall ? 14.0 : 18.0;
 
     if (outline) {
       return SizedBox(
@@ -51,12 +52,16 @@ class SacredButton extends StatelessWidget {
                   onTap?.call();
                 },
           style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: AppColors.orange, width: 1.5),
+            side: BorderSide(
+              color: AppColors.orange.withValues(alpha: 0.55),
+              width: 1.4,
+            ),
+            backgroundColor: AppColors.surfaceEl,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius),
             ),
           ),
-          child: _child(fontSize, AppColors.orange, fontWeight),
+          child: _child(fontSize, AppColors.orangeDeep, fontWeight),
         ),
       );
     }
@@ -74,9 +79,9 @@ class SacredButton extends StatelessWidget {
           boxShadow: onTap != null && !isLoading
               ? [
                   BoxShadow(
-                    color: AppColors.orangeDeep.withOpacity(0.28),
-                    blurRadius: sunShadow ? 12 : 16,
-                    offset: Offset(0, sunShadow ? 4 : 6),
+                    color: AppColors.orangeDeep.withValues(alpha: 0.22),
+                    blurRadius: sunShadow ? 14 : 18,
+                    offset: Offset(0, sunShadow ? 5 : 7),
                   ),
                 ]
               : null,
@@ -117,11 +122,11 @@ class SacredButton extends StatelessWidget {
             ],
             Text(
               label,
-              style: TextStyle(
+              style: AppText.body.copyWith(
                 fontSize: fontSize,
                 fontWeight: fontWeight,
                 color: textColor,
-                letterSpacing: 0.2,
+                letterSpacing: -0.1,
                 height: 1.1,
               ),
             ),

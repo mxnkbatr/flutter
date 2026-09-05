@@ -53,7 +53,7 @@ class DashboardTab extends ConsumerWidget {
             const SizedBox(height: 12),
             ElevatedButton(
               onPressed: () => ref.invalidate(monkDashboardProvider),
-              child: const Text('Дахин оролдох'),
+              child: Text('Дахин оролдох'),
             ),
           ],
         ),
@@ -128,7 +128,7 @@ class DashboardTab extends ConsumerWidget {
                               '/call/${nextCall.id}?role=monk',
                             ),
                             icon: const Icon(Icons.videocam_rounded),
-                            label: const Text('Дуудлагад орох'),
+                            label: Text('Дуудлагад орох'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.success,
                               foregroundColor: Colors.white,
@@ -153,10 +153,11 @@ class DashboardTab extends ConsumerWidget {
                 childAspectRatio: 1.4,
                 children: [
                   StatCard(
-                    label: 'Энэ сарын орлого',
+                    label: 'Энэ сарын цалин (${data.monkSharePercent}%)',
                     value: '₮${fmtCurrency(data.monthlyEarnings)}',
-                    sub:
-                        '+${data.earningsChangePercent.toStringAsFixed(1)}%',
+                    sub: data.todayProfileViews > 0
+                        ? 'Өнөөдөр ${data.todayProfileViews} үзэлт'
+                        : 'Захиалгын дүнгээс ${data.monkSharePercent}%',
                     dark: true,
                   ),
                   StatCard(
@@ -182,7 +183,7 @@ class DashboardTab extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Өнөөдрийн захиалга', style: AppText.h3),
+                  Text('Өнөөдрийн захиалга', style: AppText.h3),
                   Text(
                     '${data.todayBookings.length} захиалга',
                     style: AppText.bodySmall,
@@ -191,8 +192,8 @@ class DashboardTab extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               if (data.todayBookings.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
+                Padding(
+                  padding: const EdgeInsets.all(24),
                   child: Text(
                     'Өнөөдөр захиалга байхгүй',
                     style: AppText.bodySmall,

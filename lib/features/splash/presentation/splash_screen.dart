@@ -53,28 +53,46 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _init() async {
-    final minAnimation = Future.delayed(const Duration(milliseconds: 450));
-    final authReady = ref.read(authStateProvider.future).timeout(
-          const Duration(seconds: 2),
-          onTimeout: () =>
-              ref.read(authStateProvider).valueOrNull ?? const AuthState(),
-        ).catchError((_) => const AuthState());
-    await Future.wait([minAnimation, authReady]);
+    final minAnimation = Future.delayed(const Duration(milliseconds: 280));
+
+    // Never treat a slow storage read as "logged out".
+    AuthState auth = const AuthState();
+    try {
+      auth = await ref.read(authStateProvider.future).timeout(
+            const Duration(seconds: 8),
+          );
+    } catch (_) {
+      auth = ref.read(authStateProvider).valueOrNull ?? const AuthState();
+      // Still loading? Give restore one more chance.
+      if (!auth.isAuthenticated && ref.read(authStateProvider).isLoading) {
+        try {
+          auth = await ref.read(authStateProvider.future).timeout(
+                const Duration(seconds: 4),
+              );
+        } catch (_) {
+          auth =
+              ref.read(authStateProvider).valueOrNull ?? const AuthState();
+        }
+      }
+    }
+
+    await minAnimation;
     if (!mounted || _navigated) return;
 
-    final auth = ref.read(authStateProvider).valueOrNull;
+    auth = ref.read(authStateProvider).valueOrNull ?? auth;
     if (!mounted) return;
     _navigated = true;
 
-    if (auth?.isAuthenticated == true) {
-      final dest = switch (auth!.role) {
+    if (auth.isAuthenticated) {
+      final dest = switch (auth.role) {
         'monk' => '/monk/calls',
         'admin' => '/admin/dashboard',
         _ => '/home',
       };
       context.go(dest);
     } else {
-      final seenOnboarding = await OnboardingPrefs.isComplete();
+      final seenOnboarding = await OnboardingPrefs.isComplete()
+          .timeout(const Duration(milliseconds: 300), onTimeout: () => true);
       if (!mounted) return;
       context.go(seenOnboarding ? '/auth/login' : '/onboarding');
     }

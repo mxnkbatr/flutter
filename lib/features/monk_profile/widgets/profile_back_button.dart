@@ -13,7 +13,11 @@ class ProfileBackButton extends StatelessWidget {
       pressedScale: 0.92,
       onTap: () {
         HapticFeedback.lightImpact();
-        context.pop();
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/home');
+        }
       },
       child: Container(
         width: 40,

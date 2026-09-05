@@ -26,7 +26,8 @@ class AdminEditMonkScreen extends ConsumerStatefulWidget {
 
 class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
   final _titleCtrl = TextEditingController();
   final _templeCtrl = TextEditingController();
   final _bioCtrl = TextEditingController();
@@ -34,16 +35,17 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
   List<AdminMonkServiceItem> _services = [];
   String? _imageUrl;
   String _status = 'active';
-  String _email = '';
   bool _isSpecial = false;
   bool _loaded = false;
   bool _saving = false;
   bool _deleting = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _passwordCtrl.dispose();
     _titleCtrl.dispose();
     _templeCtrl.dispose();
     _bioCtrl.dispose();
@@ -54,11 +56,10 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     if (_loaded) return;
     _loaded = true;
     _nameCtrl.text = detail.name;
-    _emailCtrl.text = detail.email;
+    _phoneCtrl.text = detail.phone.isNotEmpty ? detail.phone : detail.email;
     _titleCtrl.text = detail.title;
     _templeCtrl.text = detail.temple;
     _bioCtrl.text = detail.bio;
-    _email = detail.email;
     _imageUrl = detail.image;
     _status = detail.status;
     _isSpecial = detail.isSpecial;
@@ -89,9 +90,18 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
       return;
     }
 
-    if (_emailCtrl.text.trim().isEmpty) {
+    final phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (phone.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('И-мэйл заавал')),
+        const SnackBar(content: Text('Утасны дугаар заавал (8 орон)')),
+      );
+      return;
+    }
+
+    final newPassword = _passwordCtrl.text;
+    if (newPassword.isNotEmpty && newPassword.length < 8) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Шинэ нууц үг хамгийн багадаа 8 тэмдэгт')),
       );
       return;
     }
@@ -100,7 +110,8 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     try {
       await updateMonk(ref, widget.monkId, {
         'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
+        'phone': phone,
+        if (newPassword.isNotEmpty) 'password': newPassword,
         'title': _titleCtrl.text.trim(),
         'temple': _templeCtrl.text.trim(),
         'bio': _bioCtrl.text.trim(),
@@ -134,18 +145,18 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Ламын бүртгэл устгах уу?'),
+        title: Text('Ламын бүртгэл устгах уу?'),
         content: Text(
           '${_nameCtrl.text.trim()} ламын бүртгэл, нэвтрэх эрх болон холбогдох мэдээлэл бүрмөсөн устгагдана.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Үгүй'),
+            child: Text('Үгүй'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
+            child: Text(
               'Устгах',
               style: TextStyle(color: AppColors.danger),
             ),
@@ -163,16 +174,16 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
         confirmForce: (msg) => showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Идэвхтэй захиалга'),
+            title: Text('Идэвхтэй захиалга'),
             content: Text('$msg\n\nЗахиалгуудыг цуцлаад устгах уу?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Болих'),
+                child: Text('Болих'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text(
+                child: Text(
                   'Цуцлаад устгах',
                   style: TextStyle(color: AppColors.danger),
                 ),
@@ -215,7 +226,13 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
 
     return AdminPageScaffold(
       title: 'Лам засах',
-      onBack: () => context.pop(),
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/admin/dashboard');
+        }
+      },
       actions: [
         IconButton(
           icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
@@ -237,15 +254,57 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                   child: ProfileImagePicker(
                     imageUrl: _imageUrl,
                     onImageChanged: (url) => setState(() => _imageUrl = url),
+                    onPersist: (url) async {
+                      await updateMonk(ref, widget.monkId, {'image': url});
+                      if (mounted) setState(() => _imageUrl = url);
+                    },
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              SacredInput(
-                label: 'И-мэйл (Gmail)',
-                controller: _emailCtrl,
-                prefixIcon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
+              AdminSurfaceCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Нэвтрэх эрх', style: AppText.displaySerif(size: 18)),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Утас болон нууц үгийг эндээс чөлөөтэй солино. Нууц үг хоосон бол хуучин хэвээрээ.',
+                      style: AppText.caption.copyWith(
+                        color: AppColors.textSec,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SacredInput(
+                      label: 'Нэвтрэх утасны дугаар',
+                      controller: _phoneCtrl,
+                      prefixIcon: Icons.phone_outlined,
+                      keyboardType: TextInputType.phone,
+                      hint: '88888888',
+                    ),
+                    const SizedBox(height: 12),
+                    SacredInput(
+                      label: 'Шинэ нууц үг (сонголттой)',
+                      controller: _passwordCtrl,
+                      prefixIcon: Icons.lock_outline,
+                      obscureText: _obscurePassword,
+                      hint: 'Хоосон бол өөрчлөхгүй',
+                      suffixIcon: IconButton(
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          color: AppColors.textSec,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
@@ -269,7 +328,7 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
                 maxLines: 4,
               ),
               const SizedBox(height: 16),
-              const Text('Үйлчилгээний төрөл', style: AppText.body),
+              Text('Үйлчилгээний төрөл', style: AppText.body),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -309,8 +368,8 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Онцгой лам'),
-                subtitle: const Text(
+                title: Text('Онцгой лам'),
+                subtitle: Text(
                   'Premium гишүүдэд нээлттэй, нүүр хуудсанд онцолж харагдана',
                   style: TextStyle(fontSize: 12),
                 ),
@@ -321,12 +380,12 @@ class _AdminEditMonkScreenState extends ConsumerState<AdminEditMonkScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  const Text('Үйлчилгээнүүд', style: AppText.h3),
+                  Text('Үйлчилгээнүүд', style: AppText.h3),
                   const Spacer(),
                   TextButton.icon(
                     onPressed: _addService,
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Нэмэх'),
+                    label: Text('Нэмэх'),
                   ),
                 ],
               ),

@@ -6,6 +6,7 @@ import {
   todayDateStr,
   weekdayIndexUlaanbaatar,
 } from './timezoneUtils.js';
+import { UNPAID_BOOKING_TTL_MS } from './riskGuards.js';
 
 export const DAY_NAMES = [
   'Ням',
@@ -38,23 +39,46 @@ export function generateSlotsFromRange(
   return slots;
 }
 
+function scheduleDays(schedule) {
+  if (!schedule) return [];
+  if (Array.isArray(schedule)) return schedule;
+  if (Array.isArray(schedule.days)) return schedule.days;
+  return [];
+}
+
+function isUsableDayConfig(day) {
+  if (!day || typeof day !== 'object') return false;
+  if (day.name || day.day) return true;
+  if (typeof day.date === 'string' && day.date.length >= 10) return true;
+  return false;
+}
+
+/** True when entries are weekday-named (Даваа…) rather than date-keyed. */
+export function isWeeklySchedule(days) {
+  return days.some((d) => d?.name || d?.day);
+}
+
 export function normalizeSchedule(schedule) {
-  if (!schedule || (Array.isArray(schedule) && schedule.length === 0)) {
+  const days = scheduleDays(schedule);
+  if (!days.length || !days.some(isUsableDayConfig)) {
     return DEFAULT_WEEKLY_SCHEDULE;
   }
-  if (Array.isArray(schedule)) return schedule;
-  return schedule.days || DEFAULT_WEEKLY_SCHEDULE;
+  return days;
 }
 
 export function getWeeklyDayConfig(schedule, dateStr) {
   const days = normalizeSchedule(schedule);
   const dayName = DAY_NAMES[weekdayIndexUlaanbaatar(dateStr)];
+  const normalizedDate = dateStr.slice(0, 10);
 
-  if (days.length && (days[0]?.name || days[0]?.day)) {
-    return days.find((x) => (x.name || x.day) === dayName);
+  if (isWeeklySchedule(days)) {
+    return days.find((x) => (x.name || x.day) === dayName) || null;
   }
 
-  return days.find((x) => x.date?.startsWith(dateStr.slice(0, 10)));
+  // Legacy date-keyed schedules (e.g. 14 fixed days). Exact match only.
+  return (
+    days.find((x) => x.date?.startsWith(normalizedDate)) || null
+  );
 }
 
 export function slotsForDayConfig(dayConfig) {
@@ -67,10 +91,41 @@ export function slotsForDayConfig(dayConfig) {
   return [];
 }
 
+/**
+ * Resolve day config for booking. Date-keyed schedules that only cover a past
+ * window fall back to the default Mon–Fri weekly hours so clients can still book.
+ */
+export function resolveDayConfig(schedule, dateStr) {
+  const normalizedDate = dateStr.slice(0, 10);
+  const fromMonk = getWeeklyDayConfig(schedule, normalizedDate);
+  if (fromMonk) return fromMonk;
+
+  const days = normalizeSchedule(schedule);
+  // Missing date in a date-keyed calendar → use default weekly template.
+  if (!isWeeklySchedule(days)) {
+    return getWeeklyDayConfig(DEFAULT_WEEKLY_SCHEDULE, normalizedDate);
+  }
+  // Weekly schedule with that weekday missing / inactive → no slots.
+  return null;
+}
+
 export async function getSlotsForDate(monkId, schedule, dateStr) {
   const normalizedDate = dateStr.slice(0, 10);
-  const dayConfig = getWeeklyDayConfig(schedule, normalizedDate);
+  const dayConfig = resolveDayConfig(schedule, normalizedDate);
   const slots = slotsForDayConfig(dayConfig);
+
+  // Soft-release abandoned unpaid holds before computing availability.
+  const holdCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
+  await Booking.updateMany(
+    {
+      monkId,
+      date: normalizedDate,
+      paid: false,
+      status: { $in: ['pending', 'approved'] },
+      createdAt: { $lt: holdCutoff },
+    },
+    { $set: { status: 'cancelled' } },
+  );
 
   const bookings = await Booking.find({
     monkId,
@@ -83,30 +138,61 @@ export async function getSlotsForDate(monkId, schedule, dateStr) {
   return { date: normalizedDate, slots, bookedSlots, pastSlots };
 }
 
-export async function getScheduleOverview(monkId, schedule, dayCount = 14) {
-  const result = [];
+/**
+ * Fast month overview: 1 soft-release + 1 booking query for the whole window
+ * (instead of 60 sequential DB round-trips).
+ */
+export async function getScheduleOverview(monkId, schedule, dayCount = 60) {
   const today = todayDateStr();
-
+  const endDate = addDaysToDateStr(today, dayCount - 1);
+  const dates = [];
   for (let i = 0; i < dayCount; i++) {
-    const dateStr = addDaysToDateStr(today, i);
-    const { slots, bookedSlots, pastSlots } = await getSlotsForDate(
+    dates.push(addDaysToDateStr(today, i));
+  }
+
+  const holdCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
+  await Booking.updateMany(
+    {
       monkId,
-      schedule,
-      dateStr,
-    );
+      date: { $gte: today, $lte: endDate },
+      paid: false,
+      status: { $in: ['pending', 'approved'] },
+      createdAt: { $lt: holdCutoff },
+    },
+    { $set: { status: 'cancelled' } },
+  );
+
+  const bookings = await Booking.find({
+    monkId,
+    date: { $gte: today, $lte: endDate },
+    status: { $nin: ['cancelled'] },
+  })
+    .select('date slot')
+    .lean();
+
+  const bookedByDate = new Map();
+  for (const b of bookings) {
+    const d = String(b.date || '').slice(0, 10);
+    if (!d || !b.slot) continue;
+    if (!bookedByDate.has(d)) bookedByDate.set(d, []);
+    bookedByDate.get(d).push(b.slot);
+  }
+
+  return dates.map((dateStr) => {
+    const dayConfig = resolveDayConfig(schedule, dateStr);
+    const slots = slotsForDayConfig(dayConfig);
+    const bookedSlots = bookedByDate.get(dateStr) || [];
+    const pastSlots = getPastSlotsForDate(dateStr, slots);
     const availableSlots = slots.filter(
       (s) => !bookedSlots.includes(s) && !pastSlots.includes(s),
     );
-    result.push({
+    return {
       date: dateStr,
       isAvailable: availableSlots.length > 0,
       isBooked: slots.length > 0 && availableSlots.length === 0,
       slotCount: availableSlots.length,
-      slots: availableSlots,
-    });
-  }
-
-  return result;
+    };
+  });
 }
 
 export const DEFAULT_WEEKLY_SCHEDULE = [

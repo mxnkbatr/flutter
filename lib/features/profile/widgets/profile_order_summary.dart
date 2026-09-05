@@ -49,7 +49,7 @@ class ProfileOrderSummary extends ConsumerWidget {
                 ),
               ),
               Container(
-                decoration: MinimalStyle.card(),
+                decoration: MinimalStyle.card(radius: 18),
                 clipBehavior: Clip.antiAlias,
                 child: IntrinsicHeight(
                   child: Row(

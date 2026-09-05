@@ -57,9 +57,9 @@ class _PaymentSuccessDialogState extends State<PaymentSuccessDialog> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text('Төлбөр амжилттай!', style: AppText.h2),
+            Text('Төлбөр амжилттай!', style: AppText.h2),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Таны захиалга баталгаажлаа',
               style: AppText.bodySmall,
               textAlign: TextAlign.center,

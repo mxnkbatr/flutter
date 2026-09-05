@@ -12,6 +12,8 @@ class MonkDashboardData {
     required this.todayBookings,
     this.isAvailable = true,
     this.monkName,
+    this.monkSharePercent = 70,
+    this.todayProfileViews = 0,
   });
 
   final int monthlyEarnings;
@@ -24,6 +26,8 @@ class MonkDashboardData {
   final List<MonkBookingItem> todayBookings;
   final bool isAvailable;
   final String? monkName;
+  final int monkSharePercent;
+  final int todayProfileViews;
 
   factory MonkDashboardData.fromJson(Map<String, dynamic> json) {
     final today = json['todayBookings'] as List<dynamic>? ??
@@ -58,6 +62,8 @@ class MonkDashboardData {
           json['is_available'] as bool? ??
           true,
       monkName: json['monkName'] as String? ?? json['name'] as String?,
+      monkSharePercent: (json['monkSharePercent'] as num?)?.toInt() ?? 70,
+      todayProfileViews: (json['todayProfileViews'] as num?)?.toInt() ?? 0,
     );
   }
 }

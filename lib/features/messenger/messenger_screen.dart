@@ -7,66 +7,16 @@ import 'package:sacred_app/features/messenger/widgets/chat_conversation_tile.dar
 import 'package:sacred_app/features/messenger/widgets/messenger_page_scaffold.dart';
 import 'package:sacred_app/shared/widgets/empty_state.dart';
 import 'package:sacred_app/shared/widgets/error_state.dart';
-import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 
-class MessengerScreen extends ConsumerStatefulWidget {
+class MessengerScreen extends ConsumerWidget {
   const MessengerScreen({super.key});
 
   @override
-  ConsumerState<MessengerScreen> createState() => _MessengerScreenState();
-}
-
-class _MessengerScreenState extends ConsumerState<MessengerScreen> {
-  int _tab = 0;
-
-  Widget _emptyState(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: BouncingScrollPhysics(),
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: constraints.maxHeight),
-            child: EmptyState(
-              icon: Icons.chat_bubble_outline_rounded,
-              title: 'Чат байхгүй',
-              message: 'Ламын профайлаас мессеж илгээнэ үү',
-              actionLabel: 'Лам олох',
-              onAction: () => context.go('/home'),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _filterEmpty(String message) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(
-          height: 320,
-          child: EmptyState(
-            icon: Icons.filter_list_off_rounded,
-            title: message,
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final convosAsync = ref.watch(conversationsProvider);
     final bottomPad = MediaQuery.of(context).padding.bottom + 80;
 
     return MessengerPageScaffold(
-      segmentTabs: PremiumSegmentTabs(
-        labels: const ['Бүгд', 'Лам', 'Дэмжлэг'],
-        selected: _tab,
-        onChanged: (i) => setState(() => _tab = i),
-      ),
       body: convosAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.orange),
@@ -82,19 +32,26 @@ class _MessengerScreenState extends ConsumerState<MessengerScreen> {
           ),
         ),
         data: (convos) {
-          if (convos.isEmpty) return _emptyState(context);
-
-          final filtered = switch (_tab) {
-            1 => convos.where((c) => c.monkName.isNotEmpty).toList(),
-            2 => convos
-                .where((c) => c.monkName.toLowerCase().contains('дэмжлэг'))
-                .toList(),
-            _ => convos,
-          };
-
-          if (filtered.isEmpty) {
-            return _filterEmpty(
-              _tab == 2 ? 'Дэмжлэгийн чат байхгүй' : 'Чат байхгүй',
+          if (convos.isEmpty) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: EmptyState(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      title: 'Чат байхгүй',
+                      message: 'Ламын профайлаас мессеж илгээнэ үү',
+                      actionLabel: 'Лам олох',
+                      onAction: () => context.go('/home'),
+                    ),
+                  ),
+                );
+              },
             );
           }
 
@@ -102,11 +59,11 @@ class _MessengerScreenState extends ConsumerState<MessengerScreen> {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPad),
-            itemCount: filtered.length,
+            padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPad),
+            itemCount: convos.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) {
-              final c = filtered[i];
+              final c = convos[i];
               return ChatConversationTile(
                 name: c.displayName,
                 preview: c.lastMessage ?? 'Мессеж эхлүүлэх',

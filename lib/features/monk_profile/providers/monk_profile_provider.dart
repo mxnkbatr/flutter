@@ -39,9 +39,7 @@ Future<List<DayAvailability>> monkSchedule(
       : (res.data as Map<String, dynamic>)['days'] as List? ??
           (res.data as Map<String, dynamic>)['schedule'] as List? ??
           [];
-  if (list.isEmpty) {
-    return _defaultWeek();
-  }
+  // Empty = no inventing fake weekdays; calendar marks those days unavailable.
   return list
       .map((e) => DayAvailability.fromJson(e as Map<String, dynamic>))
       .toList();
@@ -62,17 +60,3 @@ Future<List<MonkReview>> monkReviews(MonkReviewsRef ref, String monkId) async {
   }
 }
 
-List<DayAvailability> _defaultWeek() {
-  final now = DateTime.now();
-  return List.generate(7, (i) {
-    final date = DateTime(now.year, now.month, now.day + i);
-    final isWeekend = date.weekday == DateTime.saturday ||
-        date.weekday == DateTime.sunday;
-    return DayAvailability(
-      date: date,
-      isAvailable: !isWeekend,
-      isBooked: false,
-      slotCount: isWeekend ? 0 : 6,
-    );
-  });
-}

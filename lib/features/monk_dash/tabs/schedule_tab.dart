@@ -23,9 +23,9 @@ class ScheduleTab extends ConsumerWidget {
       data: (schedule) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('Долоо хоногийн хуваарь', style: AppText.h3),
+          Text('Долоо хоногийн хуваарь', style: AppText.h3),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Идэвхтэй өдрүүд болон цагуудаа тохируулна уу',
             style: AppText.bodySmall,
           ),

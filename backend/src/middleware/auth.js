@@ -30,6 +30,6 @@ export function adminRequired(req, res, next) {
 
 export function signToken(user) {
   return jwt.sign({ sub: user._id.toString(), role: user.role }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
+    expiresIn: '14d',
   });
 }

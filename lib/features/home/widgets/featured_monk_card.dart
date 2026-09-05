@@ -37,6 +37,8 @@ class FeaturedMonkCard extends StatelessWidget {
               CachedNetworkImage(
                 imageUrl: monk.image!,
                 fit: BoxFit.cover,
+                memCacheWidth: (160 * MediaQuery.devicePixelRatioOf(context)).round(),
+                memCacheHeight: (200 * MediaQuery.devicePixelRatioOf(context)).round(),
                 placeholder: (_, __) => Shimmer.fromColors(
                   baseColor: AppColors.border,
                   highlightColor: AppColors.goldLight,

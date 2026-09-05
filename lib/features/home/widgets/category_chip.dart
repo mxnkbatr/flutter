@@ -45,45 +45,42 @@ class CategoryChip extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
           gradient: isSelected ? AppGradients.primary : null,
           color: isSelected ? null : AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected
-                ? Colors.transparent
-                : AppColors.orange.withOpacity(0.35),
-            width: 1.2,
+            color: isSelected ? Colors.transparent : AppColors.border,
+            width: 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.orange.withOpacity(0.28),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: AppColors.orange.withValues(alpha: 0.18),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   ),
                 ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               chipIcon,
-              size: 15,
-              color: isSelected ? Colors.white : AppColors.orange,
+              size: 13,
+              color: isSelected ? Colors.white : AppColors.textSec,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             Text(
               label,
-              style: isSelected ? AppText.chipActive : AppText.chipInactive,
+              style: (isSelected ? AppText.chipActive : AppText.chipInactive)
+                  .copyWith(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textPri,
+              ),
             ),
           ],
         ),

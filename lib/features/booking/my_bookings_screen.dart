@@ -105,11 +105,11 @@ class MyBookingsScreen extends ConsumerWidget {
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),
-            padding: EdgeInsets.fromLTRB(20, 24, 20, bottomPad),
+            padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPad),
             itemCount: filtered.length + (filter != null ? 1 : 0),
             separatorBuilder: (_, i) {
-              if (filter != null && i == 0) return const SizedBox(height: 16);
-              return const SizedBox(height: 12);
+              if (filter != null && i == 0) return const SizedBox(height: 12);
+              return const SizedBox(height: 10);
             },
             itemBuilder: (_, i) {
               if (filter != null && i == 0) {
@@ -159,16 +159,19 @@ class _BookingCard extends ConsumerWidget {
 
   String? get _statusHint {
     if (booking.status == 'pending' && !booking.paid) {
-      return 'Төлбөр төлж захиалгаа илгээнэ үү';
-    }
-    if (booking.status == 'pending' && booking.paid) {
-      return 'Төлбөр төлсөн — лам баталгаажуулах хүлээнэ үү';
+      return 'QPay-ээр төлбөр төлж захиалгаа баталгаажуулна уу';
     }
     if (booking.status == 'approved' && !booking.paid) {
       return 'QPay-ээр төлбөр төлж захиалгаа баталгаажуулна уу';
     }
+    if (booking.paid && booking.status != 'confirmed' && booking.status != 'completed') {
+      return 'Төлбөр төлөгдсөн — захиалга баталгаажиж байна';
+    }
     if (booking.canJoinCall) {
       return 'Захиалга баталгаажсан — видео дуудлага эхлүүлж болно';
+    }
+    if (booking.paid && booking.status == 'confirmed') {
+      return 'Төлбөр төлөгдсөн — уулзалтын цагтаа дуудлагад орно';
     }
     return null;
   }
@@ -180,7 +183,7 @@ class _BookingCard extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: MinimalStyle.card(),
+      decoration: MinimalStyle.card(radius: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -285,7 +288,7 @@ class _BookingCard extends ConsumerWidget {
               child: OutlinedButton.icon(
                 onPressed: onCall,
                 icon: const Icon(Icons.login_rounded, size: 18),
-                label: const Text('Оруулах'),
+                label: const Text('Дуудлагад орох'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.earthBrown,
                   side: const BorderSide(

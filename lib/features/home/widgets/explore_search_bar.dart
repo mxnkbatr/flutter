@@ -27,44 +27,33 @@ class ExploreSearchBar extends StatelessWidget {
         onTap();
       },
       child: Container(
-        height: 54,
-        padding: EdgeInsets.only(
-          left: 8,
-          right: minimal ? 8 : 6,
-        ),
+        height: 52,
+        padding: const EdgeInsets.symmetric(horizontal: 6),
         decoration: BoxDecoration(
-          color: AppColors.surfaceEl,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: AppColors.borderSub,
-            width: 1,
-          ),
+          color: AppColors.surfaceGlass,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.borderSub),
           boxShadow: [
             BoxShadow(
-              color: AppColors.orange.withOpacity(0.06),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               margin: const EdgeInsets.only(left: 4),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.orangeSoft,
                 shape: BoxShape.circle,
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.search_rounded,
-                color: AppColors.orange.withOpacity(0.85),
+                color: AppColors.orangeDeep,
                 size: 20,
               ),
             ),
@@ -75,31 +64,33 @@ class ExploreSearchBar extends StatelessWidget {
                 style: AppText.body.copyWith(
                   color: value?.isNotEmpty == true
                       ? AppColors.textPri
-                      : AppColors.textSec,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: -0.1,
+                      : AppColors.textHint,
+                  fontWeight: FontWeight.w500,
+                  letterSpacing: -0.15,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (!minimal && onFilterTap != null)
+            if (!minimal)
               GestureDetector(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  onFilterTap!();
+                  (onFilterTap ?? onTap)();
                 },
                 child: Container(
-                  width: 40,
-                  height: 40,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: AppColors.orangeSoft,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
-                    Icons.tune_rounded,
+                    onFilterTap != null
+                        ? Icons.tune_rounded
+                        : Icons.history_rounded,
                     color: AppColors.orangeDeep,
-                    size: 20,
+                    size: 18,
                   ),
                 ),
               ),

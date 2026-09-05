@@ -121,6 +121,8 @@ class _Avatar extends StatelessWidget {
             ? CachedNetworkImage(
                 imageUrl: monk.image!,
                 fit: BoxFit.cover,
+                memCacheWidth: (56 * MediaQuery.devicePixelRatioOf(context)).round(),
+                memCacheHeight: (56 * MediaQuery.devicePixelRatioOf(context)).round(),
                 placeholder: (_, __) => const ColoredBox(
                   color: AppColors.borderSub,
                 ),

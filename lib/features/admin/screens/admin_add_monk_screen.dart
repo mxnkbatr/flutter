@@ -45,7 +45,7 @@ class AdminAddMonkScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
-  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _titleCtrl = TextEditingController(text: 'Лам');
@@ -68,7 +68,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
     _passwordCtrl.dispose();
     _nameCtrl.dispose();
     _titleCtrl.dispose();
@@ -86,12 +86,17 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
     setState(() => _services.removeAt(index));
   }
 
+  String _digitsOnly(String v) => v.replaceAll(RegExp(r'\D'), '');
+
   Future<void> _submit() async {
-    if (_emailCtrl.text.trim().isEmpty ||
-        _passwordCtrl.text.length < 6 ||
+    final phone = _digitsOnly(_phoneCtrl.text.trim());
+    if (phone.length < 8 ||
+        _passwordCtrl.text.length < 8 ||
         _nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Имэйл, нууц үг (6+), нэр заавал')),
+        const SnackBar(
+          content: Text('Утас (8 орон), нууц үг (8+), нэр заавал'),
+        ),
       );
       return;
     }
@@ -99,7 +104,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
     setState(() => _saving = true);
     try {
       await createMonk(ref, {
-        'email': _emailCtrl.text.trim(),
+        'phone': phone,
         'password': _passwordCtrl.text,
         'name': _nameCtrl.text.trim(),
         'title': _titleCtrl.text.trim(),
@@ -130,6 +135,25 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
     }
   }
 
+  Widget _sectionLabel(String title, {String? hint}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: AppText.displaySerif(size: 20)),
+          if (hint != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              hint,
+              style: AppText.caption.copyWith(color: AppColors.textSec, height: 1.35),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoryOptions =
@@ -137,25 +161,34 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
 
     return AdminPageScaffold(
       title: 'Шинэ лам',
-      onBack: () => context.pop(),
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/admin/dashboard');
+        }
+      },
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         children: [
           AdminSurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Нэвтрэх мэдээлэл', style: AppText.displaySerif(size: 18)),
-                const SizedBox(height: 12),
+                _sectionLabel(
+                  'Нэвтрэх эрх',
+                  hint: 'Лам утасны дугаараар нэвтэрнэ. Gmail шаардлагагүй.',
+                ),
                 SacredInput(
-                  label: 'Имэйл',
-                  controller: _emailCtrl,
-                  prefixIcon: Icons.email_outlined,
-                  keyboardType: TextInputType.emailAddress,
+                  label: 'Утасны дугаар',
+                  controller: _phoneCtrl,
+                  prefixIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  hint: '99918122',
                 ),
                 const SizedBox(height: 12),
                 SacredInput(
-                  label: 'Нууц үг',
+                  label: 'Нууц үг (8+ тэмдэгт)',
                   controller: _passwordCtrl,
                   prefixIcon: Icons.lock_outline,
                   obscureText: true,
@@ -163,13 +196,12 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           AdminSurfaceCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Профайл', style: AppText.displaySerif(size: 18)),
-                const SizedBox(height: 12),
+                _sectionLabel('Профайл', hint: 'Хэрэглэгчид харагдах мэдээлэл'),
                 Center(
                   child: ProfileImagePicker(
                     imageUrl: _imageUrl,
@@ -177,9 +209,17 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                SacredInput(label: 'Нэр', controller: _nameCtrl, prefixIcon: Icons.person),
+                SacredInput(
+                  label: 'Нэр',
+                  controller: _nameCtrl,
+                  prefixIcon: Icons.person_outline,
+                ),
                 const SizedBox(height: 12),
-                SacredInput(label: 'Цол', controller: _titleCtrl, prefixIcon: Icons.badge_outlined),
+                SacredInput(
+                  label: 'Цол',
+                  controller: _titleCtrl,
+                  prefixIcon: Icons.badge_outlined,
+                ),
                 const SizedBox(height: 12),
                 SacredInput(
                   label: 'Хийд / Сүм',
@@ -194,7 +234,10 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                   maxLines: 4,
                 ),
                 const SizedBox(height: 16),
-                const Text('Үйлчилгээний төрөл', style: AppText.body),
+                Text(
+                  'Үйлчилгээний төрөл',
+                  style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -221,65 +264,106 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _status,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Төлөв',
-                    border: OutlineInputBorder(),
+                    filled: true,
+                    fillColor: AppColors.creamBg.withOpacity(0.6),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'active', child: Text('Идэвхтэй')),
-                    DropdownMenuItem(value: 'pending', child: Text('Хүлээгдэж буй')),
+                    DropdownMenuItem(
+                      value: 'pending',
+                      child: Text('Хүлээгдэж буй'),
+                    ),
                   ],
                   onChanged: (v) => setState(() => _status = v ?? 'active'),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Row(
             children: [
-              Text('Үйлчилгээнүүд', style: AppText.displaySerif(size: 18)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  'Үйлчилгээнүүд',
+                  style: AppText.displaySerif(size: 20),
+                ),
+              ),
               TextButton.icon(
                 onPressed: _addService,
-                icon: const Icon(Icons.add, size: 18),
+                icon: const Icon(Icons.add_rounded, size: 18),
                 label: const Text('Нэмэх'),
+                style: TextButton.styleFrom(foregroundColor: AppColors.orange),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
+          Text(
+            'Үнэ, хугацаа, ангиллыг тодорхойлно',
+            style: AppText.caption.copyWith(color: AppColors.textSec),
+          ),
+          const SizedBox(height: 12),
           ..._services.asMap().entries.map((entry) {
             final i = entry.key;
             final s = entry.value;
             return AdminSurfaceCard(
               margin: const EdgeInsets.only(bottom: 12),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Text('Үйлчилгээ ${i + 1}', style: AppText.body),
+                      Container(
+                        width: 28,
+                        height: 28,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.orange.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${i + 1}',
+                          style: AppText.caption.copyWith(
+                            color: AppColors.orange,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Үйлчилгээ',
+                        style: AppText.body.copyWith(fontWeight: FontWeight.w600),
+                      ),
                       const Spacer(),
                       if (_services.length > 1)
                         IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            color: AppColors.danger,
+                          ),
                           onPressed: () => _removeService(i),
                         ),
                     ],
                   ),
+                  const SizedBox(height: 8),
                   TextFormField(
                     initialValue: s.name,
-                    decoration: const InputDecoration(
-                      labelText: 'Нэр',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: _fieldDecoration('Нэр'),
                     onChanged: (v) => s.name = v,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     initialValue: s.description,
-                    decoration: const InputDecoration(
-                      labelText: 'Тайлбар',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: _fieldDecoration('Тайлбар'),
                     onChanged: (v) => s.description = v,
                   ),
                   const SizedBox(height: 8),
@@ -289,10 +373,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                         child: TextFormField(
                           initialValue: '${s.price}',
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Үнэ (₮)',
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: _fieldDecoration('Үнэ (₮)'),
                           onChanged: (v) =>
                               s.price = int.tryParse(v) ?? s.price,
                         ),
@@ -302,10 +383,7 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                         child: TextFormField(
                           initialValue: '${s.durationMinutes}',
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Минут',
-                            border: OutlineInputBorder(),
-                          ),
+                          decoration: _fieldDecoration('Минут'),
                           onChanged: (v) => s.durationMinutes =
                               int.tryParse(v) ?? s.durationMinutes,
                         ),
@@ -315,28 +393,45 @@ class _AdminAddMonkScreenState extends ConsumerState<AdminAddMonkScreen> {
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     value: s.category,
-                    decoration: const InputDecoration(
-                      labelText: 'Ангилал',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: _fieldDecoration('Ангилал'),
                     items: categoryOptions
                         .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                         .toList(),
-                    onChanged: (v) => setState(() => s.category = v ?? s.category),
+                    onChanged: (v) =>
+                        setState(() => s.category = v ?? s.category),
                   ),
                 ],
               ),
             );
           }),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
           SacredButton(
             label: 'Лам бүртгэх',
             isLoading: _saving,
             onTap: _submit,
             sunShadow: true,
           ),
-          const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      filled: true,
+      fillColor: AppColors.creamBg.withOpacity(0.55),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: AppColors.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.orange, width: 1.4),
       ),
     );
   }

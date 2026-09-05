@@ -3,11 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/core/utils/formatters.dart';
 import 'package:sacred_app/features/booking/providers/booking_draft_provider.dart';
-import 'package:sacred_app/features/booking/widgets/confirmation_step.dart';
 import 'package:sacred_app/features/booking/widgets/date_time_selection_step.dart';
-import 'package:sacred_app/features/booking/widgets/service_selection_step.dart';
-import 'package:sacred_app/features/booking/widgets/step_indicator.dart';
 import 'package:sacred_app/features/home/models/monk.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_service.dart';
 import 'package:sacred_app/features/monk_profile/providers/monk_profile_provider.dart';
@@ -15,8 +14,7 @@ import 'package:sacred_app/features/subscription/utils/tier_gating.dart';
 import 'package:sacred_app/shared/widgets/premium_layered_scaffold.dart';
 import 'package:sacred_app/shared/widgets/sacred_button.dart';
 
-const _stepLabels = ['Үйлчилгээ', 'Цаг', 'Баталгаа'];
-
+/// Single-step booking: each monk has one service; user only picks date + time.
 class BookingFlowScreen extends ConsumerStatefulWidget {
   const BookingFlowScreen({
     super.key,
@@ -36,20 +34,12 @@ class BookingFlowScreen extends ConsumerStatefulWidget {
 }
 
 class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
-  late final PageController _pageController;
   bool _initialized = false;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
     WidgetsBinding.instance.addPostFrameCallback((_) => _initializeDraft());
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
   }
 
   Future<void> _initializeDraft() async {
@@ -58,6 +48,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
 
     ref.read(bookingStepProvider.notifier).state = 0;
     ref.read(bookingDraftProvider.notifier).reset(widget.monkId);
+    ref.read(bookingDateConfirmedProvider.notifier).state = false;
 
     Monk monk;
     try {
@@ -108,21 +99,23 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       return;
     }
 
+    // One service per monk — always bind the primary (or requested) service.
+    MonkService service = services.first;
     if (widget.initialServiceId != null) {
-      for (final service in services) {
-        if (service.id == widget.initialServiceId) {
-          ref.read(bookingDraftProvider.notifier).setService(service);
+      for (final s in services) {
+        if (s.id == widget.initialServiceId) {
+          service = s;
           break;
         }
       }
-    } else if (services.length == 1) {
-      ref.read(bookingDraftProvider.notifier).setService(services.first);
     }
+    ref.read(bookingDraftProvider.notifier).setService(service);
 
     if (widget.initialDate != null) {
       final date = DateTime.tryParse(widget.initialDate!);
       if (date != null) {
         ref.read(bookingDraftProvider.notifier).setDate(date);
+        ref.read(bookingDateConfirmedProvider.notifier).state = true;
       }
     }
 
@@ -131,100 +124,95 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
           .read(bookingDraftProvider.notifier)
           .setSlot(Uri.decodeComponent(widget.initialSlot!));
     }
+  }
 
-    final draft = ref.read(bookingDraftProvider);
-    final startStep = draft.isComplete
-        ? 2
-        : draft.service != null
-            ? 1
-            : 0;
-
-    if (startStep > 0) {
-      ref.read(bookingStepProvider.notifier).state = startStep;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_pageController.hasClients) {
-          _pageController.jumpToPage(startStep);
-        }
-      });
+  void _leave() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/home');
     }
   }
 
-  void _goToStep(int step) {
-    ref.read(bookingStepProvider.notifier).state = step;
-    _pageController.animateToPage(
-      step,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+  Future<void> _pay() async {
+    final draft = ref.read(bookingDraftProvider);
+    if (!draft.isComplete) return;
+
+    final allowed = await TierGating.checkBookingLimit(context, ref);
+    if (!allowed || !mounted) return;
+
+    final monk = await ref.read(monkDetailProvider(widget.monkId).future);
+    final monkAccess = await TierGating.checkMonkAccess(context, ref, monk);
+    if (!monkAccess || !mounted) return;
+
+    ref.read(bookingSubmittingProvider.notifier).state = true;
+    try {
+      final result =
+          await ref.read(bookingDraftProvider.notifier).createBooking();
+      if (!mounted) return;
+      context.go(
+        '/payment/${result.bookingId}',
+        extra: result.qpay,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              formatUserError(e, fallback: 'Захиалга илгээхэд алдаа гарлаа.'),
+            ),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    } finally {
+      ref.read(bookingSubmittingProvider.notifier).state = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final step = ref.watch(bookingStepProvider);
     final draft = ref.watch(bookingDraftProvider);
-    final dateConfirmed = ref.watch(bookingDateConfirmedProvider);
-    final isLastStep = step == 2;
-    final canGoNext = switch (step) {
-      0 => draft.canProceedStep1,
-      1 => dateConfirmed ? (draft.date != null && draft.slot != null) : (draft.date != null),
-      _ => false,
-    };
+    final isLoading = ref.watch(bookingSubmittingProvider);
+    final canPay =
+        draft.date != null && draft.slot != null && draft.service != null;
+    final service = draft.service;
+
+    final ctaLabel = draft.date == null
+        ? 'Өдөр сонгоно уу'
+        : draft.slot == null
+            ? 'Цаг сонгоно уу'
+            : 'Төлбөр төлөх';
 
     return PremiumLayeredScaffold(
-      title: 'Захиалах',
+      title: 'Цаг захиалах',
+      subtitle: service == null
+          ? 'Өдөр, цагаа сонгоно уу'
+          : '${service.displayName} · ${Formatters.currency(service.price)}',
       showBackButton: true,
-      canPop: () => step == 0,
-      headerHeight: 196,
+      canPop: () => context.canPop(),
+      headerHeight: 132,
       onBack: () {
         HapticFeedback.lightImpact();
-        if (step > 0) {
-          _goToStep(step - 1);
-        } else if (context.canPop()) {
-          context.pop();
-        }
+        _leave();
       },
-      headerBottom: StepIndicator(
-        current: step,
-        total: 3,
-        labels: _stepLabels,
-      ),
       expandBody: true,
-      bottomBar: isLastStep
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: SacredButton(
-                  label: step == 1 ? 'Үргэлжлүүлэх' : 'Дараах',
-                  onTap: canGoNext
-                      ? () {
-                          HapticFeedback.lightImpact();
-                          if (step == 1) {
-                            // Step 2 is a 2-phase flow: pick date -> Continue -> pick time.
-                            final confirmed =
-                                ref.read(bookingDateConfirmedProvider);
-                            if (!confirmed) {
-                              ref
-                                  .read(bookingDateConfirmedProvider.notifier)
-                                  .state = true;
-                              return;
-                            }
-                          }
-                          _goToStep(step + 1);
-                        }
-                      : null,
-                ),
-              ),
-            ),
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          ServiceSelectionStep(monkId: widget.monkId),
-          DateTimeSelectionStep(monkId: widget.monkId),
-          ConfirmationStep(monkId: widget.monkId),
-        ],
+      bottomBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+          child: SacredButton(
+            label: ctaLabel,
+            isLoading: isLoading,
+            onTap: canPay
+                ? () {
+                    HapticFeedback.lightImpact();
+                    _pay();
+                  }
+                : null,
+          ),
+        ),
       ),
+      body: DateTimeSelectionStep(monkId: widget.monkId),
     );
   }
 }

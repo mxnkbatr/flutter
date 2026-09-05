@@ -77,13 +77,14 @@ class MonkBookingFilters {
     return list;
   }
 
-  /// Лам баталсан, төлбөр хүлээгдэж буй.
+  /// Төлбөр хүлээгдэж буй (лам батлах шаардлагагүй — хэрэглэгч QPay төлнө).
   static List<MonkBookingItem> approvedAwaitingPayment(
     List<MonkBookingItem> bookings,
   ) {
     final today = AppTimezone.todayDateStr();
     return bookings.where((b) {
-      if (b.status != 'approved') return false;
+      if (b.paid == true) return false;
+      if (b.status != 'approved' && b.status != 'pending') return false;
       final d = b.date;
       if (d == null || d.isEmpty || b.slot.isEmpty) return false;
       final ymd = d.length >= 10 ? d.substring(0, 10) : d;

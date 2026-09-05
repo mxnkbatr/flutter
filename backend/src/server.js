@@ -18,8 +18,10 @@ import {
   Order,
   MonkCategory,
   Notification,
+  ProfileView,
 } from './db.js';
 import { authRequired, adminRequired, signToken } from './middleware/auth.js';
+import jwt from 'jsonwebtoken';
 import {
   DEFAULT_SERVICES,
   DEFAULT_WEEKLY_SCHEDULE,
@@ -27,6 +29,12 @@ import {
   getSlotsForDate,
 } from './scheduleUtils.js';
 import { isPastSlot, todayDateStr, currentTimeMinutes, slotToMinutes } from './timezoneUtils.js';
+import {
+  createRateLimiter,
+  clientKey,
+  UNPAID_BOOKING_TTL_MS,
+  UNPAID_ORDER_TTL_MS,
+} from './riskGuards.js';
 import {
   notifyBookingStatus,
   notifyMessage,
@@ -67,7 +75,33 @@ const TIER_DISCOUNTS = {
   vip: 20, // legacy — VIP tier removed, existing users keep discount
 };
 
-const PLATFORM_FEE_RATE = 0.1;
+const PLATFORM_FEE_RATE = 0; // no customer surcharge
+
+/** Revenue split after payment: monk salary 70%, platform 30%. QPay is platform cost. */
+const MONK_SHARE_RATE = 0.7;
+const PLATFORM_SHARE_RATE = 0.3;
+const QPAY_FEE_RATE = 0.015;
+
+function monkEarnsFromAmount(amount) {
+  return Math.round((Number(amount) || 0) * MONK_SHARE_RATE);
+}
+
+function platformShareFromAmount(amount) {
+  return Math.round((Number(amount) || 0) * PLATFORM_SHARE_RATE);
+}
+
+function qpayFeeFromAmount(amount) {
+  return Math.round((Number(amount) || 0) * QPAY_FEE_RATE);
+}
+
+function dayBoundsUb(dayStr) {
+  const day = (dayStr || todayDateStr()).slice(0, 10);
+  return {
+    day,
+    start: new Date(`${day}T00:00:00+08:00`),
+    end: new Date(`${day}T23:59:59.999+08:00`),
+  };
+}
 
 /** Premium subscriptions — disabled until a future app release. */
 const PREMIUM_SUBSCRIPTIONS_ENABLED = false;
@@ -94,7 +128,7 @@ async function listMonkCategoryNames() {
 ensureUploadsDir('monks');
 
 app.use(cors());
-app.use(express.json({ limit: '8mb' }));
+app.use(express.json({ limit: '12mb' }));
 app.use('/uploads', express.static(uploadsRoot));
 
 function mapName(obj) {
@@ -173,17 +207,39 @@ function orderJson(o) {
 }
 
 async function markShopOrderPaid(orderId) {
-  if (!orderId) return;
+  if (!orderId) return { ok: false, reason: 'missing' };
   const order = await Order.findById(orderId);
-  if (!order || order.paid) return;
+  if (!order) return { ok: false, reason: 'not_found' };
+  if (order.paid) return { ok: true, already: true };
+
+  // Atomic stock claim — prevent oversell on concurrent paid orders.
+  const decremented = [];
+  for (const item of order.items || []) {
+    if (!item.productId) continue;
+    const qty = item.quantity || 1;
+    const updated = await Product.findOneAndUpdate(
+      { _id: item.productId, stock: { $gte: qty } },
+      { $inc: { stock: -qty } },
+      { new: true },
+    );
+    if (!updated) {
+      // Roll back any stock already taken for this order.
+      for (const prev of decremented) {
+        await Product.findByIdAndUpdate(prev.productId, {
+          $inc: { stock: prev.qty },
+        });
+      }
+      order.status = 'cancelled';
+      await order.save();
+      return { ok: false, reason: 'out_of_stock' };
+    }
+    decremented.push({ productId: item.productId, qty });
+  }
+
   order.paid = true;
   order.status = 'paid';
   await order.save();
-  for (const item of order.items || []) {
-    if (item.productId) {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { stock: -(item.quantity || 1) } });
-    }
-  }
+  return { ok: true };
 }
 
 function bookingJson(b, extra = {}) {
@@ -228,19 +284,40 @@ app.post('/api/upload/image', authRequired, async (req, res) => {
     const { image, folder } = req.body;
     if (!image) return res.status(400).json({ error: 'Image is required' });
 
-    const subfolder = folder === 'products' ? 'products' : 'monks';
+    // Monks may only upload profile/monk assets; products = admin only.
+    let subfolder = 'monks';
+    if (folder === 'products') {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Зөвхөн админ бүтээгдэхүүний зураг оруулна' });
+      }
+      subfolder = 'products';
+    }
+
     const stored = await uploadBase64Image(image, subfolder);
     const base = `${req.protocol}://${req.get('host')}`;
-    const url = stored.startsWith('http') ? stored : `${base}${stored}`;
-    const path = stored.startsWith('http') ? stored : stored;
-    res.json({ url, path, storage: isCloudinaryConfigured() ? 'cloudinary' : 'local' });
+    const isRemote = stored.startsWith('http');
+    const url = isRemote ? stored : `${base}${stored}`;
+    const usedCloudinary = isRemote && /cloudinary\.com/i.test(stored);
+    res.json({
+      url,
+      path: stored,
+      storage: usedCloudinary ? 'cloudinary' : 'local',
+    });
   } catch (e) {
-    res.status(400).json({ error: e.message });
+    console.warn('Upload image failed:', e?.message || e);
+    res.status(400).json({ error: e.message || 'Зураг хадгалахад алдаа гарлаа' });
   }
 });
 
+const authAbuseLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyFn: (req) => clientKey(req, 'auth'),
+  message: 'Хэт олон нэвтрэх/бүртгэх оролдлого. 15 минутын дараа дахин оролдоно уу',
+});
+
 // ─── Auth ───
-app.post('/api/auth/signup', async (req, res) => {
+app.post('/api/auth/signup', authAbuseLimit, async (req, res) => {
   try {
     const { email, password, name, phone } = req.body;
     const normalizedPhone = normalizePhone(phone);
@@ -250,8 +327,8 @@ app.post('/api/auth/signup', async (req, res) => {
     if (!isValidPhone(normalizedPhone)) {
       return res.status(400).json({ error: 'Утасны дугаар буруу байна' });
     }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Нууц үг хамгийн багадаа 6 тэмдэгт' });
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Нууц үг хамгийн багадаа 8 тэмдэгт' });
     }
 
     const phoneExists = await User.findOne({ phone: normalizedPhone });
@@ -295,7 +372,7 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authAbuseLimit, async (req, res) => {
   try {
     const { email, phone, password, login } = req.body;
     const identifier = String(login || email || phone || '').trim();
@@ -426,6 +503,40 @@ app.get('/api/monks/:id', async (req, res) => {
     if (!monk) return res.status(404).json({ error: 'Not found' });
     res.json({ monk: monkJson(monk) });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** Record a profile view (1 unique viewer per monk per day). Auth optional. */
+app.post('/api/monks/:id/view', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid id' });
+    }
+    const monk = await Monk.findById(req.params.id).select('_id').lean();
+    if (!monk) return res.status(404).json({ error: 'Not found' });
+
+    let viewerKey = null;
+    const auth = req.headers.authorization;
+    if (auth?.startsWith('Bearer ') && process.env.JWT_SECRET) {
+      try {
+        const payload = jwt.verify(auth.slice(7), process.env.JWT_SECRET);
+        if (payload?.sub) viewerKey = `u:${payload.sub}`;
+      } catch (_) {}
+    }
+    if (!viewerKey) {
+      viewerKey = `a:${clientKey(req)}`;
+    }
+
+    const day = todayDateStr();
+    await ProfileView.updateOne(
+      { monkId: monk._id, viewerKey, day },
+      { $setOnInsert: { monkId: monk._id, viewerKey, day } },
+      { upsert: true },
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    if (e?.code === 11000) return res.json({ ok: true });
     res.status(500).json({ error: e.message });
   }
 });
@@ -624,6 +735,29 @@ app.post('/api/bookings', authRequired, async (req, res) => {
       return res.status(400).json({ error: 'Энэ цаг өнгөрсөн байна' });
     }
 
+    // Abandon previous unpaid holds so user can pick another slot freely.
+    const previousHolds = await Booking.find({
+      clientId: req.user._id,
+      paid: false,
+      status: { $in: ['pending', 'approved'] },
+    });
+    for (const hold of previousHolds) {
+      hold.status = 'cancelled';
+      await hold.save();
+      const openPay = await Payment.findOne({
+        bookingId: hold._id,
+        paid: false,
+        qpayInvoiceId: { $exists: true, $ne: null },
+      });
+      if (openPay?.qpayInvoiceId) {
+        try {
+          await cancelQPayInvoice(openPay.qpayInvoiceId);
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    }
+
     let service = null;
     if (serviceId?.includes('_svc_')) {
       const svcIdx = Number(serviceId.split('_svc_')[1]);
@@ -648,8 +782,8 @@ app.post('/api/bookings', authRequired, async (req, res) => {
     const tier = effectiveTier(req.user);
     const discountPercent = TIER_DISCOUNTS[tier] || 0;
     const discounted = Math.round(basePrice * (1 - discountPercent / 100));
-    const platformFee = Math.round(discounted * PLATFORM_FEE_RATE);
-    const finalAmount = discounted + platformFee;
+    // No VAT / platform surcharge on customer — pay listed (discounted) price only.
+    const finalAmount = discounted;
 
     const booking = await Booking.create({
       clientId: req.user._id,
@@ -664,8 +798,42 @@ app.post('/api/bookings', authRequired, async (req, res) => {
       paid: false,
     });
 
-    res.json({ bookingId: booking._id.toString(), id: booking._id.toString() });
+    // Issue QPay immediately so client lands on QR without an extra wait.
+    let qpay = null;
+    try {
+      const payment = await Payment.create({
+        invoiceId: `INV-${uuidv4().slice(0, 8)}`,
+        type: 'booking',
+        bookingId: booking._id,
+        userId: req.user._id,
+        amount: finalAmount,
+        method: 'qpay',
+        paid: false,
+      });
+      const monkName = monk.name?.mn ?? monk.name?.en ?? 'Лам';
+      const description = `Gevabal захиалга — ${monkName} (${serviceName})`;
+      qpay = await issueQPayForPayment(payment, description);
+      qpay = {
+        ...qpay,
+        monkName,
+        monkImage: monk.image || '',
+        serviceName,
+        timeSlot: slot,
+        dateStr,
+      };
+    } catch (e) {
+      console.error('Booking QPay issue failed:', e.message);
+    }
+
+    res.json({
+      bookingId: booking._id.toString(),
+      id: booking._id.toString(),
+      qpay,
+    });
   } catch (e) {
+    if (e?.code === 11000) {
+      return res.status(409).json({ error: 'Энэ цаг аль хэдийн захиалагдсан байна' });
+    }
     res.status(500).json({ error: e.message });
   }
 });
@@ -755,14 +923,35 @@ function qpayCallbackUrl() {
   return `${base}/api/payment/qpay/callback`;
 }
 
+function apiPublicBase() {
+  return (process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+}
+
+/** Browser/web cannot load qpay.mn logos (no CORS) — proxy through our API. */
+function withProxiedLogos(urls = []) {
+  const base = apiPublicBase();
+  return (urls || []).map((u) => {
+    const logo = u?.logo;
+    if (!logo) return { name: u.name, link: u.link, logo: null };
+    if (String(logo).includes('/api/qpay/logo')) {
+      return { name: u.name, link: u.link, logo };
+    }
+    return {
+      name: u.name,
+      link: u.link,
+      logo: `${base}/api/qpay/logo?u=${encodeURIComponent(logo)}`,
+    };
+  });
+}
+
 function paymentQPayPayload(payment) {
   return {
     invoiceId: payment.invoiceId,
     amount: payment.amount,
     qrImage: payment.qrImage || fakeQrBase64(payment.amount),
-    urls: payment.qpayUrls?.length
-      ? payment.qpayUrls
-      : mapQPayUrls([]),
+    urls: withProxiedLogos(
+      payment.qpayUrls?.length ? payment.qpayUrls : mapQPayUrls([]),
+    ),
   };
 }
 
@@ -775,25 +964,80 @@ async function completePaymentRecord(payment) {
   if (payment.bookingId) {
     const booking = await Booking.findById(payment.bookingId);
     if (booking) {
+      // Paid → auto-confirmed. No separate monk approve step.
       booking.paid = true;
       booking.bankTransferPending = false;
-      if (booking.status === 'approved') {
+      if (booking.status !== 'cancelled' && booking.status !== 'completed') {
         booking.status = 'confirmed';
+        booking.approvedAt = booking.approvedAt || new Date();
       }
       await booking.save();
+
       const client = await User.findById(booking.clientId);
       const monk = await Monk.findById(booking.monkId).lean();
+      const monkUser = monk?.userId ? await User.findById(monk.userId) : null;
+      const bookingId = booking._id.toString();
+      const monkName = monk?.name?.mn ?? monk?.name?.en ?? 'Лам';
+      const clientName = client?.name ?? 'Хэрэглэгч';
+
       if (client) {
         await notifyBookingStatus(client, {
           status: 'confirmed',
-          monkName: monk?.name?.mn ?? monk?.name?.en ?? 'Лам',
-          bookingId: booking._id.toString(),
+          monkName,
+          bookingId,
         });
+      }
+      if (monkUser) {
+        await notifyUser(monkUser, {
+          category: 'booking',
+          title: 'Шинэ төлбөртэй захиалга',
+          body: `${clientName} QPay-ээр төлж, ${booking.date} ${booking.slot} цаг баталгаажлаа. Дуудлагад орж болно.`,
+          type: 'booking',
+          actionPath: '/monk/dashboard?tab=2',
+          refId: bookingId,
+          pushData: {
+            type: 'booking_status',
+            status: 'confirmed',
+            bookingId,
+          },
+        });
+      }
+
+      // If appointment window is open now → notify both sides to join.
+      const dateKey = String(booking.date || '').slice(0, 10);
+      const start = slotToMinutes(booking.slot || '00:00');
+      const nowMin = currentTimeMinutes();
+      const inWindow =
+        dateKey === todayDateStr() &&
+        nowMin >= start &&
+        nowMin < start + 30;
+
+      if (inWindow && booking.status === 'confirmed') {
+        if (client) {
+          await notifyCallTime(client, {
+            peerName: monkName,
+            peerImage: monk?.image ?? '',
+            bookingId,
+            recipientRole: 'client',
+          });
+        }
+        if (monkUser) {
+          await notifyCallTime(monkUser, {
+            peerName: clientName,
+            peerImage: '',
+            bookingId,
+            recipientRole: 'monk',
+          });
+        }
       }
     }
   }
   if (payment.type === 'shop_order' && payment.orderId) {
-    await markShopOrderPaid(payment.orderId);
+    const stockResult = await markShopOrderPaid(payment.orderId);
+    if (!stockResult?.ok && !stockResult?.already) {
+      // Paid at QPay but stock gone — keep payment record; order cancelled in markShopOrderPaid.
+      console.warn('Shop order stock fail after QPay:', payment.orderId, stockResult?.reason);
+    }
   }
   if (payment.type === 'subscription' && payment.tier) {
     const expires = new Date();
@@ -887,12 +1131,27 @@ app.put('/api/bookings/:id/cancel', authRequired, async (req, res) => {
     if (['completed', 'cancelled'].includes(booking.status)) {
       return res.status(400).json({ error: 'Энэ захиалгыг цуцлах боломжгүй' });
     }
-    if (isMonkOwner && booking.paid) {
-      return res.status(400).json({ error: 'Төлсөн захиалгыг цуцлах боломжгүй' });
+    // Paid bookings: only admin may cancel (support/refund path).
+    if (booking.paid && !isAdmin) {
+      return res.status(400).json({
+        error: 'Төлсөн захиалгыг цуцлах боломжгүй. Дэмжлэгтэй холбогдоно уу',
+      });
     }
 
     booking.status = 'cancelled';
     await booking.save();
+
+    // Free any open QPay invoice for unpaid cancels.
+    if (!booking.paid) {
+      const openPay = await Payment.findOne({
+        bookingId: booking._id,
+        paid: false,
+        qpayInvoiceId: { $exists: true, $ne: null },
+      });
+      if (openPay?.qpayInvoiceId) {
+        await cancelQPayInvoice(openPay.qpayInvoiceId);
+      }
+    }
 
     const notifyUserId = isMonkOwner ? booking.clientId : monk?.userId;
     if (notifyUserId) {
@@ -956,6 +1215,37 @@ function fakeQrBase64(amount) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="#fff" width="200" height="200"/><text x="100" y="100" text-anchor="middle" font-size="14">QPay ₮${amount}</text></svg>`;
   return Buffer.from(svg).toString('base64');
 }
+
+app.get('/api/qpay/logo', async (req, res) => {
+  try {
+    const raw = String(req.query.u || '');
+    if (!raw) return res.status(400).json({ error: 'missing url' });
+    const url = new URL(raw);
+    const host = url.hostname.toLowerCase();
+    const allowed =
+      host === 'qpay.mn' ||
+      host.endsWith('.qpay.mn') ||
+      host === 's3.qpay.mn';
+    if (!allowed) {
+      return res.status(400).json({ error: 'invalid logo host' });
+    }
+    const upstream = await fetch(url.toString(), {
+      redirect: 'follow',
+      headers: { Accept: 'image/*,*/*' },
+    });
+    if (!upstream.ok) {
+      return res.status(upstream.status).end();
+    }
+    const contentType = upstream.headers.get('content-type') || 'image/png';
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.send(buf);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
   try {
@@ -1029,7 +1319,21 @@ app.get('/api/payment/booking/:bookingId', authRequired, async (req, res) => {
   try {
     const access = await bookingAccess(req.params.bookingId, req.user);
     if (access.error) return res.status(access.status).json({ error: access.error });
-    const { booking, monk, isClient, isAdmin } = access;
+    let { booking, monk, isClient, isAdmin } = access;
+
+    // Heal legacy rows: paid but still pending/approved → confirmed.
+    if (
+      booking.paid &&
+      booking.status !== 'confirmed' &&
+      booking.status !== 'completed' &&
+      booking.status !== 'cancelled'
+    ) {
+      await Booking.updateOne(
+        { _id: booking._id },
+        { $set: { status: 'confirmed', approvedAt: new Date() } },
+      );
+      booking = { ...booking, status: 'confirmed' };
+    }
 
     const client = await User.findById(booking.clientId).lean();
     const canPay =
@@ -1188,10 +1492,28 @@ app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => 
 
     await syncQPayPaymentStatus(payment);
     const fresh = await Payment.findOne({ invoiceId: req.params.invoiceId });
+    let bookingStatus = null;
+    let canJoinCall = false;
+    if (fresh?.paid && fresh.bookingId) {
+      const booking = await Booking.findById(fresh.bookingId).lean();
+      bookingStatus = booking?.status || null;
+      if (booking?.paid && booking.status === 'confirmed') {
+        const dateKey = String(booking.date || '').slice(0, 10);
+        const start = slotToMinutes(booking.slot || '00:00');
+        const nowMin = currentTimeMinutes();
+        canJoinCall =
+          dateKey === todayDateStr() &&
+          nowMin >= start &&
+          nowMin < start + 30;
+      }
+    }
     res.json({
       paid: fresh?.paid === true,
       invoiceId: fresh?.invoiceId,
       amount: fresh?.amount,
+      bookingId: fresh?.bookingId?.toString?.() || fresh?.bookingId || null,
+      bookingStatus,
+      canJoinCall,
     });
   } catch (e) {
     res.status(500).json({ error: e.message, paid: false });
@@ -1278,28 +1600,19 @@ app.get('/api/livekit', authRequired, async (req, res) => {
       const bookingId = match[1];
       const booking = await Booking.findById(bookingId).lean();
       if (booking) {
+        // Only ring the client when the monk joins — avoids double-ring
+        // when both sides auto-join at call_time.
         const isCallerMonk = req.user.role === 'monk';
-        let recipientUser;
-        let monkDoc;
-
         if (isCallerMonk) {
-          recipientUser = await User.findById(booking.clientId);
-        } else {
-          monkDoc = await Monk.findById(booking.monkId);
-          recipientUser = monkDoc?.userId ? await User.findById(monkDoc.userId) : null;
-        }
-
-        if (recipientUser) {
-          const recipientRole = isCallerMonk ? 'client' : 'monk';
-          const callerImage = isCallerMonk
-              ? (req.user.avatar || '')
-              : (monkDoc?.image ?? '');
-          await notifyIncomingCall(recipientUser, {
-            callerName: req.user.name,
-            callerImage,
-            bookingId,
-            recipientRole,
-          });
+          const recipientUser = await User.findById(booking.clientId);
+          if (recipientUser) {
+            await notifyIncomingCall(recipientUser, {
+              callerName: req.user.name,
+              callerImage: req.user.avatar || '',
+              bookingId,
+              recipientRole: 'client',
+            });
+          }
         }
       }
     }
@@ -1357,10 +1670,14 @@ app.post('/api/subscription/subscribe', authRequired, async (req, res) => {
 });
 
 app.post('/api/subscription/activate', authRequired, async (req, res) => {
-  const { tier, invoiceId } = req.body;
+  const { invoiceId } = req.body;
   const payment = await Payment.findOne({ invoiceId, userId: req.user._id });
   if (!payment?.paid) {
     return res.status(400).json({ error: 'Payment not completed' });
+  }
+  const tier = payment.tier;
+  if (!tier || !TIER_PRICES[tier]) {
+    return res.status(400).json({ error: 'Invalid subscription payment' });
   }
   const expires = new Date();
   expires.setMonth(expires.getMonth() + (payment.months || 1));
@@ -1575,14 +1892,19 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
   }
   const monkId = req.user.monkProfileId;
   const monk = await Monk.findById(monkId);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayDateStr();
   const month = today.slice(0, 7);
 
   const allBookings = await Booking.find({ monkId, status: { $ne: 'cancelled' } });
   const monthBookings = allBookings.filter((b) => b.date?.startsWith(month));
   const monthlyEarnings = monthBookings
     .filter((b) => b.paid)
-    .reduce((s, b) => s + Math.round((b.amount || 0) * 0.8), 0);
+    .reduce((s, b) => s + monkEarnsFromAmount(b.amount), 0);
+
+  const todayViews = await ProfileView.countDocuments({
+    monkId,
+    day: today,
+  });
 
   const todayBookings = await Booking.find({ monkId, date: today });
   const clients = await User.find({ _id: { $in: todayBookings.map((b) => b.clientId) } });
@@ -1591,7 +1913,9 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
   res.json({
     monkName: monk?.name?.get?.('mn') || req.user.name,
     monthlyEarnings,
-    earningsChangePercent: 12.5,
+    earningsChangePercent: 0,
+    monkSharePercent: Math.round(MONK_SHARE_RATE * 100),
+    todayProfileViews: todayViews,
     totalBookings: allBookings.length,
     weeklyBookings: allBookings.filter((b) => {
       const d = new Date(b.createdAt);
@@ -1738,13 +2062,14 @@ app.get('/api/monk/salary', authRequired, async (req, res) => {
   const month = req.query.month || new Date().toISOString().slice(0, 7);
   const bookings = await Booking.find({
     monkId: req.user.monkProfileId,
-    status: 'completed',
+    paid: true,
+    status: { $in: ['completed', 'confirmed'] },
     date: { $regex: `^${month}` },
   });
   const gross = bookings.reduce((s, b) => s + (b.amount || 0), 0);
-  const platformFee = Math.round(gross * 0.2);
-  const qpayFee = Math.round(gross * 0.015);
-  const net = gross - platformFee - qpayFee;
+  const platformFee = platformShareFromAmount(gross);
+  const qpayFee = qpayFeeFromAmount(gross);
+  const net = monkEarnsFromAmount(gross);
   const clients = await User.find({ _id: { $in: bookings.map((b) => b.clientId) } });
   const clientMap = Object.fromEntries(clients.map((c) => [c._id.toString(), c.name]));
 
@@ -1755,13 +2080,16 @@ app.get('/api/monk/salary', authRequired, async (req, res) => {
     platformFee,
     qpayFee,
     netEarnings: net,
+    monkSharePercent: Math.round(MONK_SHARE_RATE * 100),
+    platformSharePercent: Math.round(PLATFORM_SHARE_RATE * 100),
+    note: 'Цалин = захиалгын дүнгээс 70%. QPay шимтгэлийг платформ хариуцна.',
     transactions: bookings.map((b) => ({
       bookingId: b._id.toString(),
       clientName: clientMap[b.clientId?.toString()] || '',
       serviceName: b.serviceName,
       date: b.date,
       amount: b.amount,
-      monkEarns: Math.round((b.amount || 0) * 0.8),
+      monkEarns: monkEarnsFromAmount(b.amount),
     })),
   });
 });
@@ -1900,6 +2228,10 @@ app.get('/api/admin/dashboard', authRequired, async (req, res) => {
   const pending = monks.filter((m) => m.status === 'pending');
 
   const now = new Date();
+  const today = todayDateStr();
+  const thisMonth = today.slice(0, 7);
+  const { start: todayStart, end: todayEnd } = dayBoundsUb(today);
+
   const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const newUsersThisWeek = users.filter(
     (u) => u.createdAt && new Date(u.createdAt) >= weekAgo,
@@ -1932,22 +2264,104 @@ app.get('/api/admin/dashboard', authRequired, async (req, res) => {
     monthlyRevenue.push({ label: `${d.getMonth() + 1}-р`, amount });
   }
 
+  const todayPaidBookings = await Booking.find({
+    paid: true,
+    updatedAt: { $gte: todayStart, $lte: todayEnd },
+  }).lean();
+  const todayRevenue = todayPaidBookings.reduce((s, b) => s + (b.amount || 0), 0);
+  const todayMonkPayout = monkEarnsFromAmount(todayRevenue);
+  const todayPlatformShare = platformShareFromAmount(todayRevenue);
+  const todayQpay = qpayFeeFromAmount(todayRevenue);
+  const todayPlatformNet = todayPlatformShare - todayQpay;
+
+  const monthPaidBookings = allBookings.filter((b) => b.date?.startsWith(thisMonth));
+  const monthRevenue = monthPaidBookings.reduce((s, b) => s + (b.amount || 0), 0);
+
+  const todayViews = await ProfileView.find({ day: today }).lean();
+  const uniqueViewers = new Set(todayViews.map((v) => v.viewerKey)).size;
+  const viewsByMonk = {};
+  for (const v of todayViews) {
+    const mid = v.monkId?.toString();
+    if (!mid) continue;
+    viewsByMonk[mid] = (viewsByMonk[mid] || 0) + 1;
+  }
+
+  const todayClientIds = [
+    ...new Set(todayPaidBookings.map((b) => b.clientId?.toString()).filter(Boolean)),
+  ];
+  const todayMonkIds = [
+    ...new Set([
+      ...todayPaidBookings.map((b) => b.monkId?.toString()).filter(Boolean),
+      ...Object.keys(viewsByMonk),
+    ]),
+  ];
+
   const recentRaw = [...allBookings]
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-    .slice(0, 5);
-  const clientIds = [...new Set(recentRaw.map((b) => b.clientId?.toString()).filter(Boolean))];
-  const monkIds = [...new Set(recentRaw.map((b) => b.monkId?.toString()).filter(Boolean))];
-  const [clients, monksForRecent] = await Promise.all([
+    .slice(0, 8);
+  const clientIds = [
+    ...new Set([
+      ...recentRaw.map((b) => b.clientId?.toString()).filter(Boolean),
+      ...todayClientIds,
+    ]),
+  ];
+  const monkIds = [
+    ...new Set([
+      ...recentRaw.map((b) => b.monkId?.toString()).filter(Boolean),
+      ...todayMonkIds,
+    ]),
+  ];
+  const [clients, monksForMaps] = await Promise.all([
     User.find({ _id: { $in: clientIds } }, 'name').lean(),
-    Monk.find({ _id: { $in: monkIds } }, 'name').lean(),
+    Monk.find({ _id: { $in: monkIds } }, 'name image').lean(),
   ]);
   const clientMap = Object.fromEntries(clients.map((u) => [u._id.toString(), u.name]));
   const monkMap = Object.fromEntries(
-    monksForRecent.map((m) => [m._id.toString(), m.name?.mn ?? m.name?.en ?? '']),
+    monksForMaps.map((m) => [m._id.toString(), m.name?.mn ?? m.name?.en ?? '']),
   );
+  const monkImageMap = Object.fromEntries(
+    monksForMaps.map((m) => [m._id.toString(), m.image ?? '']),
+  );
+
+  const todayBookingsDetail = todayPaidBookings
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
+    .map((b) => ({
+      id: b._id.toString(),
+      clientName: clientMap[b.clientId?.toString()] ?? '',
+      monkName: monkMap[b.monkId?.toString()] ?? '',
+      serviceName: b.serviceName ?? '',
+      amount: b.amount || 0,
+      monkEarns: monkEarnsFromAmount(b.amount),
+      platformShare: platformShareFromAmount(b.amount),
+      date: b.date,
+      slot: b.slot,
+      status: b.status,
+    }));
+
+  const todayViewsByMonk = Object.entries(viewsByMonk)
+    .map(([monkId, views]) => ({
+      monkId,
+      monkName: monkMap[monkId] ?? '',
+      monkImage: monkImageMap[monkId] ?? '',
+      views,
+    }))
+    .sort((a, b) => b.views - a.views);
 
   res.json({
     totalRevenue,
+    monthRevenue,
+    todayRevenue,
+    todayBookingsCount: todayPaidBookings.length,
+    todayMonkPayout,
+    todayPlatformShare,
+    todayQpayFees: todayQpay,
+    todayPlatformNet,
+    todayProfileViews: todayViews.length,
+    todayUniqueViewers: uniqueViewers,
+    monkSharePercent: Math.round(MONK_SHARE_RATE * 100),
+    platformSharePercent: Math.round(PLATFORM_SHARE_RATE * 100),
+    todayBookingsDetail,
+    todayViewsByMonk,
     totalBookings: allBookings.length,
     bookingsGrowth,
     activeMonks: monks.filter((m) => m.status === 'active').length,
@@ -1999,6 +2413,7 @@ app.post('/api/admin/monks', authRequired, async (req, res) => {
 
     const {
       email,
+      phone,
       password,
       name,
       temple,
@@ -2011,12 +2426,30 @@ app.post('/api/admin/monks', authRequired, async (req, res) => {
       image,
     } = req.body;
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required' });
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ error: 'Зөв утасны дугаар оруулна уу' });
+    }
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: 'Нууц үг хамгийн багадаа 8 тэмдэгт' });
+    }
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Нэр заавал' });
     }
 
-    const exists = await User.findOne({ email: email.toLowerCase() });
-    if (exists) return res.status(400).json({ error: 'Email already registered' });
+    const phoneExists = await User.findOne({ phone: normalizedPhone });
+    if (phoneExists) {
+      return res.status(400).json({ error: 'Энэ утасны дугаар аль хэдийн бүртгэлтэй' });
+    }
+
+    let normalizedEmail = '';
+    if (email && String(email).trim()) {
+      normalizedEmail = String(email).trim().toLowerCase();
+      const emailExists = await User.findOne({ email: normalizedEmail });
+      if (emailExists) {
+        return res.status(400).json({ error: 'Энэ и-мэйл аль хэдийн бүртгэлтэй' });
+      }
+    }
 
     const monkServices = (services?.length ? services : DEFAULT_SERVICES).map((s) => ({
       name: typeof s.name === 'object' ? s.name.mn || s.name.en : s.name,
@@ -2050,9 +2483,10 @@ app.post('/api/admin/monks', authRequired, async (req, res) => {
     });
 
     const user = await User.create({
-      email: email.toLowerCase(),
+      ...(normalizedEmail ? { email: normalizedEmail } : {}),
+      phone: normalizedPhone,
       password: await bcrypt.hash(password, 10),
-      name,
+      name: String(name).trim(),
       role: 'monk',
       monkProfileId: monk._id,
     });
@@ -2073,7 +2507,7 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-    const { name, temple, bio, categories, services, schedule, status, title, image, isSpecial, email } =
+    const { name, temple, bio, categories, services, schedule, status, title, image, isSpecial, email, phone, password } =
       req.body;
     const updates = {};
 
@@ -2107,24 +2541,86 @@ app.put('/api/admin/monks/:id', authRequired, async (req, res) => {
     const monk = await Monk.findByIdAndUpdate(req.params.id, updates, { new: true });
     if (!monk) return res.status(404).json({ error: 'Monk not found' });
 
-    if (name && typeof name === 'string') {
-      const linkedUser = await User.findOne({ monkProfileId: monk._id });
-      if (linkedUser) {
-        linkedUser.name = name;
-        await linkedUser.save();
+    const hasPhoneUpdate = phone != null && typeof phone === 'string' && String(phone).trim();
+    const hasPasswordUpdate =
+      password != null && typeof password === 'string' && String(password).trim().length > 0;
+
+    if (hasPhoneUpdate || hasPasswordUpdate || (name && typeof name === 'string')) {
+      let linkedUser = await User.findOne({ monkProfileId: monk._id });
+
+      let normalizedPhone = linkedUser?.phone || '';
+      if (hasPhoneUpdate) {
+        normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
+          return res.status(400).json({ error: 'Зөв утасны дугаар оруулна уу' });
+        }
+        const taken = await User.findOne({
+          phone: normalizedPhone,
+          ...(linkedUser ? { _id: { $ne: linkedUser._id } } : {}),
+        });
+        if (taken) {
+          return res.status(400).json({ error: 'Энэ утасны дугаар аль хэдийн бүртгэлтэй байна' });
+        }
+      }
+
+      if (hasPasswordUpdate && String(password).length < 8) {
+        return res.status(400).json({ error: 'Нууц үг хамгийн багадаа 8 тэмдэгт' });
+      }
+
+      if (!linkedUser) {
+        if (!hasPhoneUpdate || !hasPasswordUpdate) {
+          return res.status(400).json({
+            error: 'Нэвтрэх бүртгэл байхгүй. Утас болон нууц үг хоёуланг оруулна уу',
+          });
+        }
+        linkedUser = await User.create({
+          phone: normalizedPhone,
+          password: await bcrypt.hash(String(password), 10),
+          name: (typeof name === 'string' && name.trim()) || monk.name?.mn || monk.name?.en || 'Лам',
+          role: 'monk',
+          monkProfileId: monk._id,
+        });
+        monk.userId = linkedUser._id;
+        await monk.save();
+      } else {
+        const setOps = {};
+        const unsetOps = {};
+
+        if (name && typeof name === 'string') {
+          setOps.name = name.trim();
+        }
+        if (hasPhoneUpdate) {
+          setOps.phone = normalizedPhone;
+          if (
+            linkedUser.email &&
+            !looksLikeEmail(linkedUser.email) &&
+            normalizePhone(linkedUser.email) === normalizedPhone
+          ) {
+            unsetOps.email = 1;
+          }
+        }
+        if (hasPasswordUpdate) {
+          setOps.password = await bcrypt.hash(String(password), 10);
+        }
+
+        const updateDoc = {};
+        if (Object.keys(setOps).length) updateDoc.$set = setOps;
+        if (Object.keys(unsetOps).length) updateDoc.$unset = unsetOps;
+        if (Object.keys(updateDoc).length) {
+          await User.updateOne({ _id: linkedUser._id }, updateDoc);
+        }
       }
     }
 
     if (email != null && typeof email === 'string') {
       const normalized = email.trim().toLowerCase();
-      if (!normalized) {
-        return res.status(400).json({ error: 'И-мэйл хоосон байж болохгүй' });
-      }
       const linkedUser = await User.findOne({ monkProfileId: monk._id });
       if (!linkedUser) {
         return res.status(400).json({ error: 'Ламын нэвтрэх бүртгэл олдсонгүй' });
       }
-      if (normalized !== linkedUser.email) {
+      if (!normalized) {
+        await User.updateOne({ _id: linkedUser._id }, { $unset: { email: 1 } });
+      } else if (normalized !== linkedUser.email) {
         const taken = await User.findOne({ email: normalized, _id: { $ne: linkedUser._id } });
         if (taken) {
           return res.status(400).json({ error: 'Энэ и-мэйл аль хэдийн бүртгэлтэй байна' });
@@ -2150,6 +2646,12 @@ app.get('/api/admin/monks/:id', authRequired, async (req, res) => {
     const user = await User.findOne({ monkProfileId: monk._id });
     const o = mapName(monk);
 
+    let loginPhone = user?.phone || '';
+    if (!loginPhone && user?.email && !looksLikeEmail(user.email)) {
+      const fromEmail = normalizePhone(user.email);
+      if (isValidPhone(fromEmail)) loginPhone = fromEmail;
+    }
+
     res.json({
       ...monkJson(monk),
       services: (monk.services || []).map((s, i) => ({
@@ -2162,6 +2664,7 @@ app.get('/api/admin/monks/:id', authRequired, async (req, res) => {
       })),
       schedule: monk.schedule || [],
       email: user?.email || '',
+      phone: loginPhone,
       userId: user?._id?.toString() || '',
     });
   } catch (e) {
@@ -2482,16 +2985,18 @@ app.get('/api/admin/finance', authRequired, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
 
-  const month = req.query.month || new Date().toISOString().slice(0, 7);
+    const month = req.query.month || todayDateStr().slice(0, 7);
     const bookings = await Booking.find({
       paid: true,
       status: { $in: ['completed', 'confirmed'] },
       date: { $regex: `^${month}` },
     }).lean();
 
-  const totalRevenue = bookings.reduce((s, b) => s + (b.amount || 0), 0);
-  const platformFees = Math.round(totalRevenue * 0.2);
-  const qpayFees = Math.round(totalRevenue * 0.015);
+    const totalRevenue = bookings.reduce((s, b) => s + (b.amount || 0), 0);
+    const platformFees = platformShareFromAmount(totalRevenue);
+    const monkPayoutTotal = monkEarnsFromAmount(totalRevenue);
+    const qpayFees = qpayFeeFromAmount(totalRevenue);
+    const netProfit = platformFees - qpayFees;
 
     const byMonk = {};
     for (const b of bookings) {
@@ -2514,29 +3019,34 @@ app.get('/api/admin/finance', authRequired, async (req, res) => {
       ]),
     );
 
-    const monkSalaries = monkIds.map((mid) => {
-      const d = byMonk[mid];
-      const gross = d.gross;
-      const fee = Math.round(gross * 0.2);
-      const qpay = Math.round(gross * 0.015);
-      return {
-        monkId: mid,
-        monkName: monkInfoMap[mid]?.name ?? '',
-        monkImage: monkInfoMap[mid]?.image ?? '',
-        bookingCount: d.bookingCount,
-        grossAmount: gross,
-        platformFee: fee,
-        qpayFee: qpay,
-        netEarnings: gross - fee - qpay,
-      };
-    });
+    const monkSalaries = monkIds
+      .map((mid) => {
+        const d = byMonk[mid];
+        const gross = d.gross;
+        const fee = platformShareFromAmount(gross);
+        const salary = monkEarnsFromAmount(gross);
+        return {
+          monkId: mid,
+          monkName: monkInfoMap[mid]?.name ?? '',
+          monkImage: monkInfoMap[mid]?.image ?? '',
+          bookingCount: d.bookingCount,
+          grossAmount: gross,
+          platformFee: fee,
+          qpayFee: 0,
+          netEarnings: salary,
+        };
+      })
+      .sort((a, b) => b.netEarnings - a.netEarnings);
 
-  res.json({
-    month,
-    totalRevenue,
-    platformFees,
-    qpayFees,
-    netProfit: totalRevenue - platformFees - qpayFees,
+    res.json({
+      month,
+      totalRevenue,
+      platformFees,
+      monkPayoutTotal,
+      qpayFees,
+      netProfit,
+      monkSharePercent: Math.round(MONK_SHARE_RATE * 100),
+      platformSharePercent: Math.round(PLATFORM_SHARE_RATE * 100),
       monkSalaries,
     });
   } catch (e) {
@@ -3167,6 +3677,98 @@ async function processCallTimeReminders() {
   }
 }
 
+async function processInventoryExpiry() {
+  try {
+    const bookingCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
+    const staleBookings = await Booking.find({
+      paid: false,
+      status: { $in: ['pending', 'approved'] },
+      createdAt: { $lt: bookingCutoff },
+    }).limit(100);
+
+    for (const booking of staleBookings) {
+      booking.status = 'cancelled';
+      await booking.save();
+      const openPay = await Payment.findOne({
+        bookingId: booking._id,
+        paid: false,
+        qpayInvoiceId: { $exists: true, $ne: null },
+      });
+      if (openPay?.qpayInvoiceId) {
+        await cancelQPayInvoice(openPay.qpayInvoiceId);
+      }
+    }
+
+    const orderCutoff = new Date(Date.now() - UNPAID_ORDER_TTL_MS);
+    const staleOrders = await Order.find({
+      paid: { $ne: true },
+      status: { $nin: ['cancelled', 'paid', 'shipped', 'completed'] },
+      createdAt: { $lt: orderCutoff },
+    }).limit(100);
+
+    for (const order of staleOrders) {
+      order.status = 'cancelled';
+      await order.save();
+      const openPay = await Payment.findOne({
+        orderId: order._id,
+        paid: false,
+        qpayInvoiceId: { $exists: true, $ne: null },
+      });
+      if (openPay?.qpayInvoiceId) {
+        await cancelQPayInvoice(openPay.qpayInvoiceId);
+      }
+    }
+
+    if (staleBookings.length || staleOrders.length) {
+      console.log(
+        `TTL cleanup: bookings=${staleBookings.length} orders=${staleOrders.length}`,
+      );
+    }
+  } catch (e) {
+    console.warn('Inventory TTL cleanup алдаа:', e.message);
+  }
+}
+
+/** Resolve duplicate active slots before unique index (one-time / startup). */
+async function reconcileDuplicateSlots() {
+  try {
+    const dupes = await Booking.aggregate([
+      { $match: { status: { $ne: 'cancelled' } } },
+      {
+        $group: {
+          _id: { monkId: '$monkId', date: '$date', slot: '$slot' },
+          ids: { $push: '$_id' },
+          count: { $sum: 1 },
+        },
+      },
+      { $match: { count: { $gt: 1 } } },
+    ]);
+
+    for (const d of dupes) {
+      const docs = await Booking.find({ _id: { $in: d.ids } }).sort({
+        paid: -1,
+        createdAt: 1,
+      });
+      // Keep first paid (or earliest); cancel the rest.
+      let kept = false;
+      for (const b of docs) {
+        if (!kept && (b.paid || b.status === 'confirmed')) {
+          kept = true;
+          continue;
+        }
+        if (!kept) {
+          kept = true;
+          continue;
+        }
+        b.status = 'cancelled';
+        await b.save();
+      }
+    }
+  } catch (e) {
+    console.warn('Duplicate slot reconcile алдаа:', e.message);
+  }
+}
+
 async function start() {
   await connectDb();
   // Sparse unique indexes: remove empty phone/email so duplicates of '' don't collide
@@ -3179,8 +3781,16 @@ async function start() {
     { $unset: { email: 1 } },
   );
   await ensureMonkCategories();
+  await reconcileDuplicateSlots();
+  try {
+    await Booking.syncIndexes();
+  } catch (e) {
+    console.warn('Booking index sync:', e.message);
+  }
   setInterval(processCallTimeReminders, 60_000);
+  setInterval(processInventoryExpiry, 60_000);
   processCallTimeReminders();
+  processInventoryExpiry();
   app.listen(PORT, () => {
     console.log(`Sacred API running on http://localhost:${PORT}/api`);
   });

@@ -36,30 +36,37 @@ class EmptyState extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.orange.withOpacity(0.12),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
+                    color: AppColors.orange.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
               child: Icon(icon, size: 36, color: AppColors.orange),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
             Text(
               title,
-              style: AppText.h3.copyWith(fontSize: 18, letterSpacing: -0.3),
+              style: AppText.h3.copyWith(
+                fontSize: 17,
+                letterSpacing: -0.3,
+                color: AppColors.inkDeep,
+              ),
               textAlign: TextAlign.center,
             ),
             if (message != null) ...[
               const SizedBox(height: 8),
               Text(
                 message!,
-                style: AppText.bodySmall.copyWith(height: 1.5),
+                style: AppText.bodySmall.copyWith(
+                  height: 1.45,
+                  color: AppColors.textSec,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
               SizedBox(
                 width: 200,
                 child: SacredButton(

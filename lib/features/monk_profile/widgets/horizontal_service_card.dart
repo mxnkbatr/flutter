@@ -39,7 +39,7 @@ class HorizontalServiceCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Text(
                 categoryEmoji(service.category),
-                style: const TextStyle(fontSize: 22),
+                style: AppText.h2.copyWith(fontSize: 22),
               ),
             ),
             const SizedBox(height: 12),

@@ -79,7 +79,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           NativeLargeTitleHeader(
-            eyebrow: 'Таны',
             title: 'Мэдэгдэл',
             trailing: Row(
               mainAxisSize: MainAxisSize.min,

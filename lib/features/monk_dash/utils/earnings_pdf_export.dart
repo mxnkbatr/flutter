@@ -19,12 +19,14 @@ Future<void> exportEarningsPdf(MonkEarningsData earnings) async {
         pw.SizedBox(height: 16),
         pw.Text('Дууссан захиалга: ${earnings.completedCount}'),
         pw.Text('Нийт дүн: ₮${fmtCurrency(earnings.grossAmount)}'),
-        pw.Text('Платформ (20%): -₮${fmtCurrency(earnings.platformFee)}'),
-        pw.Text('QPay (1.5%): -₮${fmtCurrency(earnings.qpayFee)}'),
         pw.Text(
-          'Цэвэр орлого: ₮${fmtCurrency(earnings.netEarnings)}',
+          'Миний цалин (${earnings.monkSharePercent}%): ₮${fmtCurrency(earnings.netEarnings)}',
           style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
         ),
+        pw.Text(
+          'Платформ (${earnings.platformSharePercent}%): -₮${fmtCurrency(earnings.platformFee)}',
+        ),
+        if (earnings.note.isNotEmpty) pw.Text(earnings.note),
         pw.SizedBox(height: 20),
         pw.Text('Захиалгууд', style: pw.TextStyle(fontSize: 14)),
         pw.SizedBox(height: 8),

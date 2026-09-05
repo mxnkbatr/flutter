@@ -91,7 +91,13 @@ class _AdminCategoriesScreenState extends ConsumerState<AdminCategoriesScreen> {
 
     return AdminPageScaffold(
       title: 'Ламын ангилал',
-      onBack: () => context.pop(),
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/admin/dashboard');
+        }
+      },
       body: categoriesAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.orange),
@@ -149,7 +155,7 @@ class _AdminCategoriesScreenState extends ConsumerState<AdminCategoriesScreen> {
               Text('Одоогийн ангиллууд', style: AppText.h3),
               const SizedBox(height: 12),
               if (categories.isEmpty)
-                const AdminSurfaceCard(
+                AdminSurfaceCard(
                   child: Text('Ангилал байхгүй', style: AppText.bodySmall),
                 )
               else

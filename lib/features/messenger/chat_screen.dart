@@ -80,6 +80,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     super.dispose();
   }
 
+  void _leaveChat(BuildContext context) {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/messenger');
+    }
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollCtrl.hasClients) {
@@ -131,18 +139,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           initial: '?',
           name: widget.title,
           role: _roleLabel(),
-          onBack: () => context.pop(),
+          onBack: () => _leaveChat(context),
         ),
         body: ErrorState(
           error: Exception('Чат олдсонгүй'),
           fallback: 'Чат олдсонгүй.',
-          onRetry: () => context.pop(),
+          onRetry: () => _leaveChat(context),
         ),
       );
     }
 
     final messagesAsync = ref.watch(messagesProvider(widget.conversationId));
-    final bottom = MediaQuery.of(context).padding.bottom;
+    final mq = MediaQuery.of(context);
+    final bottomPad = mq.padding.bottom + mq.viewInsets.bottom;
 
     return PremiumLayeredScaffold(
       expandBody: true,
@@ -150,7 +159,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         initial: _initial,
         name: widget.title,
         role: _roleLabel(),
-        onBack: () => context.pop(),
+        onBack: () => _leaveChat(context),
       ),
       body: Column(
         children: [
@@ -186,7 +195,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16, 8, 16, bottom + 8),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPad + 8),
             child: Container(
               padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
               decoration: MinimalStyle.card(radius: 999),
@@ -198,6 +207,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       minLines: 1,
                       maxLines: 4,
                       style: AppText.body.copyWith(fontSize: 15),
+                      scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
                       decoration: InputDecoration(
                         hintText: 'Мессеж бичих...',
                         hintStyle: AppText.bodySmall.copyWith(

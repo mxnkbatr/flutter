@@ -46,11 +46,14 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
 
     ref.read(bookingSubmittingProvider.notifier).state = true;
     try {
-      final bookingId =
+      final result =
           await ref.read(bookingDraftProvider.notifier).createBooking();
 
       if (!context.mounted) return;
-      context.go('/payment/$bookingId');
+      context.go(
+        '/payment/${result.bookingId}',
+        extra: result.qpay,
+      );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -73,7 +76,6 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
     final tier = ref.watch(userTierProvider);
     final discount = tier.discountPercent;
     final discountedPrice = draft.discountedServicePrice(discount);
-    final platformFee = draft.platformFeeFor(discount);
     final total = draft.totalAmountFor(discount);
 
     return monkAsync.when(
@@ -165,12 +167,6 @@ class _ConfirmationStepState extends ConsumerState<ConfirmationStep> {
                         valueStyle: AppText.bodySmall,
                       ),
                     ],
-                    DetailRow(
-                      label: 'Платформын хураамж (10%)',
-                      value: '₮${_fmt(platformFee)}',
-                      labelStyle: AppText.bodySmall,
-                      valueStyle: AppText.bodySmall,
-                    ),
                     DetailRow(
                       label: 'Нийт дүн',
                       value: '₮${_fmt(total)}',

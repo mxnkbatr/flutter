@@ -57,12 +57,11 @@
 #    `shorebird.yaml` үүснэ — **commit хий** (`.gitignore`-д оруулахгүй).
 # 4. Shorebird Console → Account → API Keys → Create → `SHOREBIRD_TOKEN`
 #    Codemagic → Environment variables → group `code-signing` → Secret болгож нэм.
-# 5. Baseline release (store-оор нэг удаа):
-#    ```bash
-#    shorebird release android
-#    shorebird release ios
-#    ```
-#    Эдгээрийг App Store / Play Store-д upload хийсний дараа л patch хийх боломжтой.
+# 5. Baseline release:
+#    - Codemagic `ios-app-store` / `android-release` одоо `shorebird release` ашиглана
+#      (main push → store upload + Shorebird baseline).
+#    - Local: `shorebird release android` / `shorebird release ios`
+#    Store-д энэ binary суусан хэрэглэгчид л patch авна.
 #
 # ### Patch өгөх
 #

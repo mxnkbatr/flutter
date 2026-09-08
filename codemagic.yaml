@@ -22,8 +22,8 @@
 # CM_KEYSTORE (Secret), CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD
 #
 # Release paths:
-#   Native / store → ios-app-store, android-release (auto on main push)
-#   Dart-only code push → shorebird-patch-* (manual start only; see docs/PRODUCTION_DEPLOY.md)
+#   Native / store (+ Shorebird baseline) → ios-app-store, android-release (auto on main)
+#   Dart-only code push → shorebird-patch-* (manual; needs a prior Shorebird release)
 
 definitions:
   env_versions: &env_versions
@@ -191,21 +191,21 @@ definitions:
       fi
       echo "Release config OK (Flutter 3.44+ may omit FLUTTER_BUILD_MODE in Generated.xcconfig)"
       grep -E 'FLUTTER_BUILD_MODE|TRACK_WIDGET_CREATION|TREE_SHAKE_ICONS' ios/Flutter/Generated.xcconfig ios/Flutter/Release.xcconfig || true
-      flutter build ios --release --no-codesign \
-        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
-        --dart-define=PREFER_DEV_AUTH=false
       # use-profiles writes $HOME/export_options.plist with teamID + provisioningProfiles.
       # Do not overwrite it with ios/export_options.plist (that breaks push export).
       xcode-project use-profiles --project ios/Runner.xcodeproj
-      xcode-project build-ipa \
-        --workspace "$ROOT/ios/Runner.xcworkspace" \
-        --scheme "${XCODE_SCHEME:-Runner}"
+      export PATH="$HOME/.shorebird/bin:$PATH"
+      shorebird release ios --no-confirm \
+        --export-options-plist="$HOME/export_options.plist" \
+        -- \
+        --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
+        --dart-define=PREFER_DEV_AUTH=false
       IPA_PATH="$(find "$ROOT/build/ios/ipa" -name '*.ipa' -print -quit)"
       if [ -z "$IPA_PATH" ]; then
         echo "ERROR: IPA not found under build/ios/ipa"
         exit 1
       fi
-      echo "Built IPA: $IPA_PATH"
+      echo "Built IPA (Shorebird release): $IPA_PATH"
       TMP_IPA="$(mktemp -d)"
       unzip -q "$IPA_PATH" -d "$TMP_IPA"
       FLUTTER_FW="$TMP_IPA/Payload/Runner.app/Frameworks/Flutter.framework/Flutter"
@@ -215,7 +215,7 @@ definitions:
         exit 1
       fi
       rm -rf "$TMP_IPA"
-      echo "OK: IPA verified as Flutter RELEASE build"
+      echo "OK: IPA verified as Flutter RELEASE build (Shorebird baseline registered)"
 
   android_keystore_setup: &android_keystore_setup
     name: Android keystore (release signing)
@@ -264,6 +264,7 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
+      - *shorebird_setup
       - *ios_signing
       - *ios_build
     artifacts:
@@ -296,10 +297,15 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
+      - *shorebird_setup
       - *android_keystore_setup
-      - name: Build Android App Bundle
+      - name: Shorebird release (Android AAB)
         script: |
-          flutter build appbundle --release --android-skip-build-dependency-validation \
+          set -euo pipefail
+          export PATH="$HOME/.shorebird/bin:$PATH"
+          shorebird release android --no-confirm \
+            -- \
+            --android-skip-build-dependency-validation \
             --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
             --dart-define=PREFER_DEV_AUTH=false
     artifacts:

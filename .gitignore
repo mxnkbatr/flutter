@@ -34,6 +34,9 @@ migrate_working_dir/
 # Symbolication related
 app.*.symbols
 
+# Shorebird local cache (shorebird.yaml MUST stay committed)
+.shorebird/
+
 # Obfuscation related
 app.*.map.json
 

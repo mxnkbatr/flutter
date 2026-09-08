@@ -6,6 +6,8 @@
 #   2) APP_STORE_CONNECT_PRIVATE_KEY (Secret) — App Store Connect .p8 файлын бүтэн текст
 #   3) APP_STORE_CONNECT_KEY_IDENTIFIER — Key ID
 #   4) APP_STORE_CONNECT_ISSUER_ID — Issuer ID
+#   5) SHOREBIRD_TOKEN (Secret) — Shorebird Console → Account → API Keys
+#      (Dart-only patches: shorebird-patch-ios / shorebird-patch-android)
 #
 # Firebase config: repo-д commit хийгдсэн (ios/Runner/GoogleService-Info.plist,
 # android/app/google-services.json). Дахин тохируулах бол (заавал биш):
@@ -18,6 +20,10 @@
 #
 # Android release signing: docs/ANDROID_RELEASE_SIGNING.md
 # CM_KEYSTORE (Secret), CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD
+#
+# Release paths:
+#   Native / store → ios-app-store, android-release (auto on main push)
+#   Dart-only code push → shorebird-patch-* (manual start only; see docs/PRODUCTION_DEPLOY.md)
 
 definitions:
   env_versions: &env_versions
@@ -52,6 +58,25 @@ definitions:
       fi
       echo "Firebase iOS bundle: $(/usr/libexec/PlistBuddy -c 'Print :BUNDLE_ID' ios/Runner/GoogleService-Info.plist)"
       echo "Firebase iOS app id: $(/usr/libexec/PlistBuddy -c 'Print :GOOGLE_APP_ID' ios/Runner/GoogleService-Info.plist)"
+
+  shorebird_setup: &shorebird_setup
+    name: Install Shorebird CLI
+    script: |
+      set -euo pipefail
+      if [ ! -f shorebird.yaml ]; then
+        echo "ERROR: shorebird.yaml missing. Run \`shorebird init\` locally and commit it first."
+        exit 1
+      fi
+      if [ -z "${SHOREBIRD_TOKEN:-}" ]; then
+        echo "ERROR: SHOREBIRD_TOKEN missing from code-signing env group."
+        echo "Create an API key at https://console.shorebird.dev → Account → API Keys"
+        exit 1
+      fi
+      curl --proto '=https' --tlsv1.2 \
+        https://raw.githubusercontent.com/shorebirdtech/install/main/install.sh -sSf | bash
+      echo PATH="$HOME/.shorebird/bin:$PATH" >> "$CM_ENV"
+      export PATH="$HOME/.shorebird/bin:$PATH"
+      shorebird --version
 
   ios_signing: &ios_signing
     name: Fetch signing files and set up code signing
@@ -192,6 +217,29 @@ definitions:
       rm -rf "$TMP_IPA"
       echo "OK: IPA verified as Flutter RELEASE build"
 
+  android_keystore_setup: &android_keystore_setup
+    name: Android keystore (release signing)
+    script: |
+      set -euo pipefail
+      if [ -z "${CM_KEYSTORE:-}" ]; then
+        echo "ERROR: CM_KEYSTORE is missing (base64 keystore)."
+        echo "Codemagic → App → Environment variables:"
+        echo "  CM_KEYSTORE (base64 .jks)"
+        echo "  CM_KEYSTORE_PASSWORD"
+        echo "  CM_KEY_ALIAS"
+        echo "  CM_KEY_PASSWORD"
+        exit 1
+      fi
+      echo "$CM_KEYSTORE" | base64 --decode > android/app/upload-keystore.jks
+      cat > android/key.properties <<EOF
+      storePassword=${CM_KEYSTORE_PASSWORD}
+      keyPassword=${CM_KEY_PASSWORD}
+      keyAlias=${CM_KEY_ALIAS}
+      storeFile=upload-keystore.jks
+      EOF
+      echo "Keystore written: android/app/upload-keystore.jks"
+      echo "key.properties written: android/key.properties"
+
 workflows:
   ios-app-store:
     name: iOS App Store
@@ -235,6 +283,8 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       <<: *env_versions
+      groups:
+        - code-signing
       vars:
         API_BASE_URL: https://geva-backend.onrender.com/api
     triggering:
@@ -246,27 +296,7 @@ workflows:
     scripts:
       - *flutter_setup
       - *firebase_setup
-      - name: Android keystore (release signing)
-        script: |
-          set -euo pipefail
-          if [ -z "${CM_KEYSTORE:-}" ]; then
-            echo "ERROR: CM_KEYSTORE is missing (base64 keystore)."
-            echo "Codemagic → App → Environment variables:"
-            echo "  CM_KEYSTORE (base64 .jks)"
-            echo "  CM_KEYSTORE_PASSWORD"
-            echo "  CM_KEY_ALIAS"
-            echo "  CM_KEY_PASSWORD"
-            exit 1
-          fi
-          echo "$CM_KEYSTORE" | base64 --decode > android/app/upload-keystore.jks
-          cat > android/key.properties <<EOF
-          storePassword=${CM_KEYSTORE_PASSWORD}
-          keyPassword=${CM_KEY_PASSWORD}
-          keyAlias=${CM_KEY_ALIAS}
-          storeFile=upload-keystore.jks
-          EOF
-          echo "Keystore written: android/app/upload-keystore.jks"
-          echo "key.properties written: android/key.properties"
+      - *android_keystore_setup
       - name: Build Android App Bundle
         script: |
           flutter build appbundle --release --android-skip-build-dependency-validation \
@@ -275,3 +305,70 @@ workflows:
     artifacts:
       - build/app/outputs/bundle/release/app-release.aab
       - build/app/outputs/flutter-apk/app-release.apk
+
+  # Manual only — do NOT auto-trigger on main (would race with store workflows).
+  # Start from Codemagic UI after a Shorebird baseline release exists.
+  shorebird-patch-ios:
+    name: Shorebird Patch iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      <<: *env_versions
+      groups:
+        - code-signing
+      vars:
+        BUNDLE_ID: mn.gevabal.app
+        API_BASE_URL: https://geva-backend.onrender.com/api
+        XCODE_SCHEME: Runner
+    inputs:
+      release_version:
+        description: Shorebird release to patch (e.g. 2.1.7+43 or latest)
+        default: latest
+    scripts:
+      - *flutter_setup
+      - *firebase_setup
+      - *shorebird_setup
+      - *ios_signing
+      - name: Shorebird patch (iOS, Dart-only)
+        script: |
+          set -euo pipefail
+          export PATH="$HOME/.shorebird/bin:$PATH"
+          RELEASE_VERSION="${{ inputs.release_version }}"
+          echo "Patching iOS release: $RELEASE_VERSION"
+          shorebird patch ios \
+            --release-version="$RELEASE_VERSION" \
+            --export-options-plist="$HOME/export_options.plist" \
+            -- \
+            --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
+            --dart-define=PREFER_DEV_AUTH=false
+
+  shorebird-patch-android:
+    name: Shorebird Patch Android
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      <<: *env_versions
+      groups:
+        - code-signing
+      vars:
+        API_BASE_URL: https://geva-backend.onrender.com/api
+    inputs:
+      release_version:
+        description: Shorebird release to patch (e.g. 2.1.7+43 or latest)
+        default: latest
+    scripts:
+      - *flutter_setup
+      - *firebase_setup
+      - *shorebird_setup
+      - *android_keystore_setup
+      - name: Shorebird patch (Android, Dart-only)
+        script: |
+          set -euo pipefail
+          export PATH="$HOME/.shorebird/bin:$PATH"
+          RELEASE_VERSION="${{ inputs.release_version }}"
+          echo "Patching Android release: $RELEASE_VERSION"
+          shorebird patch android \
+            --release-version="$RELEASE_VERSION" \
+            -- \
+            --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
+            --dart-define=PREFER_DEV_AUTH=false

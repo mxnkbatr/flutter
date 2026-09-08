@@ -81,3 +81,4 @@ flutter:
     - assets/icons/
     - assets/images/
     - assets/lottie/
+    - shorebird.yaml

@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/session_clear.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/admin/models/admin_booking_item.dart';
 import 'package:sacred_app/features/admin/models/admin_dashboard_data.dart';
 import 'package:sacred_app/features/admin/models/admin_finance_data.dart';
@@ -178,7 +178,7 @@ final adminBookingsProvider =
 });
 
 final selectedAdminFinanceMonthProvider = StateProvider<String>((ref) {
-  return DateFormat('yyyy-MM').format(DateTime.now());
+  return AppTimezone.currentMonthKey();
 });
 
 void _invalidateBookingCaches(WidgetRef ref) {

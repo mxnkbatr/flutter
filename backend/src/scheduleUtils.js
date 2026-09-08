@@ -112,7 +112,7 @@ export function resolveDayConfig(schedule, dateStr) {
 export async function getSlotsForDate(monkId, schedule, dateStr) {
   const normalizedDate = dateStr.slice(0, 10);
   const dayConfig = resolveDayConfig(schedule, normalizedDate);
-  const slots = slotsForDayConfig(dayConfig);
+  let slots = slotsForDayConfig(dayConfig);
 
   // Soft-release abandoned unpaid holds before computing availability.
   const holdCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
@@ -133,6 +133,10 @@ export async function getSlotsForDate(monkId, schedule, dateStr) {
     status: { $nin: ['cancelled'] },
   });
   const bookedSlots = bookings.map((b) => b.slot).filter(Boolean);
+  // Keep confirmed bookings visible even if the weekday was later disabled.
+  for (const slot of bookedSlots) {
+    if (!slots.includes(slot)) slots = [...slots, slot];
+  }
   const pastSlots = getPastSlotsForDate(normalizedDate, slots);
 
   return { date: normalizedDate, slots, bookedSlots, pastSlots };
@@ -180,8 +184,12 @@ export async function getScheduleOverview(monkId, schedule, dayCount = 60) {
 
   return dates.map((dateStr) => {
     const dayConfig = resolveDayConfig(schedule, dateStr);
-    const slots = slotsForDayConfig(dayConfig);
+    let slots = slotsForDayConfig(dayConfig);
     const bookedSlots = bookedByDate.get(dateStr) || [];
+    // Keep booked days visible when weekday was later disabled.
+    for (const slot of bookedSlots) {
+      if (!slots.includes(slot)) slots = [...slots, slot];
+    }
     const pastSlots = getPastSlotsForDate(dateStr, slots);
     const availableSlots = slots.filter(
       (s) => !bookedSlots.includes(s) && !pastSlots.includes(s),

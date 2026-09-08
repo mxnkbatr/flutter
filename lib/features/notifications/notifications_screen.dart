@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/notifications/models/app_notification.dart';
 import 'package:sacred_app/features/notifications/providers/notifications_provider.dart';
 import 'package:sacred_app/shared/widgets/native_app_header.dart';
@@ -203,7 +203,7 @@ class _NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time = DateFormat('MM/dd HH:mm').format(notification.createdAt);
+    final time = AppTimezone.formatInstant(notification.createdAt, 'MM/dd HH:mm');
 
     return ScaleTap(
       pressedScale: 0.98,

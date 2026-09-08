@@ -1,7 +1,7 @@
-import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_earnings_data.dart';
 import 'package:sacred_app/features/monk_dash/utils/monk_dash_format.dart';
 
@@ -48,7 +48,7 @@ Future<void> exportEarningsPdf(MonkEarningsData earnings) async {
         ),
         pw.SizedBox(height: 12),
         pw.Text(
-          'Үүсгэсэн: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now())}',
+          'Үүсгэсэн: ${AppTimezone.formatDate(AppTimezone.now(), 'yyyy-MM-dd HH:mm')}',
           style: const pw.TextStyle(fontSize: 9),
         ),
       ],

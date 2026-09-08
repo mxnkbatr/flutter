@@ -74,8 +74,7 @@ final apiClientProvider = Provider<Dio>((ref) {
 
         if (allowRetry &&
             retryCount < 1 &&
-            _isTransientNetworkError(error) &&
-            opts.method.toUpperCase() != 'GET') {
+            _isTransientNetworkError(error)) {
           opts.extra['retryCount'] = retryCount + 1;
           try {
             // Wake a sleeping free-tier instance before the real retry.

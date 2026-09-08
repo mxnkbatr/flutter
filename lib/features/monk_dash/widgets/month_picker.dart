@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 
 class MonthPicker extends StatelessWidget {
   const MonthPicker({
@@ -23,7 +24,7 @@ class MonthPicker extends StatelessWidget {
   }
 
   Future<void> _showSheet(BuildContext context) async {
-    final now = DateTime.now();
+    final now = AppTimezone.now();
     final months = List.generate(12, (i) {
       final d = DateTime(now.year, now.month - i);
       return DateFormat('yyyy-MM').format(d);

@@ -5,7 +5,7 @@ export async function connectDb() {
   const dbName = process.env.MONGO_DB || 'Buddha';
   if (!uri) throw new Error('MONGODB_URI is required');
 
-  await mongoose.connect(uri, { dbName });
+  await mongoose.connect(uri, { dbName, serverSelectionTimeoutMS: 10000 });
   console.log(`MongoDB connected (${dbName})`);
 }
 

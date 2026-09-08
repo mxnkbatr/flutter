@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/auth/tier_cache.dart';
 import 'package:sacred_app/core/config/feature_flags.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 
 final tierCacheProvider = FutureProvider<TierCacheData?>((ref) async {
   return TierCache.load();
@@ -26,7 +26,7 @@ final userTierProvider = Provider<String>((ref) {
 });
 
 final userBookingCountProvider = FutureProvider<int>((ref) async {
-  final month = DateFormat('yyyy-MM').format(DateTime.now());
+  final month = AppTimezone.currentMonthKey();
   try {
     final res = await ref.read(apiClientProvider).get(
           '/bookings',

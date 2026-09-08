@@ -28,7 +28,7 @@ import {
   getScheduleOverview,
   getSlotsForDate,
 } from './scheduleUtils.js';
-import { isPastSlot, todayDateStr, currentTimeMinutes, slotToMinutes } from './timezoneUtils.js';
+import { isPastSlot, todayDateStr, currentTimeMinutes, slotToMinutes, addDaysToDateStr } from './timezoneUtils.js';
 import {
   createRateLimiter,
   clientKey,
@@ -1917,12 +1917,10 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
     monkSharePercent: Math.round(MONK_SHARE_RATE * 100),
     todayProfileViews: todayViews,
     totalBookings: allBookings.length,
-    weeklyBookings: allBookings.filter((b) => {
-      const d = new Date(b.createdAt);
-      const w = new Date();
-      w.setDate(w.getDate() - 7);
-      return d >= w;
-    }).length,
+    weeklyBookings: (() => {
+      const weekAgo = new Date(`${addDaysToDateStr(today, -7)}T00:00:00+08:00`);
+      return allBookings.filter((b) => b.createdAt && new Date(b.createdAt) >= weekAgo).length;
+    })(),
     rating: monk?.rating || 0,
     reviewCount: monk?.reviewCount || 0,
     pendingCount: allBookings.filter((b) => b.status === 'pending').length,
@@ -2059,7 +2057,7 @@ app.get('/api/monk/salary', authRequired, async (req, res) => {
   if (req.user.role !== 'monk' || !req.user.monkProfileId) {
     return res.status(403).json({ error: 'Not a monk' });
   }
-  const month = req.query.month || new Date().toISOString().slice(0, 7);
+  const month = req.query.month || todayDateStr().slice(0, 7);
   const bookings = await Booking.find({
     monkId: req.user.monkProfileId,
     paid: true,
@@ -2227,18 +2225,22 @@ app.get('/api/admin/dashboard', authRequired, async (req, res) => {
   const users = await User.find({ role: 'client' }).lean();
   const pending = monks.filter((m) => m.status === 'pending');
 
-  const now = new Date();
   const today = todayDateStr();
   const thisMonth = today.slice(0, 7);
   const { start: todayStart, end: todayEnd } = dayBoundsUb(today);
 
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const weekAgo = new Date(`${addDaysToDateStr(today, -7)}T00:00:00+08:00`);
   const newUsersThisWeek = users.filter(
     (u) => u.createdAt && new Date(u.createdAt) >= weekAgo,
   ).length;
 
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const thisMonthStart = new Date(`${thisMonth}-01T00:00:00+08:00`);
+  const [ty, tm] = thisMonth.split('-').map(Number);
+  const lastMonthKey =
+    tm === 1
+      ? `${ty - 1}-12`
+      : `${ty}-${String(tm - 1).padStart(2, '0')}`;
+  const lastMonthStart = new Date(`${lastMonthKey}-01T00:00:00+08:00`);
   const thisMonthCount = allBookings.filter(
     (b) => b.createdAt && new Date(b.createdAt) >= thisMonthStart,
   ).length;
@@ -2255,13 +2257,19 @@ app.get('/api/admin/dashboard', authRequired, async (req, res) => {
         : 0;
 
   const monthlyRevenue = [];
+  const [cy, cm] = thisMonth.split('-').map(Number);
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    let month = cm - i;
+    let year = cy;
+    while (month <= 0) {
+      month += 12;
+      year -= 1;
+    }
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
     const amount = allBookings
       .filter((b) => b.date?.startsWith(monthStr))
       .reduce((s, b) => s + (b.amount || 0), 0);
-    monthlyRevenue.push({ label: `${d.getMonth() + 1}-р`, amount });
+    monthlyRevenue.push({ label: `${month}-р`, amount });
   }
 
   const todayPaidBookings = await Booking.find({
@@ -3769,8 +3777,7 @@ async function reconcileDuplicateSlots() {
   }
 }
 
-async function start() {
-  await connectDb();
+async function runStartupMaintenance() {
   // Sparse unique indexes: remove empty phone/email so duplicates of '' don't collide
   await User.updateMany(
     { $or: [{ phone: '' }, { phone: null }] },
@@ -3791,9 +3798,17 @@ async function start() {
   setInterval(processInventoryExpiry, 60_000);
   processCallTimeReminders();
   processInventoryExpiry();
+}
+
+async function start() {
+  await connectDb();
+  // Listen first so Render health checks (/api/health) pass during cold start.
   app.listen(PORT, () => {
     console.log(`Sacred API running on http://localhost:${PORT}/api`);
   });
+  runStartupMaintenance().catch((e) =>
+    console.error('Startup maintenance алдаа:', e),
+  );
 }
 
 start().catch((e) => {

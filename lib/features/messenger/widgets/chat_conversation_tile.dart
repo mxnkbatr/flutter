@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/shared/widgets/scale_tap.dart';
 
 class ChatConversationTile extends StatelessWidget {
@@ -28,14 +28,14 @@ class ChatConversationTile extends StatelessWidget {
     String timeStr = '';
     if (time != null && time!.isNotEmpty) {
       try {
-        final dt = DateTime.parse(time!).toLocal();
-        final now = DateTime.now();
-        if (dt.year == now.year &&
-            dt.month == now.month &&
-            dt.day == now.day) {
-          timeStr = DateFormat('HH:mm').format(dt);
+        final ub = AppTimezone.toUb(DateTime.parse(time!));
+        final today = AppTimezone.now();
+        if (ub.year == today.year &&
+            ub.month == today.month &&
+            ub.day == today.day) {
+          timeStr = AppTimezone.formatDate(ub, 'HH:mm');
         } else {
-          timeStr = DateFormat('MM/dd').format(dt);
+          timeStr = AppTimezone.formatDate(ub, 'MM/dd');
         }
       } catch (_) {}
     }

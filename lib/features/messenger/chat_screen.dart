@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/messenger/models/chat_message.dart';
 import 'package:sacred_app/features/messenger/providers/messenger_provider.dart';
@@ -407,7 +407,7 @@ class _MessageBubble extends StatelessWidget {
     final raw = message.createdAt;
     if (raw == null || raw.isEmpty) return null;
     try {
-      return DateFormat('HH:mm').format(DateTime.parse(raw).toLocal());
+      return AppTimezone.formatInstant(DateTime.parse(raw), 'HH:mm');
     } catch (_) {
       return null;
     }

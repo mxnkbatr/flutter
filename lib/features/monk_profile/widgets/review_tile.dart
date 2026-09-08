@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/monk_profile/models/monk_review.dart';
-import 'package:intl/intl.dart';
 
 class ReviewTile extends StatelessWidget {
   const ReviewTile({super.key, required this.review});
@@ -35,7 +35,7 @@ class ReviewTile extends StatelessWidget {
           Text(review.comment, style: AppText.body),
           const SizedBox(height: 4),
           Text(
-            DateFormat('yyyy.MM.dd').format(review.createdAt),
+            AppTimezone.formatInstant(review.createdAt, 'yyyy.MM.dd'),
             style: AppText.caption,
           ),
         ],

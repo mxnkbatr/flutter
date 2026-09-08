@@ -10,7 +10,7 @@ class AppTimezone {
   static const _offset = Duration(hours: 8);
   static const int slotIntervalMinutes = 30;
 
-  /// Current wall-clock time in Ulaanbaatar as a naive local [DateTime].
+  /// Current UB wall-clock time as a naive local [DateTime].
   static DateTime now() {
     final ub = DateTime.now().toUtc().add(_offset);
     return DateTime(
@@ -22,6 +22,26 @@ class AppTimezone {
       ub.second,
       ub.millisecond,
     );
+  }
+
+  /// Convert an absolute instant to a naive Ulaanbaatar wall-clock [DateTime].
+  static DateTime toUb(DateTime instant) {
+    final ub = instant.toUtc().add(_offset);
+    return DateTime(
+      ub.year,
+      ub.month,
+      ub.day,
+      ub.hour,
+      ub.minute,
+      ub.second,
+      ub.millisecond,
+    );
+  }
+
+  /// `yyyy-MM` for the current Ulaanbaatar calendar month.
+  static String currentMonthKey() {
+    final ub = now();
+    return '${ub.year.toString().padLeft(4, '0')}-${ub.month.toString().padLeft(2, '0')}';
   }
 
   static String todayDateStr() {
@@ -85,5 +105,10 @@ class AppTimezone {
     return DateFormat(pattern).format(
       DateTime(date.year, date.month, date.day, date.hour, date.minute),
     );
+  }
+
+  /// Format an absolute instant (ISO/UTC from API) in Ulaanbaatar wall time.
+  static String formatInstant(DateTime instant, String pattern) {
+    return formatDate(toUb(instant), pattern);
   }
 }

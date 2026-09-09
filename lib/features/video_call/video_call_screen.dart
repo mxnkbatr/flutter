@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
@@ -20,6 +19,10 @@ import 'package:sacred_app/features/video_call/widgets/connecting_view.dart';
 import 'package:sacred_app/features/video_call/widgets/end_call_dialog.dart';
 import 'package:sacred_app/features/video_call/widgets/local_video_widget.dart';
 import 'package:sacred_app/features/video_call/widgets/waiting_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Dart-only: native permission_handler ашиглахгүй (Shorebird patch-д тохирно).
+const _kCallPermissionPrepSeenKey = 'call_permission_prep_seen_v1';
 
 class VideoCallScreen extends ConsumerStatefulWidget {
   const VideoCallScreen({
@@ -58,21 +61,18 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
       }
-      _skipPrepIfAlreadyGranted();
+      _maybeSkipPrep();
     });
   }
 
-  /// Аль хэдийн зөвшөөрсөн бол шууд холбогдоно (дахин тайлбар бүү харуул).
-  Future<void> _skipPrepIfAlreadyGranted() async {
-    final mic = await Permission.microphone.status;
+  /// Өмнө нь тайлбар харсан бол шууд холбогдоно (систем зөвшөөрөл LiveKit асууна).
+  Future<void> _maybeSkipPrep() async {
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    if (mic.isGranted) {
-      final cam = await Permission.camera.status;
-      if (!mounted) return;
+    if (prefs.getBool(_kCallPermissionPrepSeenKey) == true) {
       setState(() {
         _awaitingPermission = false;
         _connecting = true;
-        _isCameraOff = !cam.isGranted;
       });
       _startTimer();
       await _connect();
@@ -81,58 +81,16 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   Future<void> _onAllowPermissions() async {
     setState(() => _permissionLoading = true);
-    try {
-      final statuses = await [
-        Permission.microphone,
-        Permission.camera,
-      ].request();
-
-      final mic = statuses[Permission.microphone] ??
-          await Permission.microphone.status;
-      final cam = statuses[Permission.camera] ?? await Permission.camera.status;
-
-      if (!mounted) return;
-
-      if (mic.isPermanentlyDenied) {
-        setState(() {
-          _permissionLoading = false;
-          _awaitingPermission = false;
-          _connecting = false;
-          _error =
-              'Микрофон хаалттай байна.\n\nТохиргоо → Gevabal → Микрофон-ыг асаана уу.';
-        });
-        await openAppSettings();
-        return;
-      }
-
-      if (!mic.isGranted) {
-        setState(() {
-          _permissionLoading = false;
-          _error = null;
-        });
-        return;
-      }
-
-      setState(() {
-        _permissionLoading = false;
-        _awaitingPermission = false;
-        _connecting = true;
-        _isCameraOff = !cam.isGranted;
-      });
-      _startTimer();
-      await _connect();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _permissionLoading = false;
-        _awaitingPermission = false;
-        _connecting = false;
-        _error = formatUserError(
-          e,
-          fallback: 'Зөвшөөрөл авах үед алдаа гарлаа.',
-        );
-      });
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kCallPermissionPrepSeenKey, true);
+    if (!mounted) return;
+    setState(() {
+      _permissionLoading = false;
+      _awaitingPermission = false;
+      _connecting = true;
+    });
+    _startTimer();
+    await _connect();
   }
 
   VideoTrack? _videoTrackFor(Participant? participant) {
@@ -210,16 +168,31 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       );
 
       await room.connect(wsUrl, token);
+
+      // Системийн mic/camera popup энд (LiveKit) гарна — native plugin шаардлагагүй.
+      var cameraOff = false;
       try {
         await room.localParticipant?.setMicrophoneEnabled(true);
-        if (!_isCameraOff) {
-          await room.localParticipant?.setCameraEnabled(true);
-        }
       } catch (e) {
-        if (kDebugMode) debugPrint('Camera/mic enable: $e');
-        try {
-          await room.localParticipant?.setMicrophoneEnabled(true);
-        } catch (_) {}
+        if (kDebugMode) debugPrint('Mic enable: $e');
+        if (!mounted) {
+          await room.disconnect();
+          return;
+        }
+        setState(() {
+          _error =
+              'Микрофон асаагдсангүй.\n\nТохиргоо → Gevabal → Микрофон-ыг асаагаад дахин оролдоно уу.';
+          _connecting = false;
+        });
+        await room.disconnect();
+        return;
+      }
+
+      try {
+        await room.localParticipant?.setCameraEnabled(true);
+      } catch (e) {
+        if (kDebugMode) debugPrint('Camera enable (audio-only OK): $e');
+        cameraOff = true;
       }
 
       room.addListener(_onRoomEvent);
@@ -233,6 +206,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         _room = room;
         _local = room.localParticipant;
         _remote = room.remoteParticipants.values.firstOrNull;
+        _isCameraOff = cameraOff;
         _connecting = false;
       });
     } catch (e) {
@@ -269,15 +243,22 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   Future<void> _toggleCamera() async {
-    if (_isCameraOff) {
-      final cam = await Permission.camera.request();
-      if (!cam.isGranted) {
-        if (cam.isPermanentlyDenied) await openAppSettings();
-        return;
-      }
+    final enable = _isCameraOff;
+    try {
+      await _room?.localParticipant?.setCameraEnabled(enable);
+      if (!mounted) return;
+      setState(() => _isCameraOff = !enable);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Камер асаах боломжгүй. Тохиргоо → Gevabal → Камер шалгана уу.',
+          ),
+          backgroundColor: AppColors.danger,
+        ),
+      );
     }
-    await _room?.localParticipant?.setCameraEnabled(_isCameraOff);
-    setState(() => _isCameraOff = !_isCameraOff);
   }
 
   Future<void> _switchCamera() async {

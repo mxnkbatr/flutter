@@ -54,9 +54,6 @@ dependencies:
   excel: ^4.0.2
   animations: ^2.0.11
   google_fonts: ^6.3.2
-  permission_handler: ^13.0.2
-
-# livekit_client → connectivity_plus 6.x crashes on iOS 26 at plugin registration.
 dependency_overrides:
   connectivity_plus: ^7.1.1
 

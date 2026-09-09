@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
@@ -13,6 +14,7 @@ import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/video_call/widgets/call_error_view.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
+import 'package:sacred_app/features/video_call/widgets/call_permission_prep_view.dart';
 import 'package:sacred_app/features/video_call/widgets/call_top_bar.dart';
 import 'package:sacred_app/features/video_call/widgets/connecting_view.dart';
 import 'package:sacred_app/features/video_call/widgets/end_call_dialog.dart';
@@ -39,7 +41,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   RemoteParticipant? _remote;
   bool _isMuted = false;
   bool _isCameraOff = false;
-  bool _connecting = true;
+  bool _awaitingPermission = true;
+  bool _permissionLoading = false;
+  bool _connecting = false;
   String? _error;
   String _peerName = 'Лам';
   String? _peerImage;
@@ -54,9 +58,81 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
       }
+      _skipPrepIfAlreadyGranted();
     });
-    _connect();
-    _startTimer();
+  }
+
+  /// Аль хэдийн зөвшөөрсөн бол шууд холбогдоно (дахин тайлбар бүү харуул).
+  Future<void> _skipPrepIfAlreadyGranted() async {
+    final mic = await Permission.microphone.status;
+    if (!mounted) return;
+    if (mic.isGranted) {
+      final cam = await Permission.camera.status;
+      if (!mounted) return;
+      setState(() {
+        _awaitingPermission = false;
+        _connecting = true;
+        _isCameraOff = !cam.isGranted;
+      });
+      _startTimer();
+      await _connect();
+    }
+  }
+
+  Future<void> _onAllowPermissions() async {
+    setState(() => _permissionLoading = true);
+    try {
+      final statuses = await [
+        Permission.microphone,
+        Permission.camera,
+      ].request();
+
+      final mic = statuses[Permission.microphone] ??
+          await Permission.microphone.status;
+      final cam = statuses[Permission.camera] ?? await Permission.camera.status;
+
+      if (!mounted) return;
+
+      if (mic.isPermanentlyDenied) {
+        setState(() {
+          _permissionLoading = false;
+          _awaitingPermission = false;
+          _connecting = false;
+          _error =
+              'Микрофон хаалттай байна.\n\nТохиргоо → Gevabal → Микрофон-ыг асаана уу.';
+        });
+        await openAppSettings();
+        return;
+      }
+
+      if (!mic.isGranted) {
+        setState(() {
+          _permissionLoading = false;
+          _error = null;
+        });
+        return;
+      }
+
+      setState(() {
+        _permissionLoading = false;
+        _awaitingPermission = false;
+        _connecting = true;
+        _isCameraOff = !cam.isGranted;
+      });
+      _startTimer();
+      await _connect();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _permissionLoading = false;
+        _awaitingPermission = false;
+        _connecting = false;
+        _error = formatUserError(
+          e,
+          fallback: 'Зөвшөөрөл авах үед алдаа гарлаа.',
+        );
+      });
+    }
   }
 
   VideoTrack? _videoTrackFor(Participant? participant) {
@@ -135,11 +211,15 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
       await room.connect(wsUrl, token);
       try {
-        await room.localParticipant?.setCameraEnabled(true);
         await room.localParticipant?.setMicrophoneEnabled(true);
+        if (!_isCameraOff) {
+          await room.localParticipant?.setCameraEnabled(true);
+        }
       } catch (e) {
         if (kDebugMode) debugPrint('Camera/mic enable: $e');
-        await room.localParticipant?.setMicrophoneEnabled(true);
+        try {
+          await room.localParticipant?.setMicrophoneEnabled(true);
+        } catch (_) {}
       }
 
       room.addListener(_onRoomEvent);
@@ -158,7 +238,10 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = formatUserError(e, fallback: 'Видео дуудлага эхлүүлэхэд алдаа гарлаа.');
+        _error = formatUserError(
+          e,
+          fallback: 'Видео дуудлага эхлүүлэхэд алдаа гарлаа.',
+        );
         _connecting = false;
       });
     }
@@ -172,6 +255,8 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   void _startTimer() {
+    _timer?.cancel();
+    _elapsed = Duration.zero;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() => _elapsed += const Duration(seconds: 1));
@@ -184,6 +269,13 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   Future<void> _toggleCamera() async {
+    if (_isCameraOff) {
+      final cam = await Permission.camera.request();
+      if (!cam.isGranted) {
+        if (cam.isPermanentlyDenied) await openAppSettings();
+        return;
+      }
+    }
     await _room?.localParticipant?.setCameraEnabled(_isCameraOff);
     setState(() => _isCameraOff = !_isCameraOff);
   }
@@ -291,7 +383,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('Хаах'),
+                    child: const Text('Хаах'),
                   ),
                 ],
               ),
@@ -313,6 +405,20 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_awaitingPermission) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _cancelConnecting();
+        },
+        child: CallPermissionPrepView(
+          isLoading: _permissionLoading,
+          onAllow: _onAllowPermissions,
+          onCancel: _cancelConnecting,
+        ),
+      );
+    }
+
     if (_connecting) {
       return PopScope(
         canPop: false,
@@ -340,9 +446,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           onRetry: () {
             setState(() {
               _error = null;
-              _connecting = true;
+              _awaitingPermission = true;
+              _connecting = false;
             });
-            _connect();
           },
         ),
       );
@@ -357,57 +463,57 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         if (!didPop) _endCall();
       },
       child: Scaffold(
-      backgroundColor: AppColors.inkDeep,
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: remoteTrack != null
-                ? VideoTrackRenderer(
-                    remoteTrack,
-                    fit: VideoViewFit.cover,
-                  )
-                : WaitingView(
-                    role: widget.role,
-                    peerName: _peerName,
-                    peerImage: _peerImage,
-                  ),
-          ),
-          Positioned(
-            right: 16,
-            bottom: 120 + MediaQuery.of(context).padding.bottom,
-            child: LocalVideoWidget(
-              track: localTrack,
-              isCameraOff: _isCameraOff,
+        backgroundColor: AppColors.inkDeep,
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: remoteTrack != null
+                  ? VideoTrackRenderer(
+                      remoteTrack,
+                      fit: VideoViewFit.cover,
+                    )
+                  : WaitingView(
+                      role: widget.role,
+                      peerName: _peerName,
+                      peerImage: _peerImage,
+                    ),
             ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: CallTopBar(
-              monkName: _peerName,
-              elapsed: _elapsed,
-              isConnected: remoteTrack != null,
-              onNote: _showNoteDrawer,
+            Positioned(
+              right: 16,
+              bottom: 120 + MediaQuery.of(context).padding.bottom,
+              child: LocalVideoWidget(
+                track: localTrack,
+                isCameraOff: _isCameraOff,
+              ),
             ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: CallControls(
-              isMuted: _isMuted,
-              isCameraOff: _isCameraOff,
-              onMute: _toggleMute,
-              onCamera: _toggleCamera,
-              onEnd: _endCall,
-              onNote: _showNoteDrawer,
-              onSwitchCamera: _switchCamera,
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: CallTopBar(
+                monkName: _peerName,
+                elapsed: _elapsed,
+                isConnected: remoteTrack != null,
+                onNote: _showNoteDrawer,
+              ),
             ),
-          ),
-        ],
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: CallControls(
+                isMuted: _isMuted,
+                isCameraOff: _isCameraOff,
+                onMute: _toggleMute,
+                onCamera: _toggleCamera,
+                onEnd: _endCall,
+                onNote: _showNoteDrawer,
+                onSwitchCamera: _switchCamera,
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

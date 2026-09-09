@@ -42,13 +42,13 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Видео дуудлагад камер ашиглана</string>
+	<string>Ламтай уулзах үед таныг харуулахын тулд камер хэрэгтэй. Сонголттой — зөвхөн дуугаар ч уулзаж болно.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Видео дуудлагад микрофон ашиглана</string>
+	<string>Ламтай ярихын тулд микрофон заавал хэрэгтэй. Дараагийн цонхонд Зөвшөөрөх (Allow) дарна уу.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Профайл зураг сонгоход ашиглана</string>
+	<string>Профайл зураг сонгоход зургийн сан ашиглана.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Профайл зураг хадгалахад ашиглана</string>
+	<string>Профайл зураг хадгалахад ашиглана.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

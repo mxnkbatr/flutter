@@ -152,14 +152,15 @@ class DashboardTab extends ConsumerWidget {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.4,
                 children: [
-                  StatCard(
-                    label: 'Энэ сарын цалин (${data.monkSharePercent}%)',
-                    value: '₮${fmtCurrency(data.monthlyEarnings)}',
-                    sub: data.todayProfileViews > 0
-                        ? 'Өнөөдөр ${data.todayProfileViews} үзэлт'
-                        : 'Захиалгын дүнгээс ${data.monkSharePercent}%',
-                    dark: true,
-                  ),
+                  if (!data.isSpecial)
+                    StatCard(
+                      label: 'Энэ сарын цалин (${data.monkSharePercent}%)',
+                      value: '₮${fmtCurrency(data.monthlyEarnings)}',
+                      sub: data.todayProfileViews > 0
+                          ? 'Өнөөдөр ${data.todayProfileViews} үзэлт'
+                          : 'Захиалгын дүнгээс ${data.monkSharePercent}%',
+                      dark: true,
+                    ),
                   StatCard(
                     label: 'Нийт захиалга',
                     value: '${data.totalBookings}',
@@ -177,6 +178,13 @@ class DashboardTab extends ConsumerWidget {
                     sub: 'Баталгаажуулах',
                     danger: data.pendingCount > 0,
                   ),
+                  if (data.isSpecial && data.todayProfileViews > 0)
+                    StatCard(
+                      label: 'Өнөөдрийн үзэлт',
+                      value: '${data.todayProfileViews}',
+                      sub: 'Профайл үзсэн',
+                      dark: true,
+                    ),
                 ],
               ),
               const SizedBox(height: 24),

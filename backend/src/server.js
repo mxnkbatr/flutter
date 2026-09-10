@@ -1925,6 +1925,7 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
     reviewCount: monk?.reviewCount || 0,
     pendingCount: allBookings.filter((b) => b.status === 'pending').length,
     isAvailable: monk?.isAvailable ?? true,
+    isSpecial: monk?.isSpecial === true,
     todayBookings: todayBookings.map((b) =>
       bookingJson(b, { clientName: clientMap[b.clientId?.toString()] || '' }),
     ),
@@ -2056,6 +2057,10 @@ app.put('/api/monk/services', authRequired, async (req, res) => {
 app.get('/api/monk/salary', authRequired, async (req, res) => {
   if (req.user.role !== 'monk' || !req.user.monkProfileId) {
     return res.status(403).json({ error: 'Not a monk' });
+  }
+  const monk = await Monk.findById(req.user.monkProfileId).lean();
+  if (monk?.isSpecial) {
+    return res.status(403).json({ error: 'Онцгой ламд орлого харагдахгүй' });
   }
   const month = req.query.month || todayDateStr().slice(0, 7);
   const bookings = await Booking.find({

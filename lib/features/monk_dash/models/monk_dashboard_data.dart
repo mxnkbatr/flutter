@@ -11,6 +11,7 @@ class MonkDashboardData {
     required this.pendingCount,
     required this.todayBookings,
     this.isAvailable = true,
+    this.isSpecial = false,
     this.monkName,
     this.monkSharePercent = 70,
     this.todayProfileViews = 0,
@@ -25,6 +26,7 @@ class MonkDashboardData {
   final int pendingCount;
   final List<MonkBookingItem> todayBookings;
   final bool isAvailable;
+  final bool isSpecial;
   final String? monkName;
   final int monkSharePercent;
   final int todayProfileViews;
@@ -61,6 +63,9 @@ class MonkDashboardData {
       isAvailable: json['isAvailable'] as bool? ??
           json['is_available'] as bool? ??
           true,
+      isSpecial: json['isSpecial'] as bool? ??
+          json['is_special'] as bool? ??
+          false,
       monkName: json['monkName'] as String? ?? json['name'] as String?,
       monkSharePercent: (json['monkSharePercent'] as num?)?.toInt() ?? 70,
       todayProfileViews: (json['todayProfileViews'] as num?)?.toInt() ?? 0,

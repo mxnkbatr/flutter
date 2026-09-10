@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
+import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
 import 'package:sacred_app/features/monk_dash/tabs/bookings_tab.dart';
 import 'package:sacred_app/features/monk_dash/tabs/dashboard_tab.dart';
 import 'package:sacred_app/features/monk_dash/tabs/earnings_tab.dart';
@@ -9,20 +11,22 @@ import 'package:sacred_app/features/monk_dash/widgets/availability_toggle.dart';
 import 'package:sacred_app/features/monk_dash/widgets/monk_dash_header.dart';
 import 'package:sacred_app/features/monk_dash/widgets/monk_tab_bar.dart';
 
-class MonkDashboardScreen extends StatefulWidget {
+class MonkDashboardScreen extends ConsumerStatefulWidget {
   const MonkDashboardScreen({super.key, this.initialTab = 2});
 
   final int initialTab;
 
   @override
-  State<MonkDashboardScreen> createState() => _MonkDashboardScreenState();
+  ConsumerState<MonkDashboardScreen> createState() =>
+      _MonkDashboardScreenState();
 }
 
-class _MonkDashboardScreenState extends State<MonkDashboardScreen>
+class _MonkDashboardScreenState extends ConsumerState<MonkDashboardScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+  TabController? _tabController;
+  bool? _hideEarnings;
 
-  static const _tabLabels = [
+  static const _allLabels = [
     'Самбар',
     'Хуваарь',
     'Захиалга',
@@ -30,24 +34,63 @@ class _MonkDashboardScreenState extends State<MonkDashboardScreen>
     'Профайл',
   ];
 
-  @override
-  void initState() {
-    super.initState();
+  static const _specialLabels = [
+    'Самбар',
+    'Хуваарь',
+    'Захиалга',
+    'Профайл',
+  ];
+
+  /// Query tab index → visible tab index when Орлого нуугдсан.
+  static int _mapTab(int requested, bool hideEarnings) {
+    if (!hideEarnings) return requested.clamp(0, 4);
+    // 0 самбар, 1 хуваарь, 2 захиалга, 3 орлого→захиалга, 4 профайл→3
+    if (requested == 3) return 2;
+    if (requested >= 4) return 3;
+    return requested.clamp(0, 3);
+  }
+
+  void _ensureController(bool hideEarnings) {
+    if (_tabController != null && _hideEarnings == hideEarnings) return;
+    final length = hideEarnings ? 4 : 5;
+    final index = _mapTab(widget.initialTab, hideEarnings);
+    _tabController?.dispose();
     _tabController = TabController(
-      length: 5,
+      length: length,
       vsync: this,
-      initialIndex: widget.initialTab.clamp(0, 4),
+      initialIndex: index.clamp(0, length - 1),
     );
+    _hideEarnings = hideEarnings;
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _tabController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final hideEarnings =
+        ref.watch(monkDashboardProvider).valueOrNull?.isSpecial ?? false;
+    _ensureController(hideEarnings);
+
+    final labels = hideEarnings ? _specialLabels : _allLabels;
+    final tabs = hideEarnings
+        ? const <Widget>[
+            DashboardTab(),
+            ScheduleTab(),
+            BookingsTab(),
+            ProfileTab(),
+          ]
+        : const <Widget>[
+            DashboardTab(),
+            ScheduleTab(),
+            BookingsTab(),
+            EarningsTab(),
+            ProfileTab(),
+          ];
+
     return Scaffold(
       backgroundColor: AppColors.creamBg,
       body: Column(
@@ -60,19 +103,13 @@ class _MonkDashboardScreenState extends State<MonkDashboardScreen>
             ),
           ),
           MonkTabBar(
-            controller: _tabController,
-            labels: _tabLabels,
+            controller: _tabController!,
+            labels: labels,
           ),
           Expanded(
             child: TabBarView(
-              controller: _tabController,
-              children: const [
-                DashboardTab(),
-                ScheduleTab(),
-                BookingsTab(),
-                EarningsTab(),
-                ProfileTab(),
-              ],
+              controller: _tabController!,
+              children: tabs,
             ),
           ),
         ],

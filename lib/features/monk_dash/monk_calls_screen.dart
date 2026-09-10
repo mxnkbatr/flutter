@@ -49,32 +49,44 @@ class MonkCallsScreen extends ConsumerWidget {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _QuickLink(
-                    icon: Icons.calendar_month_outlined,
-                    label: 'Хуваарь',
-                    onTap: () => context.go('/monk/dashboard?tab=1'),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final isSpecial = ref
+                        .watch(monkDashboardProvider)
+                        .valueOrNull
+                        ?.isSpecial ??
+                    false;
+                final links = <Widget>[
+                  Expanded(
+                    child: _QuickLink(
+                      icon: Icons.calendar_month_outlined,
+                      label: 'Хуваарь',
+                      onTap: () => context.go('/monk/dashboard?tab=1'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _QuickLink(
-                    icon: Icons.list_alt_rounded,
-                    label: 'Захиалга',
-                    onTap: () => context.go('/monk/dashboard?tab=2'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _QuickLink(
+                      icon: Icons.list_alt_rounded,
+                      label: 'Захиалга',
+                      onTap: () => context.go('/monk/dashboard?tab=2'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _QuickLink(
-                    icon: Icons.payments_outlined,
-                    label: 'Орлого',
-                    onTap: () => context.go('/monk/dashboard?tab=3'),
-                  ),
-                ),
-              ],
+                ];
+                if (!isSpecial) {
+                  links.addAll([
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _QuickLink(
+                        icon: Icons.payments_outlined,
+                        label: 'Орлого',
+                        onTap: () => context.go('/monk/dashboard?tab=3'),
+                      ),
+                    ),
+                  ]);
+                }
+                return Row(children: links);
+              },
             ),
           ),
           Padding(

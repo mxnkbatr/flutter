@@ -54,6 +54,11 @@ String formatUserError(
   }
 
   final raw = error.toString();
+  if (_isMediaPermissionError(raw)) {
+    return 'Камер эсвэл микрофон зөвшөөрөгдөөгүй байна.\n\n'
+        'iPhone: Тохиргоо → Gevabal → Микрофон (ба Камер)-ыг асаана уу.\n'
+        'Дараа нь апп руу буцаад дахин оролдоно уу.';
+  }
   if (raw.contains('invalid API key') ||
       raw.contains('ConnectException') ||
       raw.contains('LiveKit')) {
@@ -61,6 +66,19 @@ String formatUserError(
   }
   if (_isTechnical(raw)) return fallback;
   return raw.replaceFirst('Exception: ', '');
+}
+
+bool isMediaPermissionError(Object? error) =>
+    _isMediaPermissionError(error?.toString() ?? '');
+
+bool _isMediaPermissionError(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('notallowederror') ||
+      lower.contains('getusermedia') ||
+      lower.contains('permission denied') ||
+      lower.contains('notauthorized') ||
+      (lower.contains('microphone') && lower.contains('denied')) ||
+      (lower.contains('camera') && lower.contains('denied'));
 }
 
 String? _localizeKnownApiMessage(String text) {

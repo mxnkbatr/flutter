@@ -35,13 +35,38 @@ class MonkBookingFilters {
     return sorted;
   }
 
+  /// Join цонх — slot эхэлснээс хойш (минутаар).
+  static const int callJoinGraceMinutes = 90;
+
+  /// Бүх confirmed + paid — Ажил дэлгэцэд бүгдийг харуулна (онцгой/энгийн ижил).
+  static List<MonkBookingItem> allConfirmedPaid(
+    List<MonkBookingItem> bookings,
+  ) {
+    final list = bookings.where((b) {
+      return b.status == 'confirmed' && b.paid == true;
+    }).toList()
+      ..sort((a, b) {
+        final da = (a.date ?? '').length >= 10
+            ? a.date!.substring(0, 10)
+            : (a.date ?? '');
+        final db = (b.date ?? '').length >= 10
+            ? b.date!.substring(0, 10)
+            : (b.date ?? '');
+        final c = da.compareTo(db);
+        if (c != 0) return c;
+        return AppTimezone.slotToMinutes(a.slot.isEmpty ? '99:99' : a.slot)
+            .compareTo(
+                AppTimezone.slotToMinutes(b.slot.isEmpty ? '99:99' : b.slot));
+      });
+    return list;
+  }
+
   /// Баталгаажсан + төлбөр төлсөн — өнөөдрийн дуудлага.
   static List<MonkBookingItem> todayConfirmedPaid(
     List<MonkBookingItem> bookings,
   ) {
     final today = AppTimezone.todayDateStr();
-    return bookings.where((b) {
-      if (b.status != 'confirmed' || b.paid != true) return false;
+    return allConfirmedPaid(bookings).where((b) {
       final d = b.date;
       if (d == null || d.isEmpty) return false;
       final ymd = d.length >= 10 ? d.substring(0, 10) : d;
@@ -49,31 +74,27 @@ class MonkBookingFilters {
     }).toList();
   }
 
-  /// Ирэх баталгаажсан видео дуудлагууд.
+  static bool canJoinTodayCall(MonkBookingItem b) {
+    return AppTimezone.isInCallWindow(
+      b.date,
+      b.slot,
+      durationMinutes: callJoinGraceMinutes,
+    );
+  }
+
+  /// Ирэх баталгаажсан видео дуудлагууд (өнөөдрөөс хойш + өнөөдрийн ирээдүй).
   static List<MonkBookingItem> upcomingConfirmedCalls(
     List<MonkBookingItem> bookings,
   ) {
     final today = AppTimezone.todayDateStr();
-    final list = bookings.where((b) {
-      if (b.status != 'confirmed' || b.paid != true) return false;
+    final list = allConfirmedPaid(bookings).where((b) {
       final d = b.date;
       if (d == null || d.isEmpty || b.slot.isEmpty) return false;
       final ymd = d.length >= 10 ? d.substring(0, 10) : d;
       if (ymd.compareTo(today) < 0) return false;
-      if (ymd == today) {
-        if (AppTimezone.isInCallWindow(ymd, b.slot)) return false;
-        if (AppTimezone.isPastSlot(ymd, b.slot)) return false;
-      }
+      if (ymd == today && AppTimezone.isPastSlot(ymd, b.slot)) return false;
       return true;
-    }).toList()
-      ..sort((a, b) {
-        final da = a.date!.substring(0, 10);
-        final db = b.date!.substring(0, 10);
-        final c = da.compareTo(db);
-        if (c != 0) return c;
-        return AppTimezone.slotToMinutes(a.slot)
-            .compareTo(AppTimezone.slotToMinutes(b.slot));
-      });
+    }).toList();
     return list;
   }
 

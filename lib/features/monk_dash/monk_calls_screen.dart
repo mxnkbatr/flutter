@@ -124,21 +124,20 @@ class MonkCallsScreen extends ConsumerWidget {
                 ),
                 data: (bookings) {
                   final sorted = MonkBookingFilters.sortBookings(bookings);
-                  final confirmedToday =
-                      MonkBookingFilters.todayConfirmedPaid(sorted);
-                  final activeNow = confirmedToday
-                      .where(
-                        (b) => AppTimezone.isInCallWindow(b.date, b.slot),
-                      )
+                  // Бүх confirmed+paid — шүүлтүүргүй (онцгой/энгийн ижил код).
+                  final confirmed =
+                      MonkBookingFilters.allConfirmedPaid(sorted);
+                  final joinable = confirmed
+                      .where(MonkBookingFilters.canJoinTodayCall)
                       .toList();
-                  final upcoming =
-                      MonkBookingFilters.upcomingConfirmedCalls(sorted);
+                  final otherConfirmed = confirmed
+                      .where((b) => !MonkBookingFilters.canJoinTodayCall(b))
+                      .toList();
                   final approved =
                       MonkBookingFilters.approvedAwaitingPayment(sorted);
 
                   final hasCalls = incoming != null ||
-                      activeNow.isNotEmpty ||
-                      upcoming.isNotEmpty ||
+                      confirmed.isNotEmpty ||
                       approved.isNotEmpty;
 
                   if (!hasCalls) {
@@ -220,30 +219,29 @@ class MonkCallsScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
-                      if (activeNow.isNotEmpty)
+                      if (joinable.isNotEmpty)
                         MonkSectionCard(
                           icon: Icons.videocam_rounded,
-                          title: 'Одоо болох дуудлага',
-                          subtitle: '${activeNow.length} идэвхтэй',
+                          title: 'Одоо орох боломжтой',
+                          subtitle: '${joinable.length} дуудлага',
                           accent: AppColors.success,
-                          children: activeNow
-                              .map(
-                                (b) => _ActiveCallCard(booking: b),
-                              )
+                          children: joinable
+                              .map((b) => _ActiveCallCard(booking: b))
                               .toList(),
                         ),
-                      if (upcoming.isNotEmpty)
+                      if (otherConfirmed.isNotEmpty)
                         MonkSectionCard(
-                          icon: Icons.schedule_rounded,
-                          title: 'Дараагийн видео дуудлага',
-                          subtitle: 'Цаг · Хэнтэй уулзах',
+                          icon: Icons.event_available_rounded,
+                          title: 'Баталгаажсан дуудлага',
+                          subtitle: 'Бүх confirmed · ${otherConfirmed.length}',
                           accent: AppColors.orange,
-                          children: upcoming
+                          children: otherConfirmed
                               .map(
                                 (b) => _UpcomingCallRow(
                                   booking: b,
-                                  dateLabel: MonkBookingFilters.formatBookingDate(
-                                      b.date),
+                                  dateLabel:
+                                      MonkBookingFilters.formatBookingDate(
+                                          b.date),
                                   eta: MonkBookingFilters.minutesUntil(b),
                                 ),
                               )
@@ -253,7 +251,8 @@ class MonkCallsScreen extends ConsumerWidget {
                         MonkSectionCard(
                           icon: Icons.verified_rounded,
                           title: 'Төлбөр хүлээгдэж буй',
-                          subtitle: '${approved.length} захиалга — төлөгдсөн бол автоматаар баталгаажна',
+                          subtitle:
+                              '${approved.length} захиалга — төлөгдсөн бол автоматаар баталгаажна',
                           accent: AppColors.warning,
                           children: approved
                               .map((b) => MonkBookingCard(booking: b))
@@ -344,7 +343,7 @@ class _UpcomingCallRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canJoin = AppTimezone.isInCallWindow(booking.date, booking.slot);
+    final canJoin = MonkBookingFilters.canJoinTodayCall(booking);
     final clientName = booking.clientName.isNotEmpty
         ? booking.clientName
         : 'Хэрэглэгч';

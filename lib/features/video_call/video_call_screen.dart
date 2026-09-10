@@ -12,7 +12,6 @@ import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/features/video_call/widgets/call_error_view.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
 import 'package:sacred_app/features/video_call/widgets/call_permission_prep_view.dart';
 import 'package:sacred_app/features/video_call/widgets/call_top_bar.dart';
@@ -49,7 +48,6 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   bool _permissionLoading = false;
   bool _connecting = false;
   String? _error;
-  bool _errorIsPermission = false;
   String _peerName = 'Лам';
   String? _peerImage;
   Duration _elapsed = Duration.zero;
@@ -187,7 +185,6 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             fallback:
                 'Микрофон асаагдсангүй.\n\nТохиргоо → Gevabal → Микрофон-ыг асаагаад дахин оролдоно уу.',
           );
-          _errorIsPermission = true;
           _connecting = false;
         });
         await room.disconnect();
@@ -222,16 +219,8 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
           e,
           fallback: 'Видео дуудлага эхлүүлэхэд алдаа гарлаа.',
         );
-        _errorIsPermission = isMediaPermissionError(e);
         _connecting = false;
       });
-    }
-  }
-
-  Future<void> _openAppSettings() async {
-    final uri = Uri.parse('app-settings:');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
     }
   }
 
@@ -438,11 +427,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         child: CallErrorView(
           message: _error!,
           onBack: _leaveCallScreen,
-          onOpenSettings: _errorIsPermission ? _openAppSettings : null,
           onRetry: () {
             setState(() {
               _error = null;
-              _errorIsPermission = false;
               _awaitingPermission = true;
               _connecting = false;
             });

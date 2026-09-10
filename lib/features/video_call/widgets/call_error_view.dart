@@ -11,13 +11,11 @@ class CallErrorView extends StatelessWidget {
     required this.message,
     required this.onBack,
     this.onRetry,
-    this.onOpenSettings,
   });
 
   final String message;
   final VoidCallback onBack;
   final VoidCallback? onRetry;
-  final VoidCallback? onOpenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -95,19 +93,10 @@ class CallErrorView extends StatelessWidget {
                     ),
                   ),
                   const Spacer(flex: 2),
-                  if (onOpenSettings != null) ...[
-                    SacredButton(
-                      label: 'Тохиргоо нээх',
-                      sunShadow: true,
-                      onTap: onOpenSettings,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   if (onRetry != null) ...[
                     SacredButton(
                       label: 'Дахин оролдох',
-                      sunShadow: onOpenSettings == null,
-                      outline: onOpenSettings != null,
+                      sunShadow: true,
                       onTap: onRetry,
                     ),
                     const SizedBox(height: 12),

@@ -19,10 +19,6 @@ import 'package:sacred_app/features/video_call/widgets/connecting_view.dart';
 import 'package:sacred_app/features/video_call/widgets/end_call_dialog.dart';
 import 'package:sacred_app/features/video_call/widgets/local_video_widget.dart';
 import 'package:sacred_app/features/video_call/widgets/waiting_view.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// Dart-only: native permission_handler ашиглахгүй (Shorebird patch-д тохирно).
-const _kCallPermissionPrepSeenKey = 'call_permission_prep_seen_v1';
 
 class VideoCallScreen extends ConsumerStatefulWidget {
   const VideoCallScreen({
@@ -61,29 +57,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
       }
-      _maybeSkipPrep();
     });
   }
 
-  /// Өмнө нь тайлбар харсан бол шууд холбогдоно (систем зөвшөөрөл LiveKit асууна).
-  Future<void> _maybeSkipPrep() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    if (prefs.getBool(_kCallPermissionPrepSeenKey) == true) {
-      setState(() {
-        _awaitingPermission = false;
-        _connecting = true;
-      });
-      _startTimer();
-      await _connect();
-    }
-  }
-
+  /// Дуудлага бүрт зөвшөөрлийн дэлгэц харуулна; дараа нь LiveKit систем асууна.
   Future<void> _onAllowPermissions() async {
-    setState(() => _permissionLoading = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kCallPermissionPrepSeenKey, true);
-    if (!mounted) return;
     setState(() {
       _permissionLoading = false;
       _awaitingPermission = false;

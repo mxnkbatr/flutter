@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sacred_app/core/notifications/app_permission_gate.dart';
+import 'package:sacred_app/core/notifications/app_permission_prep_overlay.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/notifications/push_notification_service.dart';
 import 'package:sacred_app/core/router/app_router.dart';
@@ -80,6 +82,9 @@ class SacredApp extends ConsumerStatefulWidget {
 class _SacredAppState extends ConsumerState<SacredApp>
     with WidgetsBindingObserver {
   static bool _pushInitStarted = false;
+  AppPermissionPrepKind _prepKind = AppPermissionPrepKind.none;
+  bool _prepLoading = false;
+  bool _deniedHintShownThisSession = false;
 
   @override
   void initState() {
@@ -90,6 +95,7 @@ class _SacredAppState extends ConsumerState<SacredApp>
         _pushInitStarted = true;
         PushNotificationService.initialize(ref);
       }
+      _maybeShowPermissionPrep();
     });
   }
 
@@ -103,7 +109,50 @@ class _SacredAppState extends ConsumerState<SacredApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       PushNotificationService.onAppResumed(ref);
+      _maybeShowPermissionPrep();
     }
+  }
+
+  Future<void> _maybeShowPermissionPrep() async {
+    final auth = ref.read(authStateProvider).valueOrNull;
+    if (auth?.isAuthenticated != true) {
+      if (mounted) setState(() => _prepKind = AppPermissionPrepKind.none);
+      return;
+    }
+    final kind = await AppPermissionGate.evaluate();
+    if (!mounted) return;
+    if (kind == AppPermissionPrepKind.none) {
+      setState(() => _prepKind = AppPermissionPrepKind.none);
+      PushNotificationService.scheduleFcmSync(ref);
+      return;
+    }
+    if (kind == AppPermissionPrepKind.deniedHint &&
+        _deniedHintShownThisSession) {
+      return;
+    }
+    setState(() => _prepKind = kind);
+  }
+
+  Future<void> _onPrepContinue() async {
+    if (_prepKind == AppPermissionPrepKind.deniedHint) {
+      _deniedHintShownThisSession = true;
+      if (mounted) setState(() => _prepKind = AppPermissionPrepKind.none);
+      return;
+    }
+    setState(() => _prepLoading = true);
+    await AppPermissionGate.requestAfterPrep(ref);
+    if (!mounted) return;
+    setState(() {
+      _prepLoading = false;
+      _prepKind = AppPermissionPrepKind.none;
+    });
+  }
+
+  void _onPrepSkip() {
+    if (_prepKind == AppPermissionPrepKind.deniedHint) {
+      _deniedHintShownThisSession = true;
+    }
+    setState(() => _prepKind = AppPermissionPrepKind.none);
   }
 
   @override
@@ -112,7 +161,12 @@ class _SacredAppState extends ConsumerState<SacredApp>
       final wasAuthed = previous?.valueOrNull?.isAuthenticated == true;
       final isAuthed = next.valueOrNull?.isAuthenticated == true;
       if (!wasAuthed && isAuthed) {
-        PushNotificationService.scheduleFcmSync(ref);
+        // Системийн Allow-оос өмнө монгол зааварчилгаа харуулна.
+        _maybeShowPermissionPrep();
+      }
+      if (wasAuthed && !isAuthed) {
+        _deniedHintShownThisSession = false;
+        setState(() => _prepKind = AppPermissionPrepKind.none);
       }
     });
 
@@ -130,6 +184,15 @@ class _SacredAppState extends ConsumerState<SacredApp>
         Widget content = Stack(
           children: [
             if (child != null) child,
+            if (_prepKind != AppPermissionPrepKind.none && incoming == null)
+              Positioned.fill(
+                child: AppPermissionPrepOverlay(
+                  alreadyDenied: _prepKind == AppPermissionPrepKind.deniedHint,
+                  isLoading: _prepLoading,
+                  onContinue: _onPrepContinue,
+                  onSkip: _onPrepSkip,
+                ),
+              ),
             if (incoming != null)
               Positioned.fill(
                 child: PopScope(

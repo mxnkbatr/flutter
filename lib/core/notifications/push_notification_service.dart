@@ -18,7 +18,10 @@ class PushNotificationService {
   static Timer? _fcmRetryTimer;
 
   /// iOS/Android notification permission — нэвтэрсний дараа эсвэл тохиргооноос дуудна.
-  static Future<bool> requestNotificationPermission() async {
+  /// [allowPrompt]=false үед зөвхөн аль хэдийн зөвшөөрсөн эсэхийг шалгана (системийн dialog гаргахгүй).
+  static Future<bool> requestNotificationPermission({
+    bool allowPrompt = true,
+  }) async {
     if (!isFirebaseReady) return false;
     try {
       final current = await FirebaseMessaging.instance.getNotificationSettings();
@@ -29,6 +32,7 @@ class PushNotificationService {
       if (current.authorizationStatus == AuthorizationStatus.denied) {
         return false;
       }
+      if (!allowPrompt) return false;
       final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         sound: true,
@@ -52,7 +56,12 @@ class PushNotificationService {
   }
 
   /// Upload FCM token after login (backend uses PUT /users/profile).
-  static Future<bool> syncFcmToken(WidgetRef ref, {int attempt = 0}) async {
+  /// [allowPrompt]=false: монгол зааварчилгааны өмнө системийн Allow гаргахгүй.
+  static Future<bool> syncFcmToken(
+    WidgetRef ref, {
+    int attempt = 0,
+    bool allowPrompt = false,
+  }) async {
     try {
       if (!isFirebaseReady) {
         debugPrint('FCM sync skipped: Firebase not ready');
@@ -61,9 +70,10 @@ class PushNotificationService {
       final auth = ref.read(authStateProvider).valueOrNull;
       if (auth == null || !auth.isAuthenticated) return false;
 
-      final allowed = await requestNotificationPermission();
+      final allowed =
+          await requestNotificationPermission(allowPrompt: allowPrompt);
       if (!allowed) {
-        debugPrint('FCM sync skipped: notification permission denied');
+        debugPrint('FCM sync skipped: notification permission not granted');
         return false;
       }
       await _waitForApnsIfNeeded();
@@ -71,7 +81,11 @@ class PushNotificationService {
       var token = await FirebaseMessaging.instance.getToken();
       if (token == null && attempt < 4) {
         await Future<void>.delayed(Duration(seconds: 1 + attempt));
-        return syncFcmToken(ref, attempt: attempt + 1);
+        return syncFcmToken(
+          ref,
+          attempt: attempt + 1,
+          allowPrompt: allowPrompt,
+        );
       }
       if (token == null) {
         debugPrint('FCM: no token after ${attempt + 1} attempt(s)');
@@ -90,21 +104,26 @@ class PushNotificationService {
       debugPrint('FCM token upload failed (attempt ${attempt + 1}): $e');
       if (!blocked && attempt < 3) {
         await Future<void>.delayed(Duration(seconds: 2 + attempt));
-        return syncFcmToken(ref, attempt: attempt + 1);
+        return syncFcmToken(
+          ref,
+          attempt: attempt + 1,
+          allowPrompt: allowPrompt,
+        );
       }
       return false;
     }
   }
 
   /// Auth бэлэн болоход хэд хэдэн удаа дахин оролдоно (release build-д ч ажиллана).
+  /// Системийн permission dialog автоматаар гаргахгүй — AppPermissionGate асууна.
   static void scheduleFcmSync(WidgetRef ref) {
     _fcmRetryTimer?.cancel();
-    unawaited(syncFcmToken(ref));
+    unawaited(syncFcmToken(ref, allowPrompt: false));
     _fcmRetryTimer = Timer(const Duration(seconds: 3), () {
-      unawaited(syncFcmToken(ref));
+      unawaited(syncFcmToken(ref, allowPrompt: false));
     });
     Timer(const Duration(seconds: 8), () {
-      unawaited(syncFcmToken(ref));
+      unawaited(syncFcmToken(ref, allowPrompt: false));
     });
   }
 

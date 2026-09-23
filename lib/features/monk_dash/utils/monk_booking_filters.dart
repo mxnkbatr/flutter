@@ -35,8 +35,9 @@ class MonkBookingFilters {
     return sorted;
   }
 
-  /// Join цонх — slot эхэлснээс хойш (минутаар).
-  static const int callJoinGraceMinutes = 90;
+  /// Join цонх — slot-аас өмнө/хойш (AppTimezone-тай ижил).
+  static const int callJoinGraceMinutes = AppTimezone.callJoinGraceMinutes;
+  static const int callJoinEarlyMinutes = AppTimezone.callJoinEarlyMinutes;
 
   /// Бүх confirmed + paid — Ажил дэлгэцэд бүгдийг харуулна (онцгой/энгийн ижил).
   static List<MonkBookingItem> allConfirmedPaid(
@@ -75,11 +76,7 @@ class MonkBookingFilters {
   }
 
   static bool canJoinTodayCall(MonkBookingItem b) {
-    return AppTimezone.isInCallWindow(
-      b.date,
-      b.slot,
-      durationMinutes: callJoinGraceMinutes,
-    );
+    return AppTimezone.isInCallWindow(b.date, b.slot);
   }
 
   /// Ирэх баталгаажсан видео дуудлагууд (өнөөдрөөс хойш + өнөөдрийн ирээдүй).

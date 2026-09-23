@@ -51,11 +51,12 @@ class MonkCallsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Consumer(
               builder: (context, ref, _) {
-                final isSpecial = ref
-                        .watch(monkDashboardProvider)
-                        .valueOrNull
-                        ?.isSpecial ??
-                    false;
+                final dash = ref.watch(monkDashboardProvider);
+                final isSpecial = dash.when(
+                  data: (d) => d.isSpecial,
+                  loading: () => true,
+                  error: (_, __) => true,
+                );
                 final links = <Widget>[
                   Expanded(
                     child: _QuickLink(
@@ -99,7 +100,7 @@ class MonkCallsScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
             child: Text(
-              '30 минутын цагийн интервал',
+              '${AppTimezone.ubTimeHint} · 30 мин интервал',
               style: AppText.caption.copyWith(color: AppColors.textSec),
             ),
           ),

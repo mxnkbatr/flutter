@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/utils/auth_phone.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
@@ -31,6 +32,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   void initState() {
     super.initState();
     setAuthSystemUI();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      warmApiServer(ref.read(apiClientProvider));
+    });
   }
 
   @override
@@ -76,6 +80,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _submit() async {
     if (!_validate()) return;
+
+    await warmApiServer(ref.read(apiClientProvider));
 
     await ref.read(authStateProvider.notifier).signup(
           name: _nameController.text.trim(),

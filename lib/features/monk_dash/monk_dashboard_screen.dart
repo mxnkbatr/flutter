@@ -71,8 +71,13 @@ class _MonkDashboardScreenState extends ConsumerState<MonkDashboardScreen>
 
   @override
   Widget build(BuildContext context) {
-    final hideEarnings =
-        ref.watch(monkDashboardProvider).valueOrNull?.isSpecial ?? false;
+    // Ачаалж байхдаа өмнөх төлөв / нуух — онцгой ламд орлого гялс харагдахгүй.
+    final dash = ref.watch(monkDashboardProvider);
+    final hideEarnings = dash.when(
+      data: (d) => d.isSpecial,
+      loading: () => _hideEarnings ?? true,
+      error: (_, __) => _hideEarnings ?? true,
+    );
     _ensureController(hideEarnings);
 
     final labels = hideEarnings ? _specialLabels : _allLabels;

@@ -4,6 +4,7 @@ import 'package:sacred_app/core/utils/error_messages.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_earnings_data.dart';
+import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_earnings_provider.dart';
 import 'package:sacred_app/features/monk_dash/utils/earnings_pdf_export.dart';
 import 'package:sacred_app/features/monk_dash/utils/monk_dash_format.dart';
@@ -35,6 +36,17 @@ class EarningsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isSpecial =
+        ref.watch(monkDashboardProvider).valueOrNull?.isSpecial ?? false;
+    if (isSpecial) {
+      return Center(
+        child: Text(
+          'Онцгой ламд орлого харагдахгүй',
+          style: AppText.bodySmall,
+        ),
+      );
+    }
+
     final month = ref.watch(selectedEarningsMonthProvider);
     final earningsAsync = ref.watch(monkEarningsProvider);
 

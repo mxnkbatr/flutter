@@ -189,7 +189,13 @@ class _DateTimeSelectionStepState extends ConsumerState<DateTimeSelectionStep> {
           title: 'Цаг сонгоно уу',
           done: draft.slot != null,
         ),
-        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(top: 4, bottom: 6),
+          child: Text(
+            AppTimezone.ubTimeHint,
+            style: AppText.caption.copyWith(color: AppColors.textSec),
+          ),
+        ),
         if (draft.date == null)
           const _EmptyHint(
             icon: Icons.touch_app_rounded,
@@ -464,6 +470,10 @@ class _SelectionSummary extends StatelessWidget {
                 ),
                 Text(
                   fullDate,
+                  style: AppText.caption.copyWith(color: AppColors.textSec),
+                ),
+                Text(
+                  AppTimezone.ubTimeHint,
                   style: AppText.caption.copyWith(color: AppColors.textSec),
                 ),
               ],

@@ -9,11 +9,14 @@ class WaitingView extends StatelessWidget {
     required this.role,
     this.peerName,
     this.peerImage,
+    this.peerConnected = false,
   });
 
   final String role;
   final String? peerName;
   final String? peerImage;
+  /// Нөгөө тал өрөөнд орсон (видео байхгүй ч холбогдсон).
+  final bool peerConnected;
 
   String get _initial {
     final n = peerName ?? '';
@@ -22,9 +25,13 @@ class WaitingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final message = role == 'monk'
-        ? 'Хэрэглэгч холбогдохыг хүлээж байна...'
-        : '${peerName ?? "Лам"} холбогдохыг хүлээж байна...';
+    final message = peerConnected
+        ? (role == 'monk'
+            ? 'Хэрэглэгч холбогдсон · зөвхөн дуугаар'
+            : '${peerName ?? "Лам"} холбогдсон · зөвхөн дуугаар')
+        : (role == 'monk'
+            ? 'Хэрэглэгч холбогдохыг хүлээж байна...'
+            : '${peerName ?? "Лам"} холбогдохыг хүлээж байна...');
 
     return Container(
       decoration: BoxDecoration(
@@ -92,15 +99,17 @@ class WaitingView extends StatelessWidget {
             style: AppText.body.copyWith(color: Colors.white.withOpacity(0.9)),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: AppColors.orange.withOpacity(0.85),
+          if (!peerConnected) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.orange.withOpacity(0.85),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

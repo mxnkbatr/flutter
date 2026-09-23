@@ -36,6 +36,8 @@ class VideoCallScreen extends ConsumerStatefulWidget {
 
 class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   Room? _room;
+  EventsListener<RoomEvent>? _roomListener;
+  Timer? _participantPoll;
   LocalParticipant? _local;
   RemoteParticipant? _remote;
   bool _isMuted = false;
@@ -176,7 +178,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         cameraOff = true;
       }
 
-      room.addListener(_onRoomEvent);
+      _attachRoomListeners(room);
 
       if (!mounted) {
         await room.disconnect();
@@ -202,12 +204,34 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     }
   }
 
-  void _onRoomEvent() {
-    if (!mounted) return;
-    setState(() {
-      _remote = _room?.remoteParticipants.values.firstOrNull;
+  void _attachRoomListeners(Room room) {
+    _roomListener?.dispose();
+    _roomListener = room.createListener()
+      ..on<ParticipantConnectedEvent>((_) => _syncParticipants())
+      ..on<ParticipantDisconnectedEvent>((_) => _syncParticipants())
+      ..on<TrackSubscribedEvent>((_) => _syncParticipants())
+      ..on<TrackUnsubscribedEvent>((_) => _syncParticipants())
+      ..on<TrackMutedEvent>((_) => _syncParticipants())
+      ..on<TrackUnmutedEvent>((_) => _syncParticipants())
+      ..on<LocalTrackPublishedEvent>((_) => _syncParticipants())
+      ..on<LocalTrackUnpublishedEvent>((_) => _syncParticipants());
+
+    room.addListener(_onRoomEvent);
+    _participantPoll?.cancel();
+    _participantPoll = Timer.periodic(const Duration(seconds: 2), (_) {
+      _syncParticipants();
     });
   }
+
+  void _syncParticipants() {
+    if (!mounted || _room == null) return;
+    setState(() {
+      _local = _room!.localParticipant;
+      _remote = _room!.remoteParticipants.values.firstOrNull;
+    });
+  }
+
+  void _onRoomEvent() => _syncParticipants();
 
   void _startTimer() {
     _timer?.cancel();
@@ -359,7 +383,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _participantPoll?.cancel();
     _noteController.dispose();
+    _roomListener?.dispose();
     _room?.removeListener(_onRoomEvent);
     _room?.disconnect();
     super.dispose();
@@ -416,6 +442,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       );
     }
 
+    final hasRemote = _remote != null;
     final remoteTrack = _videoTrackFor(_remote);
     final localTrack = _videoTrackFor(_local);
 
@@ -438,6 +465,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                       role: widget.role,
                       peerName: _peerName,
                       peerImage: _peerImage,
+                      peerConnected: hasRemote,
                     ),
             ),
             Positioned(
@@ -455,7 +483,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
               child: CallTopBar(
                 monkName: _peerName,
                 elapsed: _elapsed,
-                isConnected: remoteTrack != null,
+                isConnected: hasRemote,
                 onNote: _showNoteDrawer,
               ),
             ),

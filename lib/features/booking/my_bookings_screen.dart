@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_gradients.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
+import 'package:sacred_app/core/utils/app_timezone.dart';
 import 'package:sacred_app/features/booking/models/client_booking.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/core/theme/minimal_style.dart';
@@ -221,6 +222,10 @@ class _BookingCard extends ConsumerWidget {
                       style: AppText.bodySmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      AppTimezone.ubTimeHint,
+                      style: AppText.caption.copyWith(color: AppColors.textSec),
                     ),
                   ],
                 ),

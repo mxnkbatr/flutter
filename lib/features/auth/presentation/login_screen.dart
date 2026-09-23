@@ -34,6 +34,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     setAuthSystemUI();
+    // Render cold start-ийг нэвтрэхээс өмнө сэрээнэ (Япон гэх мэт холын сүлжээ).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      warmApiServer(ref.read(apiClientProvider));
+    });
   }
 
   @override
@@ -78,6 +82,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
       _formError = null;
     });
+
+    await warmApiServer(ref.read(apiClientProvider));
 
     await ref.read(authStateProvider.notifier).login(
           _loginCtrl.text.trim(),

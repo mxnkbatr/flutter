@@ -10,6 +10,12 @@ class AppTimezone {
   static const _offset = Duration(hours: 8);
   static const int slotIntervalMinutes = 30;
 
+  /// Slot-аас өмнө орж болох минут (Япон UTC+9 ≈ +1ц зөрүүг хамрах).
+  static const int callJoinEarlyMinutes = 60;
+
+  /// Slot эхэлснээс хойш холбогдох боломжтой минут.
+  static const int callJoinGraceMinutes = 90;
+
   /// Current UB wall-clock time as a naive local [DateTime].
   static DateTime now() {
     final ub = DateTime.now().toUtc().add(_offset);
@@ -87,18 +93,27 @@ class AppTimezone {
     return DateTime(n.year, n.month, n.day);
   }
 
-  /// True when current UB time is within [durationMinutes] of [slot] on [dateStr].
+  /// True when current UB time is within the join window for [slot] on [dateStr].
+  ///
+  /// Default: [callJoinEarlyMinutes] before → [callJoinGraceMinutes] after start.
+  /// All booking times are Ulaanbaatar (UTC+8); Japan is ~1h ahead.
   static bool isInCallWindow(
     String? dateStr,
     String slot, {
-    int durationMinutes = slotIntervalMinutes,
+    int durationMinutes = callJoinGraceMinutes,
+    int earlyMinutes = callJoinEarlyMinutes,
   }) {
     if (dateStr == null || dateStr.isEmpty || slot.isEmpty) return false;
     if (_dateKey(dateStr) != todayDateStr()) return false;
     final start = slotToMinutes(slot);
     final nowMin = currentTimeMinutes;
-    return nowMin >= start && nowMin < start + durationMinutes;
+    return nowMin >= start - earlyMinutes &&
+        nowMin < start + durationMinutes;
   }
+
+  /// Short label for UI — slots are always Mongolia time.
+  static const String ubTimeHint = 'Улаанбаатарын цаг (UTC+8)';
+
 
   /// Display helper — formats a naive UB date without shifting timezone.
   static String formatDate(DateTime date, String pattern) {

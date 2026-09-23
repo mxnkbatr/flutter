@@ -32,9 +32,10 @@ bool get shouldUseDevAuth {
 bool isDevAuthToken(String? token) =>
     token != null && token.startsWith('dev_');
 
-/// Keep timeouts tight for snappy UX. Cold Render wakes via /health on write retry.
-const Duration kApiConnectTimeout = Duration(seconds: 12);
-const Duration kApiReceiveTimeout = Duration(seconds: 20);
+/// Keep timeouts generous — Render free tier cold start can exceed 30s,
+/// especially from Asia (Japan) networks.
+const Duration kApiConnectTimeout = Duration(seconds: 45);
+const Duration kApiReceiveTimeout = Duration(seconds: 60);
 
 bool _isTransientNetworkError(DioException error) {
   switch (error.type) {
@@ -46,6 +47,20 @@ bool _isTransientNetworkError(DioException error) {
     default:
       return false;
   }
+}
+
+/// Wake sleeping Render instance before login/signup.
+Future<void> warmApiServer(Dio dio) async {
+  try {
+    await dio.get(
+      '/health',
+      options: Options(
+        receiveTimeout: kApiReceiveTimeout,
+        sendTimeout: kApiConnectTimeout,
+        extra: {'allowRetry': false, 'skipAuthLogout': true},
+      ),
+    );
+  } catch (_) {}
 }
 
 final apiClientProvider = Provider<Dio>((ref) {
@@ -72,21 +87,18 @@ final apiClientProvider = Provider<Dio>((ref) {
         final retryCount = (opts.extra['retryCount'] as int?) ?? 0;
         final allowRetry = opts.extra['allowRetry'] != false;
 
+        // Cold start: wake + retry up to 2 times.
         if (allowRetry &&
-            retryCount < 1 &&
+            retryCount < 2 &&
             _isTransientNetworkError(error)) {
           opts.extra['retryCount'] = retryCount + 1;
           try {
-            // Wake a sleeping free-tier instance before the real retry.
-            await dio.get(
-              '/health',
-              options: Options(
-                receiveTimeout: kApiReceiveTimeout,
-                sendTimeout: kApiConnectTimeout,
-                extra: {'allowRetry': false, 'skipAuthLogout': true},
-              ),
-            );
+            await warmApiServer(dio);
           } catch (_) {}
+          // Brief pause so the instance finishes booting.
+          await Future<void>.delayed(
+            Duration(milliseconds: 800 + retryCount * 1200),
+          );
           try {
             final response = await dio.fetch(opts);
             return handler.resolve(response);

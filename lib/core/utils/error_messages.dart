@@ -12,7 +12,9 @@ String formatUserError(
         error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.sendTimeout ||
         error.type == DioExceptionType.receiveTimeout) {
-      return 'Серверт холбогдож чадсангүй.\nИнтернэт холболтоо шалгаад дахин оролдоно уу.';
+      return 'Серверт холбогдож чадсангүй.\n'
+          'Сервер сэргэж байж магадгүй — 30–60 сек хүлээгээд дахин оролдоно уу.\n'
+          'Wi‑Fi эсвэл мобиль дата солиод үзнэ үү.';
     }
 
     final code = error.response?.statusCode;

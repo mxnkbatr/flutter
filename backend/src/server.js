@@ -1895,11 +1895,14 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
   const today = todayDateStr();
   const month = today.slice(0, 7);
 
+  const isSpecial = monk?.isSpecial === true;
   const allBookings = await Booking.find({ monkId, status: { $ne: 'cancelled' } });
   const monthBookings = allBookings.filter((b) => b.date?.startsWith(month));
-  const monthlyEarnings = monthBookings
-    .filter((b) => b.paid)
-    .reduce((s, b) => s + monkEarnsFromAmount(b.amount), 0);
+  const monthlyEarnings = isSpecial
+    ? 0
+    : monthBookings
+        .filter((b) => b.paid)
+        .reduce((s, b) => s + monkEarnsFromAmount(b.amount), 0);
 
   const todayViews = await ProfileView.countDocuments({
     monkId,
@@ -1925,7 +1928,7 @@ app.get('/api/monk/dashboard', authRequired, async (req, res) => {
     reviewCount: monk?.reviewCount || 0,
     pendingCount: allBookings.filter((b) => b.status === 'pending').length,
     isAvailable: monk?.isAvailable ?? true,
-    isSpecial: monk?.isSpecial === true,
+    isSpecial,
     todayBookings: todayBookings.map((b) =>
       bookingJson(b, { clientName: clientMap[b.clientId?.toString()] || '' }),
     ),

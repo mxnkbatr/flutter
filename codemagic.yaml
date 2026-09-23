@@ -344,6 +344,7 @@ workflows:
           shorebird patch ios \
             --release-version="$RELEASE_VERSION" \
             --allow-native-diffs \
+            --allow-asset-diffs \
             --export-options-plist="$HOME/export_options.plist" \
             -- \
             --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
@@ -377,6 +378,7 @@ workflows:
           shorebird patch android \
             --release-version="$RELEASE_VERSION" \
             --allow-native-diffs \
+            --allow-asset-diffs \
             -- \
             --dart-define=API_BASE_URL="${API_BASE_URL:-https://geva-backend.onrender.com/api}" \
             --dart-define=PREFER_DEV_AUTH=false

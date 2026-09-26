@@ -1573,7 +1573,11 @@ app.get('/api/livekit', authRequired, async (req, res) => {
       if (!isClient && !isMonk && !isAdmin) {
         return res.status(403).json({ error: 'Эрх байхгүй' });
       }
-      if (!booking.paid || booking.status !== 'confirmed') {
+      // Лам «Дуусгах» дарсан ч тэр өдөртөө дахин холбогдож болно (тасарсан дуудлага).
+      const endedToday =
+        booking.status === 'completed' &&
+        String(booking.date || '').slice(0, 10) === todayDateStr();
+      if (!booking.paid || (booking.status !== 'confirmed' && !endedToday)) {
         return res.status(403).json({ error: 'Захиалга баталгаажаагүй байна' });
       }
     } else {

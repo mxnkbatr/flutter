@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
@@ -19,6 +20,22 @@ class AppPermissionPrepOverlay extends StatelessWidget {
   final VoidCallback onSkip;
   final bool isLoading;
   final bool alreadyDenied;
+
+  static bool get _isIos =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+
+  String get _deniedSteps => _isIos
+      ? 'Доорх «Тохиргоо нээх» товчийг дараад:\n'
+          '1. «Notifications / Мэдэгдэл» → «Allow Notifications»-ыг асаана\n'
+          '2. «Microphone / Микрофон»-ыг асаана\n'
+          '3. Апп руу буцна'
+      : '«Мэдэгдэл асаах» товчийг дараад «Allow / Зөвшөөрөх» дарна уу.\n\n'
+          'Цонх гарахгүй бол: Тохиргоо → Апп → Gevabal → Мэдэгдэл-ийг асаана уу.';
+
+  String get _primaryLabel {
+    if (!alreadyDenied) return 'Зөвшөөрөх';
+    return _isIos ? 'Тохиргоо нээх' : 'Мэдэгдэл асаах';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +74,7 @@ class AppPermissionPrepOverlay extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     alreadyDenied
-                        ? 'Мэдэгдэл эсвэл микрофон хаалттай байна. Тохиргооноос асаана уу.'
+                        ? 'Мэдэгдэл хаалттай байна — ламын дуудлага утсанд тань ирэхгүй. Асаана уу.'
                         : 'Дуудлага, захиалгын мэдэгдэл авахын тулд дараах зөвшөөрлийг өгнө үү.',
                     style: AppText.body.copyWith(
                       color: AppColors.inkMid,
@@ -87,7 +104,7 @@ class AppPermissionPrepOverlay extends StatelessWidget {
                     ),
                     child: Text(
                       alreadyDenied
-                          ? 'Тохиргоо → Gevabal → Мэдэгдэл болон Микрофон-ыг асаагаад апп руу буцна уу.'
+                          ? _deniedSteps
                           : 'Дараагийн цонхонд «Allow» эсвэл «Зөвшөөрөх» товчийг дарна уу.\n\n'
                               'Утасны хэл англи бол товч «Allow» гэж харагдана — түүнийг дарна.',
                       style: AppText.bodySmall.copyWith(
@@ -98,7 +115,7 @@ class AppPermissionPrepOverlay extends StatelessWidget {
                   ),
                   const Spacer(),
                   SacredButton(
-                    label: alreadyDenied ? 'Ойлголоо' : 'Зөвшөөрөх',
+                    label: _primaryLabel,
                     prominent: true,
                     isLoading: isLoading,
                     onTap: isLoading
@@ -108,14 +125,12 @@ class AppPermissionPrepOverlay extends StatelessWidget {
                             onContinue();
                           },
                   ),
-                  if (!alreadyDenied) ...[
-                    const SizedBox(height: 12),
-                    SacredButton(
-                      label: 'Одоо биш',
-                      outline: true,
-                      onTap: isLoading ? null : onSkip,
-                    ),
-                  ],
+                  const SizedBox(height: 12),
+                  SacredButton(
+                    label: 'Одоо биш',
+                    outline: true,
+                    onTap: isLoading ? null : onSkip,
+                  ),
                 ],
               ),
             ),

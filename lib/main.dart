@@ -84,7 +84,6 @@ class _SacredAppState extends ConsumerState<SacredApp>
   static bool _pushInitStarted = false;
   AppPermissionPrepKind _prepKind = AppPermissionPrepKind.none;
   bool _prepLoading = false;
-  bool _deniedHintShownThisSession = false;
 
   @override
   void initState() {
@@ -113,7 +112,25 @@ class _SacredAppState extends ConsumerState<SacredApp>
     }
   }
 
+  /// Дуудлага, төлбөр, нэвтрэлтийн үед зөвшөөрлийн дэлгэц гаргахгүй.
+  bool _isOnBlockingRoute() {
+    try {
+      final path =
+          ref.read(appRouterProvider).routerDelegate.currentConfiguration.uri.path;
+      return path.contains('/call/') ||
+          path.contains('/payment') ||
+          path.contains('/login') ||
+          path.contains('/signup') ||
+          path.contains('/splash') ||
+          path.contains('/shop/checkout');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Мэдэгдэл асаагаагүй бол апп нээх / буцаж ирэх бүрт дахин харуулна.
   Future<void> _maybeShowPermissionPrep() async {
+    if (_prepLoading) return;
     final auth = ref.read(authStateProvider).valueOrNull;
     if (auth?.isAuthenticated != true) {
       if (mounted) setState(() => _prepKind = AppPermissionPrepKind.none);
@@ -126,32 +143,31 @@ class _SacredAppState extends ConsumerState<SacredApp>
       PushNotificationService.scheduleFcmSync(ref);
       return;
     }
-    if (kind == AppPermissionPrepKind.deniedHint &&
-        _deniedHintShownThisSession) {
-      return;
-    }
+    if (_isOnBlockingRoute()) return;
     setState(() => _prepKind = kind);
   }
 
   Future<void> _onPrepContinue() async {
-    if (_prepKind == AppPermissionPrepKind.deniedHint) {
-      _deniedHintShownThisSession = true;
-      if (mounted) setState(() => _prepKind = AppPermissionPrepKind.none);
-      return;
-    }
     setState(() => _prepLoading = true);
-    await AppPermissionGate.requestAfterPrep(ref);
+    if (_prepKind == AppPermissionPrepKind.deniedHint) {
+      await AppPermissionGate.recoverDenied(ref);
+    } else {
+      await AppPermissionGate.requestAfterPrep(ref);
+    }
     if (!mounted) return;
-    setState(() {
-      _prepLoading = false;
-      _prepKind = AppPermissionPrepKind.none;
-    });
+    setState(() => _prepLoading = false);
+    // iOS Тохиргоо руу гарсан бол буцаж ирэхэд resume дээр дахин шалгана.
+    final kind = await AppPermissionGate.evaluate();
+    if (!mounted) return;
+    if (kind == AppPermissionPrepKind.none) {
+      setState(() => _prepKind = AppPermissionPrepKind.none);
+      PushNotificationService.scheduleFcmSync(ref);
+    } else if (_prepKind == AppPermissionPrepKind.ask) {
+      setState(() => _prepKind = AppPermissionPrepKind.none);
+    }
   }
 
   void _onPrepSkip() {
-    if (_prepKind == AppPermissionPrepKind.deniedHint) {
-      _deniedHintShownThisSession = true;
-    }
     setState(() => _prepKind = AppPermissionPrepKind.none);
   }
 
@@ -165,7 +181,6 @@ class _SacredAppState extends ConsumerState<SacredApp>
         _maybeShowPermissionPrep();
       }
       if (wasAuthed && !isAuthed) {
-        _deniedHintShownThisSession = false;
         setState(() => _prepKind = AppPermissionPrepKind.none);
       }
     });

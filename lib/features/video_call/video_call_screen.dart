@@ -154,6 +154,11 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       );
 
       await room.connect(wsUrl, token);
+      if (!mounted || _leaving) {
+        await room.disconnect();
+        await room.dispose();
+        return;
+      }
 
       // Системийн mic/camera popup энд (LiveKit) гарна — native plugin шаардлагагүй.
       var cameraOff = false;
@@ -185,12 +190,13 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         cameraOff = true;
       }
 
-      _attachRoomListeners(room);
-
-      if (!mounted) {
+      if (!mounted || _leaving) {
         await room.disconnect();
+        await room.dispose();
         return;
       }
+
+      _attachRoomListeners(room);
 
       setState(() {
         _room = room;
@@ -280,6 +286,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   Future<void> _toggleMute() async {
     await _room?.localParticipant?.setMicrophoneEnabled(_isMuted);
+    if (!mounted) return;
     setState(() => _isMuted = !_isMuted);
   }
 

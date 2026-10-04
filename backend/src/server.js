@@ -661,7 +661,21 @@ app.get('/api/bookings', authRequired, async (req, res) => {
       filter.date = { $regex: `^${req.query.month}` };
     }
 
-    const bookings = await Booking.find(filter).sort({ createdAt: -1 }).limit(100);
+    const recent = await Booking.find(filter).sort({ createdAt: -1 }).limit(100);
+    // Upcoming/today bookings must never fall out of the list (join buttons, auto-join).
+    const upcoming =
+      req.user.role === 'admin' || req.query.month
+        ? []
+        : await Booking.find({
+            ...filter,
+            date: { $gte: todayDateStr() },
+            status: { $in: ['pending', 'approved', 'confirmed', 'completed'] },
+          }).limit(300);
+    const seen = new Set(recent.map((b) => b._id.toString()));
+    const bookings = [
+      ...recent,
+      ...upcoming.filter((b) => !seen.has(b._id.toString())),
+    ];
     const result = [];
     for (const b of bookings) {
       const monk = await Monk.findById(b.monkId);
@@ -922,9 +936,10 @@ const PLATFORM_BANK = {
   iban: process.env.PLATFORM_BANK_IBAN || '400034',
 };
 
-function qpayCallbackUrl() {
+function qpayCallbackUrl(invoiceId) {
   const base = (process.env.APP_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
-  return `${base}/api/payment/qpay/callback`;
+  const url = `${base}/api/payment/qpay/callback`;
+  return invoiceId ? `${url}?invoice=${encodeURIComponent(invoiceId)}` : url;
 }
 
 function apiPublicBase() {
@@ -1180,7 +1195,7 @@ async function issueQPayForPayment(payment, description) {
     senderInvoiceNo: payment.invoiceId,
     description,
     amount: payment.amount,
-    callbackUrl: qpayCallbackUrl(),
+    callbackUrl: qpayCallbackUrl(payment.invoiceId),
   });
 
   payment.qpayInvoiceId = invoice.invoice_id;
@@ -1607,25 +1622,33 @@ app.get('/api/payment/qpay/check/:invoiceId', authRequired, async (req, res) => 
   }
 });
 
-app.post('/api/payment/qpay/callback', async (req, res) => {
+// QPay may call back via GET or POST; our own invoiceId is embedded in the URL.
+// Payment state is always re-verified with QPay (syncQPayPaymentStatus), never trusted from the request.
+async function handleQPayCallback(req, res) {
   try {
     if (!isQPayConfigured()) {
       return res.status(503).json({ error: 'QPay not configured' });
     }
-    const qpayInvoiceId = req.body?.invoice_id || req.body?.invoiceId;
-    if (!qpayInvoiceId) {
-      return res.status(400).json({ error: 'invoice_id required' });
-    }
+    const ourInvoiceId = req.query?.invoice;
+    const qpayInvoiceId =
+      req.body?.invoice_id || req.body?.invoiceId || req.query?.invoice_id;
 
-    const payment = await Payment.findOne({ qpayInvoiceId });
-    if (payment) {
-      await syncQPayPaymentStatus(payment);
+    let payment = null;
+    if (ourInvoiceId) payment = await Payment.findOne({ invoiceId: String(ourInvoiceId) });
+    if (!payment && qpayInvoiceId) {
+      payment = await Payment.findOne({ qpayInvoiceId: String(qpayInvoiceId) });
     }
+    if (!payment) {
+      return res.status(400).json({ error: 'invoice required' });
+    }
+    await syncQPayPaymentStatus(payment);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
-});
+}
+app.post('/api/payment/qpay/callback', handleQPayCallback);
+app.get('/api/payment/qpay/callback', handleQPayCallback);
 
 // Dev: manually mark paid (owner or admin only) — never when QPay is live
 app.post('/api/payment/qpay/simulate/:invoiceId', authRequired, async (req, res) => {

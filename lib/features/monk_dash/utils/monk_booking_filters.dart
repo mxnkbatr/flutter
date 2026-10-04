@@ -79,6 +79,18 @@ class MonkBookingFilters {
     return AppTimezone.isInCallWindow(b.date, b.slot);
   }
 
+  /// "Дуусгах" дарсан ч өнөөдрийн цонхонд байгаа — дахин орж болно.
+  static List<MonkBookingItem> rejoinableCompleted(
+    List<MonkBookingItem> bookings,
+  ) {
+    return bookings
+        .where((b) =>
+            b.status == 'completed' &&
+            b.paid == true &&
+            AppTimezone.isInCallWindow(b.date, b.slot))
+        .toList();
+  }
+
   /// Ирэх баталгаажсан видео дуудлагууд (өнөөдрөөс хойш + өнөөдрийн ирээдүй).
   static List<MonkBookingItem> upcomingConfirmedCalls(
     List<MonkBookingItem> bookings,

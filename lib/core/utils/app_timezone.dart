@@ -78,12 +78,18 @@ class AppTimezone {
 
   /// True when [slot] on [dateStr] (YYYY-MM-DD) has already started in UB.
   static bool isPastSlot(String dateStr, String slot) {
-    if (_dateKey(dateStr) != todayDateStr()) return false;
+    final key = _dateKey(dateStr);
+    final today = todayDateStr();
+    if (key.compareTo(today) < 0) return true;
+    if (key != today) return false;
     return slotToMinutes(slot) < currentTimeMinutes;
   }
 
   static List<String> pastSlotsForDate(String dateStr, List<String> slots) {
-    if (_dateKey(dateStr) != todayDateStr()) return const [];
+    final key = _dateKey(dateStr);
+    final today = todayDateStr();
+    if (key.compareTo(today) < 0) return List.of(slots);
+    if (key != today) return const [];
     final nowMin = currentTimeMinutes;
     return slots.where((s) => slotToMinutes(s) < nowMin).toList();
   }

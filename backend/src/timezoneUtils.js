@@ -28,12 +28,18 @@ export function currentTimeMinutes() {
 }
 
 export function isPastSlot(dateStr, slot) {
-  if (dateStr.slice(0, 10) !== todayDateStr()) return false;
+  const ymd = dateStr.slice(0, 10);
+  const today = todayDateStr();
+  if (ymd < today) return true;
+  if (ymd !== today) return false;
   return slotToMinutes(slot) < currentTimeMinutes();
 }
 
 export function getPastSlotsForDate(dateStr, slots) {
-  if (dateStr.slice(0, 10) !== todayDateStr()) return [];
+  const ymd = dateStr.slice(0, 10);
+  const today = todayDateStr();
+  if (ymd < today) return [...slots];
+  if (ymd !== today) return [];
   const nowMin = currentTimeMinutes();
   return slots.filter((s) => slotToMinutes(s) < nowMin);
 }

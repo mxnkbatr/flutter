@@ -140,9 +140,10 @@ class MonkCallsScreen extends ConsumerWidget {
                   // Бүх confirmed+paid — шүүлтүүргүй (онцгой/энгийн ижил код).
                   final confirmed =
                       MonkBookingFilters.allConfirmedPaid(sorted);
-                  final joinable = confirmed
-                      .where(MonkBookingFilters.canJoinTodayCall)
-                      .toList();
+                  final joinable = [
+                    ...confirmed.where(MonkBookingFilters.canJoinTodayCall),
+                    ...MonkBookingFilters.rejoinableCompleted(sorted),
+                  ];
                   final otherConfirmed = confirmed
                       .where((b) => !MonkBookingFilters.canJoinTodayCall(b))
                       .toList();
@@ -151,6 +152,7 @@ class MonkCallsScreen extends ConsumerWidget {
 
                   final hasCalls = incoming != null ||
                       confirmed.isNotEmpty ||
+                      joinable.isNotEmpty ||
                       approved.isNotEmpty;
 
                   if (!hasCalls) {

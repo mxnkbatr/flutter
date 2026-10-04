@@ -347,6 +347,7 @@ class PushNotificationService {
       bookingId: bookingId,
       role: _resolveRole(ref, data),
       reason: 'push',
+      userInitiated: true,
     );
   }
 

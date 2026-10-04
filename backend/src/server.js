@@ -719,6 +719,23 @@ app.post('/api/bookings', authRequired, async (req, res) => {
     if (!dateStr || !slot) {
       return res.status(400).json({ error: 'Огноо болон цаг заавал шаардлагатай' });
     }
+    if (dateStr < todayDateStr()) {
+      return res.status(400).json({ error: 'Энэ цаг өнгөрсөн байна' });
+    }
+
+    // Өөрийн төлөөгүй ижил цагийг дахин сонгосон бол "захиалагдсан" гэж хаахгүй.
+    const ownSameSlot = await Booking.find({
+      clientId: req.user._id,
+      monkId: monk._id,
+      date: dateStr,
+      slot,
+      paid: false,
+      status: { $in: ['pending', 'approved'] },
+    });
+    for (const hold of ownSameSlot) {
+      await releaseUnpaidBookingHold(hold);
+    }
+    await releaseStaleHoldsForMonkDate(monk._id, dateStr);
 
     const { slots, bookedSlots } = await getSlotsForDate(
       monk._id,
@@ -742,20 +759,7 @@ app.post('/api/bookings', authRequired, async (req, res) => {
       status: { $in: ['pending', 'approved'] },
     });
     for (const hold of previousHolds) {
-      hold.status = 'cancelled';
-      await hold.save();
-      const openPay = await Payment.findOne({
-        bookingId: hold._id,
-        paid: false,
-        qpayInvoiceId: { $exists: true, $ne: null },
-      });
-      if (openPay?.qpayInvoiceId) {
-        try {
-          await cancelQPayInvoice(openPay.qpayInvoiceId);
-        } catch (_) {
-          /* ignore */
-        }
-      }
+      await releaseUnpaidBookingHold(hold);
     }
 
     let service = null;
@@ -967,7 +971,20 @@ async function completePaymentRecord(payment) {
       // Paid → auto-confirmed. No separate monk approve step.
       booking.paid = true;
       booking.bankTransferPending = false;
-      if (booking.status !== 'cancelled' && booking.status !== 'completed') {
+      if (booking.status === 'cancelled') {
+        // Late QPay payment after hold expiry — reinstate only if slot still free.
+        const slotTaken = await Booking.exists({
+          _id: { $ne: booking._id },
+          monkId: booking.monkId,
+          date: booking.date,
+          slot: booking.slot,
+          status: { $in: ['pending', 'approved', 'confirmed', 'completed'] },
+        });
+        if (!slotTaken) {
+          booking.status = 'confirmed';
+          booking.approvedAt = booking.approvedAt || new Date();
+        }
+      } else if (booking.status !== 'completed') {
         booking.status = 'confirmed';
         booking.approvedAt = booking.approvedAt || new Date();
       }
@@ -979,6 +996,21 @@ async function completePaymentRecord(payment) {
       const bookingId = booking._id.toString();
       const monkName = monk?.name?.mn ?? monk?.name?.en ?? 'Лам';
       const clientName = client?.name ?? 'Хэрэглэгч';
+
+      if (booking.status === 'cancelled') {
+        console.warn('Paid booking could not be reinstated (slot taken):', bookingId);
+        if (client) {
+          await notifyUser(client, {
+            category: 'booking',
+            title: 'Төлбөр хүлээн авлаа',
+            body: `${booking.date} ${booking.slot} цаг өөр хүнд захиалагдсан байна. Төлбөрөө буцаалгах эсвэл өөр цаг авахын тулд бидэнтэй холбогдоно уу.`,
+            type: 'booking',
+            actionPath: '/bookings',
+            refId: bookingId,
+          });
+        }
+        return;
+      }
 
       if (client) {
         await notifyBookingStatus(client, {
@@ -1077,6 +1109,53 @@ async function syncQPayPaymentStatus(payment) {
     return true;
   }
   return false;
+}
+
+/**
+ * Төлөгдөөгүй hold-ыг суллана. QPay дээр аль хэдийн төлсөн бол цуцлахгүй
+ * (completePaymentRecord баталгаажуулна). Returns true if cancelled.
+ */
+async function releaseUnpaidBookingHold(booking) {
+  const openPays = await Payment.find({
+    bookingId: booking._id,
+    type: 'booking',
+    paid: false,
+  });
+  for (const p of openPays) {
+    try {
+      if (await syncQPayPaymentStatus(p)) return false;
+    } catch (e) {
+      // QPay unreachable — keep the hold for a while rather than risk cancelling a paid one.
+      console.warn('QPay check before release failed:', booking._id.toString(), e.message);
+      const ageMs = Date.now() - new Date(booking.createdAt).getTime();
+      if (ageMs < 2 * 60 * 60 * 1000) return false;
+    }
+  }
+  booking.status = 'cancelled';
+  await booking.save();
+  for (const p of openPays) {
+    if (!p.qpayInvoiceId) continue;
+    try {
+      await cancelQPayInvoice(p.qpayInvoiceId);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return true;
+}
+
+async function releaseStaleHoldsForMonkDate(monkId, dateStr) {
+  const cutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
+  const stale = await Booking.find({
+    monkId,
+    date: dateStr,
+    paid: false,
+    status: { $in: ['pending', 'approved'] },
+    createdAt: { $lt: cutoff },
+  });
+  for (const hold of stale) {
+    await releaseUnpaidBookingHold(hold);
+  }
 }
 
 async function issueQPayForPayment(payment, description) {
@@ -1260,7 +1339,7 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
       return res.status(400).json({ error: 'Booking not available for payment' });
     }
     if (booking.paid) {
-      return res.status(400).json({ error: 'Already paid' });
+      return res.status(400).json({ error: 'Төлбөр аль хэдийн төлөгдсөн байна' });
     }
 
     if (regenerate) {
@@ -1270,6 +1349,14 @@ app.post('/api/payment/qpay/create', authRequired, async (req, res) => {
         paid: false,
         method: 'qpay',
       });
+      for (const p of oldPayments) {
+        if (await syncQPayPaymentStatus(p)) {
+          return res.status(409).json({
+            error: 'Төлбөр аль хэдийн төлөгдсөн байна',
+            paid: true,
+          });
+        }
+      }
       for (const p of oldPayments) {
         if (p.qpayInvoiceId) await cancelQPayInvoice(p.qpayInvoiceId);
       }
@@ -3707,16 +3794,7 @@ async function processInventoryExpiry() {
     }).limit(100);
 
     for (const booking of staleBookings) {
-      booking.status = 'cancelled';
-      await booking.save();
-      const openPay = await Payment.findOne({
-        bookingId: booking._id,
-        paid: false,
-        qpayInvoiceId: { $exists: true, $ne: null },
-      });
-      if (openPay?.qpayInvoiceId) {
-        await cancelQPayInvoice(openPay.qpayInvoiceId);
-      }
+      await releaseUnpaidBookingHold(booking);
     }
 
     const orderCutoff = new Date(Date.now() - UNPAID_ORDER_TTL_MS);

@@ -8,6 +8,15 @@ import {
 } from './timezoneUtils.js';
 import { UNPAID_BOOKING_TTL_MS } from './riskGuards.js';
 
+function isStaleHold(b, cutoff) {
+  return (
+    !b.paid &&
+    (b.status === 'pending' || b.status === 'approved') &&
+    b.createdAt &&
+    new Date(b.createdAt) < cutoff
+  );
+}
+
 export const DAY_NAMES = [
   'Ням',
   'Даваа',
@@ -114,25 +123,18 @@ export async function getSlotsForDate(monkId, schedule, dateStr) {
   const dayConfig = resolveDayConfig(schedule, normalizedDate);
   let slots = slotsForDayConfig(dayConfig);
 
-  // Soft-release abandoned unpaid holds before computing availability.
+  // Abandoned unpaid holds show as free; actual cancel (with QPay check) happens
+  // in processInventoryExpiry / POST /bookings — never here.
   const holdCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
-  await Booking.updateMany(
-    {
-      monkId,
-      date: normalizedDate,
-      paid: false,
-      status: { $in: ['pending', 'approved'] },
-      createdAt: { $lt: holdCutoff },
-    },
-    { $set: { status: 'cancelled' } },
-  );
-
   const bookings = await Booking.find({
     monkId,
     date: normalizedDate,
     status: { $nin: ['cancelled'] },
   });
-  const bookedSlots = bookings.map((b) => b.slot).filter(Boolean);
+  const bookedSlots = bookings
+    .filter((b) => !isStaleHold(b, holdCutoff))
+    .map((b) => b.slot)
+    .filter(Boolean);
   // Keep confirmed bookings visible even if the weekday was later disabled.
   for (const slot of bookedSlots) {
     if (!slots.includes(slot)) slots = [...slots, slot];
@@ -155,27 +157,17 @@ export async function getScheduleOverview(monkId, schedule, dayCount = 60) {
   }
 
   const holdCutoff = new Date(Date.now() - UNPAID_BOOKING_TTL_MS);
-  await Booking.updateMany(
-    {
-      monkId,
-      date: { $gte: today, $lte: endDate },
-      paid: false,
-      status: { $in: ['pending', 'approved'] },
-      createdAt: { $lt: holdCutoff },
-    },
-    { $set: { status: 'cancelled' } },
-  );
-
   const bookings = await Booking.find({
     monkId,
     date: { $gte: today, $lte: endDate },
     status: { $nin: ['cancelled'] },
   })
-    .select('date slot')
+    .select('date slot paid status createdAt')
     .lean();
 
   const bookedByDate = new Map();
   for (const b of bookings) {
+    if (isStaleHold(b, holdCutoff)) continue;
     const d = String(b.date || '').slice(0, 10);
     if (!d || !b.slot) continue;
     if (!bookedByDate.has(d)) bookedByDate.set(d, []);

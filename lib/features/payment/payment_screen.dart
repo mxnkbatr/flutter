@@ -156,6 +156,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     if (mounted) {
       final status = info?.status ?? 'confirmed';
       final paid = info?.paid == true || _paid;
+      // Late payment after hold expired and slot resold — paid view explains it.
+      if (status == 'cancelled') return;
       // After QPay, booking is always confirmed server-side.
       final confirmed = paid && (status == 'confirmed' || status == 'pending' || status == 'approved');
       final canJoin = confirmed &&
@@ -175,7 +177,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           dateStr: data?.dateStr ?? info?.date ?? '',
           timeSlot: data?.timeSlot ?? info?.slot ?? '',
           amount: amount,
-          bookingStatus: paid ? 'confirmed' : status,
+          bookingStatus: status,
           canJoinCall: false,
         ),
       );
@@ -211,7 +213,34 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
     }
   }
 
+  /// QR хугацаа дууссан ч хэрэглэгч сүүлийн секундэд төлсөн байж магадгүй.
+  Future<bool> _wasOldInvoicePaid() async {
+    final oldInvoiceId = _qpayData?.invoiceId;
+    if (oldInvoiceId == null || oldInvoiceId.isEmpty) return false;
+    try {
+      final res = await ref.read(apiClientProvider).get(
+            '/payment/qpay/check/$oldInvoiceId',
+          );
+      final body = res.data as Map<String, dynamic>;
+      return body['paid'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _regenerateQPay(BookingPaymentData payment) async {
+    setState(() => _creatingQpay = true);
+    if (await _wasOldInvoicePaid()) {
+      if (!mounted) return;
+      setState(() {
+        _paid = true;
+        _creatingQpay = false;
+      });
+      _invalidateBookings();
+      _navigateToSuccess();
+      return;
+    }
+    if (!mounted) return;
     setState(() {
       _creatingQpay = true;
       _expired = false;
@@ -231,6 +260,8 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       _startPolling(qpay.invoiceId);
     } catch (e) {
       if (mounted) {
+        // 409 paid — server found the old invoice paid; refresh shows paid state.
+        _invalidateBookings();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(formatUserError(e)), backgroundColor: AppColors.danger),
         );
@@ -537,30 +568,40 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
         ),
         data: (payment) {
           if (payment.paid) {
+            final cancelled = payment.status == 'cancelled';
+            final confirmed = payment.status == 'confirmed';
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.check_circle_rounded,
-                        size: 56, color: AppColors.success),
+                    Icon(
+                      cancelled
+                          ? Icons.info_outline_rounded
+                          : Icons.check_circle_rounded,
+                      size: 56,
+                      color: cancelled ? AppColors.orange : AppColors.success,
+                    ),
                     const SizedBox(height: 12),
                     Text('Төлбөр төлөгдсөн', style: AppText.h3),
                     const SizedBox(height: 8),
                     Text(
-                      payment.status == 'confirmed' || payment.paid
-                          ? 'Одоо үйлчилгээнд орох боломжтой'
-                          : 'Төлбөр амжилттай',
+                      cancelled
+                          ? 'Энэ цаг өөр хүнд захиалагдсан байна. Төлбөрөө буцаалгах эсвэл өөр цаг авахын тулд бидэнтэй холбогдоно уу.'
+                          : confirmed
+                              ? 'Одоо үйлчилгээнд орох боломжтой'
+                              : 'Төлбөр амжилттай',
                       style: AppText.bodySmall,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    if (payment.status == 'confirmed' || payment.paid) ...[
+                    if (confirmed) ...[
                       SacredButton(
                         label: 'Дуудлагад орох',
                         icon: Icons.videocam_rounded,
-                        onTap: () => context.go('/call/${widget.bookingId}'),
+                        onTap: () => context
+                            .go('/call/${widget.bookingId}?role=client'),
                       ),
                       const SizedBox(height: 10),
                     ],

@@ -21,6 +21,7 @@ class CallLaunchService {
         bookingId: pending.bookingId,
         role: _safeRole(ref, pending.role),
         reason: 'pending',
+        userInitiated: true,
       );
       return;
     }
@@ -50,17 +51,23 @@ class CallLaunchService {
   }
 
   /// Safe auto-join used by call_time / resume / pending launch.
+  /// [userInitiated] — мэдэгдэл дээр дарсан: "гарсан" хаалтыг үл тооно.
   static Future<bool> tryAutoJoin(
     WidgetRef ref, {
     required String bookingId,
     required String role,
     String reason = 'auto',
+    bool userInitiated = false,
   }) async {
     if (bookingId.isEmpty) return false;
     if (_isAlreadyInCall(ref, bookingId)) return true;
     if (_isInAnyCall(ref)) return false;
     if (_isOnSensitiveRoute(ref)) return false;
-    if (await CallJoinGuard.isSuppressed(bookingId)) return false;
+    if (userInitiated) {
+      await CallJoinGuard.clear(bookingId);
+    } else if (await CallJoinGuard.isSuppressed(bookingId)) {
+      return false;
+    }
 
     final auth = ref.read(authStateProvider).valueOrNull;
     if (auth == null || !auth.isAuthenticated) return false;
@@ -74,6 +81,7 @@ class CallLaunchService {
 
   static Future<void> _checkClientCallWindow(WidgetRef ref) async {
     try {
+      ref.invalidate(myBookingsProvider);
       final bookings = await ref.read(myBookingsProvider.future);
       final active = _findActiveBooking(bookings);
       if (active == null) return;
@@ -83,6 +91,7 @@ class CallLaunchService {
 
   static Future<void> _checkMonkCallWindow(WidgetRef ref) async {
     try {
+      ref.invalidate(monkBookingsProvider);
       final bookings = await ref.read(monkBookingsProvider.future);
       final active = _findActiveMonkBooking(bookings);
       if (active == null) return;
@@ -140,20 +149,49 @@ class CallLaunchService {
   static bool _roleAllowsCall(String role) =>
       role == 'client' || role == 'monk' || role == 'admin';
 
-  static ClientBooking? _findActiveBooking(List<ClientBooking> bookings) {
-    for (final b in bookings) {
-      if (!b.canJoinCall) continue;
-      if (AppTimezone.isInCallWindow(b.date, b.slot)) return b;
+  /// Auto-join зөвхөн slot эхлэхээс 5 мин өмнөөс — 30 мин интервалтай
+  /// дараагийн захиалгын өрөөнд эрт орохоос сэргийлнэ.
+  static const int _autoJoinEarlyMinutes = 5;
+
+  static T? _closestInWindow<T>(
+    Iterable<T> candidates,
+    String? Function(T) date,
+    String Function(T) slot,
+  ) {
+    final now = AppTimezone.currentTimeMinutes;
+    T? best;
+    var bestDiff = 1 << 30;
+    for (final b in candidates) {
+      if (!AppTimezone.isInCallWindow(
+        date(b),
+        slot(b),
+        earlyMinutes: _autoJoinEarlyMinutes,
+      )) {
+        continue;
+      }
+      final diff = (AppTimezone.slotToMinutes(slot(b)) - now).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = b;
+      }
     }
-    return null;
+    return best;
+  }
+
+  static ClientBooking? _findActiveBooking(List<ClientBooking> bookings) {
+    return _closestInWindow<ClientBooking>(
+      bookings.where((b) => b.canJoinCall),
+      (b) => b.date,
+      (b) => b.slot,
+    );
   }
 
   static MonkBookingItem? _findActiveMonkBooking(List<MonkBookingItem> bookings) {
-    for (final b in bookings) {
-      if (b.status != 'confirmed' || b.paid != true) continue;
-      if (AppTimezone.isInCallWindow(b.date, b.slot)) return b;
-    }
-    return null;
+    return _closestInWindow<MonkBookingItem>(
+      bookings.where((b) => b.status == 'confirmed' && b.paid == true),
+      (b) => b.date,
+      (b) => b.slot,
+    );
   }
 
   static void _goToCall(WidgetRef ref, String bookingId, String role) {

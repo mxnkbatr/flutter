@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:sacred_app/core/api/api_client.dart';
 import 'package:sacred_app/core/auth/auth_provider.dart';
 import 'package:sacred_app/core/notifications/call_launch_service.dart';
 import 'package:sacred_app/core/theme/app_colors.dart';
 import 'package:sacred_app/core/theme/app_text.dart';
 import 'package:sacred_app/core/utils/error_messages.dart';
+import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
+import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
 import 'package:sacred_app/features/video_call/widgets/call_error_view.dart';
 import 'package:sacred_app/features/video_call/widgets/call_controls.dart';
 import 'package:sacred_app/features/video_call/widgets/call_permission_prep_view.dart';
@@ -45,6 +48,9 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   bool _awaitingPermission = true;
   bool _permissionLoading = false;
   bool _connecting = false;
+  bool _reconnecting = false;
+  bool _leaving = false;
+  bool _micDenied = false;
   String? _error;
   String _peerName = 'Лам';
   String? _peerImage;
@@ -165,6 +171,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
             fallback:
                 'Микрофон асаагдсангүй.\n\nТохиргоо → Gevabal → Микрофон-ыг асаагаад дахин оролдоно уу.',
           );
+          _micDenied = true;
           _connecting = false;
         });
         await room.disconnect();
@@ -214,7 +221,15 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       ..on<TrackMutedEvent>((_) => _syncParticipants())
       ..on<TrackUnmutedEvent>((_) => _syncParticipants())
       ..on<LocalTrackPublishedEvent>((_) => _syncParticipants())
-      ..on<LocalTrackUnpublishedEvent>((_) => _syncParticipants());
+      ..on<LocalTrackUnpublishedEvent>((_) => _syncParticipants())
+      ..on<RoomReconnectingEvent>((_) {
+        if (mounted) setState(() => _reconnecting = true);
+      })
+      ..on<RoomReconnectedEvent>((_) {
+        if (mounted) setState(() => _reconnecting = false);
+        _syncParticipants();
+      })
+      ..on<RoomDisconnectedEvent>((_) => _onRoomLost());
 
     room.addListener(_onRoomEvent);
     _participantPoll?.cancel();
@@ -232,6 +247,27 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   void _onRoomEvent() => _syncParticipants();
+
+  void _detachRoom() {
+    _participantPoll?.cancel();
+    _participantPoll = null;
+    _roomListener?.dispose();
+    _roomListener = null;
+    _room?.removeListener(_onRoomEvent);
+    _room = null;
+    _remote = null;
+  }
+
+  /// Сүлжээ тасарч LiveKit дахин холбогдож чадаагүй — "хүлээж байна" дээр гацахгүй.
+  void _onRoomLost() {
+    if (_leaving || !mounted) return;
+    _detachRoom();
+    setState(() {
+      _reconnecting = false;
+      _error =
+          'Холболт тасарлаа.\n\nИнтернэтээ шалгаад «Дахин оролдох» дарна уу.';
+    });
+  }
 
   void _startTimer() {
     _timer?.cancel();
@@ -292,12 +328,14 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
   }
 
   Future<void> _cancelConnecting() async {
+    _leaving = true;
     await CallLaunchService.markLeftCall(widget.bookingId);
     await _room?.disconnect();
     if (mounted) _leaveCallScreen();
   }
 
-  Future<void> _endCall() async {
+  /// [complete] — зөвхөн "Дуусгах" товч; back gesture захиалгыг дуусгахгүй.
+  Future<void> _endCall({bool complete = true}) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => const EndCallDialog(),
@@ -305,7 +343,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     if (confirm != true || !mounted) return;
 
     try {
-      if (widget.role == 'monk') {
+      if (complete && widget.role == 'monk') {
         await ref.read(apiClientProvider).put(
               '/bookings/${widget.bookingId}/complete',
             );
@@ -321,9 +359,15 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
       }
     }
 
+    _leaving = true;
     await CallLaunchService.markLeftCall(widget.bookingId);
     await _room?.disconnect();
     if (mounted) {
+      if (widget.role == 'monk') {
+        ref.invalidate(monkBookingsProvider);
+      } else {
+        ref.invalidate(myBookingsProvider);
+      }
       if (widget.role == 'monk') {
         context.go('/monk/dashboard?tab=2');
       } else {
@@ -382,6 +426,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   @override
   void dispose() {
+    _leaving = true;
     _timer?.cancel();
     _participantPoll?.cancel();
     _noteController.dispose();
@@ -431,9 +476,16 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
         child: CallErrorView(
           message: _error!,
           onBack: _leaveCallScreen,
+          onOpenSettings: _micDenied && defaultTargetPlatform == TargetPlatform.iOS
+              ? () => launchUrl(
+                    Uri.parse('app-settings:'),
+                    mode: LaunchMode.externalApplication,
+                  )
+              : null,
           onRetry: () {
             setState(() {
               _error = null;
+              _micDenied = false;
               _awaitingPermission = true;
               _connecting = false;
             });
@@ -449,7 +501,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _endCall();
+        if (!didPop) _endCall(complete: false);
       },
       child: Scaffold(
         backgroundColor: AppColors.inkDeep,
@@ -487,6 +539,40 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
                 onNote: _showNoteDrawer,
               ),
             ),
+            if (_reconnecting)
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 72,
+                left: 24,
+                right: 24,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Дахин холбогдож байна…',
+                        style: AppText.bodySmall.copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Positioned(
               bottom: 0,
               left: 0,

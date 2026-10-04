@@ -165,6 +165,9 @@ class _BookingCard extends ConsumerWidget {
     if (booking.status == 'approved' && !booking.paid) {
       return 'QPay-ээр төлбөр төлж захиалгаа баталгаажуулна уу';
     }
+    if (booking.paid && booking.status == 'cancelled') {
+      return 'Төлбөр төлөгдсөн ч цаг өөр хүнд захиалагдсан — бидэнтэй холбогдоно уу';
+    }
     if (booking.paid && booking.status != 'confirmed' && booking.status != 'completed') {
       return 'Төлбөр төлөгдсөн — захиалга баталгаажиж байна';
     }
@@ -286,7 +289,7 @@ class _BookingCard extends ConsumerWidget {
                 ),
               ),
             ),
-          ] else if (booking.canJoinCall) ...[
+          ] else if (booking.canJoinCall || booking.canRejoinCall) ...[
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

@@ -1,3 +1,5 @@
+import 'package:sacred_app/core/utils/app_timezone.dart';
+
 class ClientBooking {
   const ClientBooking({
     required this.id,
@@ -28,6 +30,12 @@ class ClientBooking {
   final bool bankTransferPending;
 
   bool get canJoinCall => paid && status == 'confirmed';
+
+  /// Лам "Дуусгах" дарсан ч өнөөдрийн цонхонд дахин орж болно (backend зөвшөөрнө).
+  bool get canRejoinCall =>
+      paid &&
+      status == 'completed' &&
+      AppTimezone.isInCallWindow(date, slot);
 
   factory ClientBooking.fromJson(Map<String, dynamic> json) {
     return ClientBooking(

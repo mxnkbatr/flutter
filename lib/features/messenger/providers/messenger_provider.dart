@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sacred_app/core/api/api_client.dart';
+import 'package:sacred_app/core/api/audio_upload_service.dart';
 import 'package:sacred_app/features/messenger/models/chat_message.dart';
 import 'package:sacred_app/features/messenger/models/conversation.dart';
 
@@ -59,7 +60,26 @@ Future<void> sendMessage(
 }) async {
   await ref.read(apiClientProvider).post(
         '/messenger/conversations/$conversationId/messages',
-        data: {'text': text},
+        data: {'text': text, 'type': 'text'},
+      );
+  ref.invalidate(conversationsProvider);
+  final _ = await ref.refresh(messagesProvider(conversationId).future);
+}
+
+Future<void> sendVoiceMessage(
+  WidgetRef ref, {
+  required String conversationId,
+  required String filePath,
+  required int durationSeconds,
+}) async {
+  final mediaUrl = await uploadAudioFile(ref, filePath);
+  await ref.read(apiClientProvider).post(
+        '/messenger/conversations/$conversationId/messages',
+        data: {
+          'type': 'audio',
+          'mediaUrl': mediaUrl,
+          'durationSeconds': durationSeconds,
+        },
       );
   ref.invalidate(conversationsProvider);
   final _ = await ref.refresh(messagesProvider(conversationId).future);

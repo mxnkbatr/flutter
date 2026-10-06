@@ -84,6 +84,7 @@ class _SacredAppState extends ConsumerState<SacredApp>
   static bool _pushInitStarted = false;
   AppPermissionPrepKind _prepKind = AppPermissionPrepKind.none;
   bool _prepLoading = false;
+  Timer? _callWindowTimer;
 
   @override
   void initState() {
@@ -95,11 +96,24 @@ class _SacredAppState extends ConsumerState<SacredApp>
         PushNotificationService.initialize(ref);
       }
       _maybeShowPermissionPrep();
+      _startCallWindowWatcher();
+    });
+  }
+
+  /// Апп нээлттэй үед захиалсан цаг болоход шууд дуудлага руу оруулна.
+  void _startCallWindowWatcher() {
+    _callWindowTimer?.cancel();
+    _callWindowTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      final auth = ref.read(authStateProvider).valueOrNull;
+      if (auth?.isAuthenticated != true) return;
+      if (_isOnBlockingRoute()) return;
+      unawaited(CallLaunchService.checkActiveCallWindow(ref));
     });
   }
 
   @override
   void dispose() {
+    _callWindowTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

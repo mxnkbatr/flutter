@@ -58,6 +58,7 @@ import {
   ensureUploadsDir,
   uploadsRoot,
   uploadBase64Image,
+  uploadBase64Audio,
   isCloudinaryConfigured,
 } from './uploadUtils.js';
 import {
@@ -306,6 +307,32 @@ app.post('/api/upload/image', authRequired, async (req, res) => {
   } catch (e) {
     console.warn('Upload image failed:', e?.message || e);
     res.status(400).json({ error: e.message || 'Зураг хадгалахад алдаа гарлаа' });
+  }
+});
+
+/** Voice notes for messenger — client + monk + admin. */
+app.post('/api/upload/audio', authRequired, async (req, res) => {
+  try {
+    const allowed = ['admin', 'monk', 'client'];
+    if (!allowed.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { audio } = req.body;
+    if (!audio) return res.status(400).json({ error: 'Audio is required' });
+
+    const stored = await uploadBase64Audio(audio, 'chat');
+    const base = `${req.protocol}://${req.get('host')}`;
+    const isRemote = stored.startsWith('http');
+    const url = isRemote ? stored : `${base}${stored}`;
+    const usedCloudinary = isRemote && /cloudinary\.com/i.test(stored);
+    res.json({
+      url,
+      path: stored,
+      storage: usedCloudinary ? 'cloudinary' : 'local',
+    });
+  } catch (e) {
+    console.warn('Upload audio failed:', e?.message || e);
+    res.status(400).json({ error: e.message || 'Дуу хадгалахад алдаа гарлаа' });
   }
 });
 
@@ -2261,36 +2288,62 @@ app.get('/api/messenger/conversations', authRequired, async (req, res) => {
   res.json(result);
 });
 
+function messageJson(m, userId) {
+  return {
+    id: m._id.toString(),
+    senderId: m.senderId.toString(),
+    type: m.type === 'audio' ? 'audio' : 'text',
+    text: m.text || '',
+    mediaUrl: m.mediaUrl || '',
+    durationSeconds: Number(m.durationSeconds) || 0,
+    isMine: m.senderId.toString() === userId,
+    createdAt: m.createdAt?.toISOString(),
+  };
+}
+
 app.get('/api/messenger/conversations/:id/messages', authRequired, async (req, res) => {
   const access = await conversationAccess(req.params.id, req.user);
   if (access.error) return res.status(access.status).json({ error: access.error });
 
   const msgs = await Message.find({ conversationId: req.params.id }).sort({ createdAt: 1 });
-  res.json(
-    msgs.map((m) => ({
-      id: m._id.toString(),
-      senderId: m.senderId.toString(),
-      text: m.text,
-      isMine: m.senderId.toString() === req.user._id.toString(),
-      createdAt: m.createdAt?.toISOString(),
-    })),
-  );
+  const userId = req.user._id.toString();
+  res.json(msgs.map((m) => messageJson(m, userId)));
 });
 
 app.post('/api/messenger/conversations/:id/messages', authRequired, async (req, res) => {
   const access = await conversationAccess(req.params.id, req.user);
   if (access.error) return res.status(access.status).json({ error: access.error });
 
-  const { text } = req.body;
-  if (!text?.trim()) return res.status(400).json({ error: 'Text required' });
+  const type = req.body?.type === 'audio' ? 'audio' : 'text';
+  const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+  const mediaUrl = typeof req.body?.mediaUrl === 'string' ? req.body.mediaUrl.trim() : '';
+  const durationSeconds = Math.max(
+    0,
+    Math.min(600, Math.round(Number(req.body?.durationSeconds) || 0)),
+  );
+
+  if (type === 'text' && !text) {
+    return res.status(400).json({ error: 'Text required' });
+  }
+  if (type === 'audio' && !mediaUrl) {
+    return res.status(400).json({ error: 'mediaUrl required for audio' });
+  }
+
+  const preview =
+    type === 'audio'
+      ? (durationSeconds > 0 ? `🎤 Дуут мессеж (${durationSeconds} сек)` : '🎤 Дуут мессеж')
+      : text;
 
   const msg = await Message.create({
     conversationId: req.params.id,
     senderId: req.user._id,
-    text: text.trim(),
+    type,
+    text: type === 'audio' ? preview : text,
+    mediaUrl: type === 'audio' ? mediaUrl : '',
+    durationSeconds: type === 'audio' ? durationSeconds : 0,
   });
   await Conversation.findByIdAndUpdate(req.params.id, {
-    lastMessage: text.trim(),
+    lastMessage: preview.slice(0, 200),
     lastMessageAt: new Date(),
   });
 
@@ -2304,19 +2357,13 @@ app.post('/api/messenger/conversations/:id/messages', authRequired, async (req, 
     if (recipient) {
       await notifyMessage(recipient, {
         senderName: req.user.name,
-        text: text.trim(),
+        text: preview,
         conversationId: req.params.id,
       });
     }
   }
 
-  res.json({
-    id: msg._id.toString(),
-    senderId: msg.senderId.toString(),
-    text: msg.text,
-    isMine: true,
-    createdAt: msg.createdAt?.toISOString(),
-  });
+  res.json(messageJson(msg, req.user._id.toString()));
 });
 
 app.post('/api/messenger/conversations', authRequired, async (req, res) => {

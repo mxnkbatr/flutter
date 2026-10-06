@@ -202,7 +202,11 @@ const messageSchema = new mongoose.Schema(
   {
     conversationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Conversation' },
     senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    text: String,
+    /** text | audio */
+    type: { type: String, default: 'text', enum: ['text', 'audio'] },
+    text: { type: String, default: '' },
+    mediaUrl: { type: String, default: '' },
+    durationSeconds: { type: Number, default: 0 },
   },
   { timestamps: true },
 );

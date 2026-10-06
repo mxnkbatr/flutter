@@ -189,3 +189,79 @@ export async function uploadBase64Image(dataUrl, subfolder = 'monks') {
     return saveBase64Image(dataUrl, subfolder);
   }
 }
+
+const ALLOWED_AUDIO_EXTS = new Set(['m4a', 'mp3', 'aac', 'wav', 'ogg', 'webm', 'caf']);
+
+/**
+ * Accepts data-URL audio (voice notes). Max 8MB / ~2–3 min.
+ */
+export function parseBase64Audio(dataUrl) {
+  const match = /^data:audio\/([a-z0-9+.-]+);base64,(.+)$/i.exec(dataUrl || '');
+  if (!match) {
+    throw new Error('Invalid audio data');
+  }
+
+  let ext = String(match[1] || '').toLowerCase();
+  if (ext === 'x-m4a' || ext === 'mp4' || ext === 'mpeg4') ext = 'm4a';
+  if (ext === 'mpeg' || ext === 'mpga') ext = 'mp3';
+  if (ext === 'x-wav' || ext === 'wave') ext = 'wav';
+  if (ext === 'x-caf') ext = 'caf';
+  if (ext === 'webm;codecs=opus' || ext.startsWith('webm')) ext = 'webm';
+  if (!ALLOWED_AUDIO_EXTS.has(ext)) {
+    throw new Error('Зөвхөн M4A, MP3, AAC, WAV, OGG, WEBM дуу оруулна уу');
+  }
+
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length) throw new Error('Дууны өгөгдөл хоосон байна');
+  if (buffer.length > 8 * 1024 * 1024) {
+    throw new Error('Дуу хэт том байна (хамгийн ихдээ 8MB)');
+  }
+
+  return {
+    ext,
+    buffer,
+    dataUrl: `data:audio/${ext};base64,${match[2]}`,
+  };
+}
+
+export function saveBase64Audio(dataUrl, subfolder = 'chat') {
+  const { ext, buffer } = parseBase64Audio(dataUrl);
+  const dir = ensureUploadsDir(subfolder);
+  const filename = `${uuidv4()}.${ext}`;
+  fs.writeFileSync(path.join(dir, filename), buffer);
+  return `/uploads/${subfolder}/${filename}`;
+}
+
+async function uploadAudioToCloudinary(dataUrl, subfolder = 'chat') {
+  const parsed = parseBase64Audio(dataUrl);
+  configureCloudinary();
+  const uploadOptions = {
+    folder: `gevabal/${subfolder}`,
+    // Cloudinary stores audio under the video resource type.
+    resource_type: 'video',
+    format: parsed.ext === 'caf' ? 'm4a' : parsed.ext,
+  };
+  const preset = envValue('CLOUDINARY_UPLOAD_PRESET');
+  if (preset) uploadOptions.upload_preset = preset;
+
+  const result = await cloudinary.uploader.upload(parsed.dataUrl, uploadOptions);
+  if (!result?.secure_url) {
+    throw new Error('Cloudinary URL буцаасангүй');
+  }
+  return result.secure_url;
+}
+
+export async function uploadBase64Audio(dataUrl, subfolder = 'chat') {
+  parseBase64Audio(dataUrl);
+
+  if (!isCloudinaryConfigured()) {
+    return saveBase64Audio(dataUrl, subfolder);
+  }
+
+  try {
+    return await uploadAudioToCloudinary(dataUrl, subfolder);
+  } catch (err) {
+    console.warn('Cloudinary audio upload failed, using local storage:', err?.message || err);
+    return saveBase64Audio(dataUrl, subfolder);
+  }
+}

@@ -149,9 +149,8 @@ class CallLaunchService {
   static bool _roleAllowsCall(String role) =>
       role == 'client' || role == 'monk' || role == 'admin';
 
-  /// Auto-join зөвхөн slot эхлэхээс 5 мин өмнөөс — 30 мин интервалтай
-  /// дараагийн захиалгын өрөөнд эрт орохоос сэргийлнэ.
-  static const int _autoJoinEarlyMinutes = 5;
+  /// Auto-join зөвхөн slot эхлэхээс 1 мин өмнөөс — цаг болоход шууд орно.
+  static const int _autoJoinEarlyMinutes = 1;
 
   static T? _closestInWindow<T>(
     Iterable<T> candidates,
@@ -180,7 +179,7 @@ class CallLaunchService {
 
   static ClientBooking? _findActiveBooking(List<ClientBooking> bookings) {
     return _closestInWindow<ClientBooking>(
-      bookings.where((b) => b.canJoinCall),
+      bookings.where((b) => b.canJoinCall || b.canRejoinCall),
       (b) => b.date,
       (b) => b.slot,
     );
@@ -188,7 +187,11 @@ class CallLaunchService {
 
   static MonkBookingItem? _findActiveMonkBooking(List<MonkBookingItem> bookings) {
     return _closestInWindow<MonkBookingItem>(
-      bookings.where((b) => b.status == 'confirmed' && b.paid == true),
+      bookings.where(
+        (b) =>
+            (b.status == 'confirmed' || b.status == 'completed') &&
+            b.paid == true,
+      ),
       (b) => b.date,
       (b) => b.slot,
     );

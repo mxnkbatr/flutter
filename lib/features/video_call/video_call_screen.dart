@@ -336,7 +336,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
 
   Future<void> _cancelConnecting() async {
     _leaving = true;
-    await CallLaunchService.markLeftCall(widget.bookingId);
+    await CallLaunchService.markLeftCall(widget.bookingId, ref);
     await _room?.disconnect();
     if (mounted) _leaveCallScreen();
   }
@@ -367,7 +367,7 @@ class _VideoCallScreenState extends ConsumerState<VideoCallScreen> {
     }
 
     _leaving = true;
-    await CallLaunchService.markLeftCall(widget.bookingId);
+    await CallLaunchService.markLeftCall(widget.bookingId, ref);
     await _room?.disconnect();
     if (mounted) {
       if (widget.role == 'monk') {

@@ -150,6 +150,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             role: 'monk',
             reason: 'chat_slot',
             userInitiated: true,
+            slot: match.slot,
+            date: match.date,
           );
         }
       } else {
@@ -187,6 +189,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             role: 'client',
             reason: 'chat_slot',
             userInitiated: true,
+            slot: match.slot,
+            date: match.date,
           );
         }
       }
@@ -500,7 +504,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Бичиж байна… ${recordSeconds}с · суллаад илгээнэ',
+                    'Бичиж байна… ${_recordSeconds}с · суллаад илгээнэ',
                     style: AppText.caption.copyWith(color: AppColors.danger),
                   ),
                   const Spacer(),

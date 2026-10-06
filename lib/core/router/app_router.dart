@@ -46,6 +46,7 @@ import 'package:sacred_app/features/shop/shop_product_detail_screen.dart';
 import 'package:sacred_app/features/shop/shop_screen.dart';
 import 'package:sacred_app/features/splash/presentation/splash_screen.dart';
 import 'package:sacred_app/features/subscription/subscription_screen.dart';
+import 'package:sacred_app/features/video_call/providers/call_session_lock_provider.dart';
 import 'package:sacred_app/features/video_call/video_call_screen.dart';
 import 'package:sacred_app/shared/shells/client_shell.dart';
 import 'package:sacred_app/shared/shells/monk_shell.dart';
@@ -85,6 +86,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoggedIn) {
+        // Захиалсан цаг эхэлсэн — бусад хуудас руу гаргахгүй, дуудлагад түгжинэ.
+        final lock = ref.read(callSessionLockProvider);
+        if (lock != null && lock.bookingId.isNotEmpty) {
+          final onLockedCall =
+              state.matchedLocation == '/call/${lock.bookingId}';
+          if (!onLockedCall) {
+            return '/call/${lock.bookingId}?role=${lock.role}';
+          }
+        }
+
         if (!FeatureFlags.premiumSubscriptionsEnabled &&
             state.matchedLocation.startsWith('/subscription')) {
           return '/profile';
@@ -443,6 +454,7 @@ String? _guardRole(String location, String? role) {
 class _RouterRefresh extends ChangeNotifier {
   _RouterRefresh(this._ref) {
     _ref.listen(authStateProvider, (_, __) => notifyListeners());
+    _ref.listen(callSessionLockProvider, (_, __) => notifyListeners());
   }
 
   final Ref _ref;

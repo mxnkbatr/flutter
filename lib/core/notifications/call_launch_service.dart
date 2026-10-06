@@ -8,9 +8,20 @@ import 'package:sacred_app/features/booking/models/client_booking.dart';
 import 'package:sacred_app/features/booking/providers/my_bookings_provider.dart';
 import 'package:sacred_app/features/monk_dash/models/monk_booking_item.dart';
 import 'package:sacred_app/features/monk_dash/providers/monk_dashboard_provider.dart';
+import 'package:sacred_app/features/video_call/providers/call_session_lock_provider.dart';
 import 'package:sacred_app/features/video_call/providers/incoming_call_provider.dart';
 
 class CallLaunchService {
+  /// Slot цонх эхэлсэн үед түгжих эсэх (chat/window/call_time).
+  static bool _shouldLockForReason(String reason) {
+    return reason == 'window' ||
+        reason == 'chat_slot' ||
+        reason == 'chat_banner' ||
+        reason == 'push' ||
+        reason == 'call_time' ||
+        reason == 'pending';
+  }
+
   static Future<void> handlePendingLaunch(WidgetRef ref) async {
     final pending = await LocalNotificationService.consumePendingLaunch();
     if (pending == null || pending.bookingId.isEmpty) return;
@@ -58,9 +69,21 @@ class CallLaunchService {
     required String role,
     String reason = 'auto',
     bool userInitiated = false,
+    String? slot,
+    String? date,
   }) async {
     if (bookingId.isEmpty) return false;
-    if (_isAlreadyInCall(ref, bookingId)) return true;
+    if (_isAlreadyInCall(ref, bookingId)) {
+      if (_shouldLockForReason(reason)) {
+        ref.read(callSessionLockProvider.notifier).lock(
+              bookingId: bookingId,
+              role: _safeRole(ref, role),
+              slot: slot,
+              date: date,
+            );
+      }
+      return true;
+    }
     if (_isInAnyCall(ref)) return false;
     if (_isOnSensitiveRoute(ref)) return false;
     if (userInitiated) {
@@ -75,6 +98,14 @@ class CallLaunchService {
     final safeRole = _safeRole(ref, role);
     if (!_roleAllowsCall(safeRole)) return false;
 
+    if (_shouldLockForReason(reason)) {
+      ref.read(callSessionLockProvider.notifier).lock(
+            bookingId: bookingId,
+            role: safeRole,
+            slot: slot,
+            date: date,
+          );
+    }
     _goToCall(ref, bookingId, safeRole);
     return true;
   }
@@ -84,8 +115,21 @@ class CallLaunchService {
       ref.invalidate(myBookingsProvider);
       final bookings = await ref.read(myBookingsProvider.future);
       final active = _findActiveBooking(bookings);
-      if (active == null) return;
-      await tryAutoJoin(ref, bookingId: active.id, role: 'client', reason: 'window');
+      if (active == null) {
+        final lock = ref.read(callSessionLockProvider);
+        if (lock != null) {
+          ref.read(callSessionLockProvider.notifier).unlock(lock.bookingId);
+        }
+        return;
+      }
+      await tryAutoJoin(
+        ref,
+        bookingId: active.id,
+        role: 'client',
+        reason: 'window',
+        slot: active.slot,
+        date: active.date,
+      );
     } catch (_) {}
   }
 
@@ -94,8 +138,21 @@ class CallLaunchService {
       ref.invalidate(monkBookingsProvider);
       final bookings = await ref.read(monkBookingsProvider.future);
       final active = _findActiveMonkBooking(bookings);
-      if (active == null) return;
-      await tryAutoJoin(ref, bookingId: active.id, role: 'monk', reason: 'window');
+      if (active == null) {
+        final lock = ref.read(callSessionLockProvider);
+        if (lock != null) {
+          ref.read(callSessionLockProvider.notifier).unlock(lock.bookingId);
+        }
+        return;
+      }
+      await tryAutoJoin(
+        ref,
+        bookingId: active.id,
+        role: 'monk',
+        reason: 'window',
+        slot: active.slot,
+        date: active.date,
+      );
     } catch (_) {}
   }
 
@@ -208,19 +265,26 @@ class CallLaunchService {
     await CallJoinGuard.clear(call.bookingId);
     ref.read(incomingCallProvider.notifier).state = null;
     LocalNotificationService.cancelIncomingCall(call.bookingId);
+    final role = _safeRole(ref, call.recipientRole);
+    ref.read(callSessionLockProvider.notifier).lock(
+          bookingId: call.bookingId,
+          role: role,
+        );
     ref.read(appRouterProvider).go(
-          '/call/${call.bookingId}?role=${_safeRole(ref, call.recipientRole)}',
+          '/call/${call.bookingId}?role=$role',
         );
   }
 
   static Future<void> declineCall(WidgetRef ref, IncomingCallState call) async {
     await CallJoinGuard.suppress(call.bookingId);
+    ref.read(callSessionLockProvider.notifier).unlock(call.bookingId);
     ref.read(incomingCallProvider.notifier).state = null;
     LocalNotificationService.cancelIncomingCall(call.bookingId);
   }
 
   /// User left the room on purpose — do not auto-reopen until they accept again.
-  static Future<void> markLeftCall(String bookingId) async {
+  static Future<void> markLeftCall(String bookingId, [WidgetRef? ref]) async {
     await CallJoinGuard.suppress(bookingId);
+    ref?.read(callSessionLockProvider.notifier).unlock(bookingId);
   }
 }
